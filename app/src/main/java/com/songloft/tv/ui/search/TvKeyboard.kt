@@ -7,6 +7,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Backspace
+import androidx.compose.material.icons.rounded.KeyboardCapslock
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -15,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,10 +85,17 @@ fun TvKeyboard(
         ) {
             KeyboardKey("空格", onClick = { onKeyPress(" ") }, width = 136.dp)
             Spacer(Modifier.width(8.dp))
-            KeyboardKey("←退格", onClick = { onKeyPress("←退格") }, width = 100.dp, isActionKey = true)
+            KeyboardKey(
+                "退格",
+                icon = Icons.AutoMirrored.Rounded.Backspace,
+                onClick = { onKeyPress("←退格") },
+                width = 100.dp,
+                isActionKey = true
+            )
             Spacer(Modifier.width(8.dp))
             KeyboardKey(
-                if (isShifted) "⇧" else "⇧",
+                "大小写",
+                icon = Icons.Rounded.KeyboardCapslock,
                 onClick = { isShifted = !isShifted },
                 width = 72.dp,
                 isActionKey = true,
@@ -102,6 +114,7 @@ private fun KeyboardKey(
     key: String,
     onClick: () -> Unit,
     width: androidx.compose.ui.unit.Dp,
+    icon: ImageVector? = null,
     isActionKey: Boolean = false,
     isHighlighted: Boolean = false
 ) {
@@ -135,12 +148,22 @@ private fun KeyboardKey(
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = key,
-            fontSize = if (isActionKey) 14.sp else 18.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (isFocused) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurface
-        )
+        val contentColor = if (isFocused) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurface
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = key,
+                tint = contentColor,
+                modifier = Modifier.size(20.dp)
+            )
+        } else {
+            Text(
+                text = key,
+                fontSize = if (isActionKey) 14.sp else 18.sp,
+                fontWeight = FontWeight.Medium,
+                color = contentColor
+            )
+        }
     }
 }

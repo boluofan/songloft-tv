@@ -16,12 +16,10 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 
 @Composable
 fun FloatingPlayerBar(
@@ -84,16 +82,11 @@ fun FloatingPlayerBar(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (coverUrl != null) {
-                AsyncImage(
-                    model = coverUrl,
-                    contentDescription = title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Text("♫", fontSize = 20.sp)
-            }
+            CoverImage(
+                url = coverUrl,
+                contentDescription = title,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         if (isFocused) {

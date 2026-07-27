@@ -57,7 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.songloft.tv.data.api.UrlHelper
 import com.songloft.tv.data.model.Track
+import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.ui.theme.TvTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -171,7 +173,7 @@ fun PlayerScreen(
                     }
                 }
             } else {
-                uiState.currentSong?.coverUrl?.let { cover ->
+                UrlHelper.resolve(uiState.currentSong?.coverUrl)?.let { cover ->
                     AsyncImage(
                         model = cover,
                         contentDescription = null,
@@ -201,17 +203,11 @@ fun PlayerScreen(
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
-                            val song = uiState.currentSong
-                            if (song?.coverUrl != null) {
-                                AsyncImage(
-                                    model = song.coverUrl,
-                                    contentDescription = song.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Text("♫", fontSize = 48.sp)
-                            }
+                            CoverImage(
+                                url = uiState.currentSong?.coverUrl,
+                                contentDescription = uiState.currentSong?.title,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
 
                         Spacer(Modifier.height(16.dp))

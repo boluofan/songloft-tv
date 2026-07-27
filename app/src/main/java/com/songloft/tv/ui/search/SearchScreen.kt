@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -83,10 +87,10 @@ fun SearchScreen(
             )
             if (uiState.query.isNotEmpty()) {
                 var clearFocused by remember { mutableStateOf(false) }
-                Text(
-                    text = "✕",
-                    fontSize = 18.sp,
-                    color = if (clearFocused) MaterialTheme.colorScheme.onPrimary
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "清空",
+                    tint = if (clearFocused) MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier
                         .padding(start = 8.dp)
@@ -231,10 +235,11 @@ private fun SongResultItem(
             )
         }
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = "▶",
-            fontSize = 18.sp,
-            color = MaterialTheme.colorScheme.primary
+        Icon(
+            imageVector = Icons.Rounded.PlayArrow,
+            contentDescription = "播放",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

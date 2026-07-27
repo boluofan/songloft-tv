@@ -16,6 +16,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -27,6 +40,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.domain.PlayMode
@@ -94,26 +108,37 @@ fun ControlBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TransportButton("⏮", onPrevious)
-            val playIcon = if (uiState.isPlaying) "⏸" else "▶"
-            TransportButton(playIcon, onPlayPause, isLarge = true, focusRequester = playPauseFocusRequester)
-            TransportButton("⏭", onNext)
+            TransportButton(Icons.Rounded.SkipPrevious, "上一曲", onPrevious)
+            val playIcon = if (uiState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow
+            TransportButton(
+                playIcon,
+                if (uiState.isPlaying) "暂停" else "播放",
+                onPlayPause,
+                isLarge = true,
+                focusRequester = playPauseFocusRequester
+            )
+            TransportButton(Icons.Rounded.SkipNext, "下一曲", onNext)
             val modeIcon = when (uiState.playMode) {
-                PlayMode.ORDER -> "➡️"
-                PlayMode.LOOP -> "🔁"
-                PlayMode.SINGLE -> "🔂"
-                PlayMode.RANDOM -> "🔀"
+                PlayMode.ORDER -> Icons.AutoMirrored.Rounded.PlaylistPlay
+                PlayMode.LOOP -> Icons.Rounded.Repeat
+                PlayMode.SINGLE -> Icons.Rounded.RepeatOne
+                PlayMode.RANDOM -> Icons.Rounded.Shuffle
             }
-            TransportButton(modeIcon, onCyclePlayMode)
-            TransportButton(if (uiState.isFavorite) "♥" else "♡", onToggleFavorite)
-            TransportButton("☰", onToggleQueue)
+            TransportButton(modeIcon, "播放模式", onCyclePlayMode)
+            TransportButton(
+                if (uiState.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                "收藏",
+                onToggleFavorite
+            )
+            TransportButton(Icons.AutoMirrored.Rounded.QueueMusic, "播放队列", onToggleQueue)
         }
     }
 }
 
 @Composable
 private fun TransportButton(
-    icon: String,
+    icon: ImageVector,
+    contentDescription: String,
     onClick: () -> Unit,
     isLarge: Boolean = false,
     focusRequester: FocusRequester? = null
@@ -126,7 +151,7 @@ private fun TransportButton(
     )
 
     val size = if (isLarge) 64.dp else 48.dp
-    val fontSize = if (isLarge) 24.sp else 18.sp
+    val iconSize = if (isLarge) 32.dp else 24.dp
 
     Box(
         modifier = Modifier
@@ -148,10 +173,11 @@ private fun TransportButton(
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = icon,
-            fontSize = fontSize,
-            color = Color.White
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier.size(iconSize)
         )
     }
 }

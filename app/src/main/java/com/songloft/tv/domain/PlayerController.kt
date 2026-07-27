@@ -243,7 +243,7 @@ class PlayerController @Inject constructor(
                 MediaMetadata.Builder()
                     .setTitle(song.title)
                     .setArtist(song.artist)
-                    .setArtworkUri(song.coverUrl?.let(Uri::parse))
+                    .setArtworkUri(UrlHelper.resolve(song.coverUrl)?.let(Uri::parse))
                     .build()
             )
             .build()

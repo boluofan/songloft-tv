@@ -16,14 +16,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
+import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.Playlist
 
 @Composable
@@ -173,16 +172,11 @@ private fun PlaylistGridCard(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            if (playlist.coverUrl != null) {
-                AsyncImage(
-                    model = playlist.coverUrl,
-                    contentDescription = playlist.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Text("♫", fontSize = 32.sp)
-            }
+            CoverImage(
+                url = playlist.coverUrl,
+                contentDescription = playlist.name,
+                modifier = Modifier.fillMaxSize()
+            )
         }
         Spacer(Modifier.height(8.dp))
         Text(

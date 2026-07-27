@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -17,14 +22,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
+import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.Song
 
 @Composable
@@ -84,16 +89,11 @@ fun PlaylistDetailScreen(
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (playlist.coverUrl != null) {
-                                AsyncImage(
-                                    model = playlist.coverUrl,
-                                    contentDescription = playlist.name,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Text("♫", fontSize = 32.sp)
-                            }
+                            CoverImage(
+                                url = playlist.coverUrl,
+                                contentDescription = playlist.name,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
 
                         Spacer(Modifier.width(20.dp))
@@ -124,10 +124,10 @@ fun PlaylistDetailScreen(
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ActionButton("▶ 播放全部") {
+                            ActionButton(Icons.Rounded.PlayArrow, "播放全部") {
                                 if (uiState.songs.isNotEmpty()) onSongClick(uiState.songs, 0)
                             }
-                            ActionButton("🔀 随机播放") {
+                            ActionButton(Icons.Rounded.Shuffle, "随机播放") {
                                 if (uiState.songs.isNotEmpty()) onShufflePlay(uiState.songs)
                             }
                         }
@@ -160,10 +160,7 @@ private fun BackButton(onBack: () -> Unit) {
         label = "backScale"
     )
 
-    Text(
-        text = "← 返回",
-        fontSize = 16.sp,
-        color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+    Row(
         modifier = Modifier
             .scale(scale)
             .clip(RoundedCornerShape(8.dp))
@@ -173,19 +170,27 @@ private fun BackButton(onBack: () -> Unit) {
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onBack() }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        val color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+        Icon(
+            Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(text = "返回", fontSize = 16.sp, color = color)
+    }
 }
 
 @Composable
-private fun ActionButton(label: String, onClick: () -> Unit) {
+private fun ActionButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
+    val color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
 
-    Text(
-        text = label,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Medium,
-        color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .background(
@@ -194,8 +199,18 @@ private fun ActionButton(label: String, onClick: () -> Unit) {
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    )
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = color
+        )
+    }
 }
 
 @Composable
@@ -250,10 +265,11 @@ private fun SongItem(
             )
             Spacer(Modifier.width(8.dp))
         }
-        Text(
-            text = "▶",
-            fontSize = 18.sp,
-            color = MaterialTheme.colorScheme.primary
+        Icon(
+            imageVector = Icons.Rounded.PlayArrow,
+            contentDescription = "播放",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

@@ -9,10 +9,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -57,10 +62,10 @@ fun QueueDrawer(
                 color = Color.White
             )
             var closeFocused by remember { mutableStateOf(false) }
-            Text(
-                text = "✕",
-                fontSize = 20.sp,
-                color = if (closeFocused) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.7f),
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = "关闭",
+                tint = if (closeFocused) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.7f),
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(
@@ -108,7 +113,12 @@ fun QueueDrawer(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isCurrent) {
-                        Text("♪", fontSize = 16.sp, color = Color(0xFF415F91), modifier = Modifier.padding(end = 8.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.GraphicEq,
+                            contentDescription = "正在播放",
+                            tint = Color(0xFF415F91),
+                            modifier = Modifier.size(16.dp).padding(end = 8.dp)
+                        )
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(

@@ -5,6 +5,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -111,13 +115,24 @@ fun ConfigScreen(
         }
 
         if (uiState.isConnected) {
-            Text(
-                text = "✓ 连接成功！",
-                fontSize = 16.sp,
-                color = Color(0xFF4CAF50),
-                fontWeight = FontWeight.Bold,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.padding(bottom = 16.dp)
-            )
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "连接成功！",
+                    fontSize = 16.sp,
+                    color = Color(0xFF4CAF50),
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         var isFocused by remember { mutableStateOf(false) }
@@ -140,10 +155,10 @@ fun ConfigScreen(
         if (uiState.isConnected) {
             Spacer(Modifier.height(16.dp))
             var enterFocused by remember { mutableStateOf(false) }
-            Text(
-                text = "开始使用 →",
-                fontSize = 16.sp,
-                color = if (enterFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+            val enterColor = if (enterFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(
@@ -153,7 +168,15 @@ fun ConfigScreen(
                     .onFocusChanged { enterFocused = it.isFocused }
                     .clickable { onConnected() }
                     .padding(horizontal = 24.dp, vertical = 12.dp)
-            )
+            ) {
+                Text(text = "开始使用", fontSize = 16.sp, color = enterColor)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = null,
+                    tint = enterColor,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

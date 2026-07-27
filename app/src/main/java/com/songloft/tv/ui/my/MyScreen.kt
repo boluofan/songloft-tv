@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -177,11 +181,12 @@ private fun FavoriteSongItem(song: Song, onClick: () -> Unit) {
             )
             Spacer(Modifier.width(8.dp))
         }
-        Text(
-            text = "▶",
-            fontSize = 14.sp,
-            color = if (isFocused) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+        Icon(
+            imageVector = Icons.Rounded.PlayArrow,
+            contentDescription = "播放",
+            tint = if (isFocused) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp)
         )
     }
 }
@@ -195,10 +200,8 @@ private fun SettingsButton(onClick: () -> Unit) {
         label = "settingsScale"
     )
 
-    Text(
-        text = "⚙️ 设置",
-        fontSize = 16.sp,
-        color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+    val color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+    Row(
         modifier = Modifier
             .scale(scale)
             .clip(RoundedCornerShape(8.dp))
@@ -208,6 +211,16 @@ private fun SettingsButton(onClick: () -> Unit) {
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Settings,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(text = "设置", fontSize = 16.sp, color = color)
+    }
 }
