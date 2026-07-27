@@ -7,7 +7,14 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.datastore.preferences.core.intPreferencesKey
+import com.songloft.tv.data.storage.dataStore
+import kotlinx.coroutines.flow.map
 
 private val LightColorScheme = lightColorScheme(
     primary = Seed,
@@ -41,9 +48,18 @@ val TvShapes = Shapes(
 
 @Composable
 fun TvTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val themeMode by remember {
+        context.dataStore.data.map { it[intPreferencesKey("theme_mode")] ?: 0 }
+    }.collectAsState(initial = 0)
+
+    val darkTheme = when (themeMode) {
+        1 -> false
+        2 -> true
+        else -> isSystemInDarkTheme()
+    }
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     MaterialTheme(

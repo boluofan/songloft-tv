@@ -5,6 +5,7 @@ sealed class Screen(val route: String, val label: String) {
     object Search : Screen("search", "搜索")
     object Playlists : Screen("playlists", "歌单")
     object My : Screen("my", "我的")
+    object Settings : Screen("settings", "设置")
     data class PlaylistDetail(val playlistId: Long) : Screen("playlist_detail", "歌单详情")
 
     companion object {

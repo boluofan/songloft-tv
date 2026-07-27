@@ -92,6 +92,7 @@ fun TvApp(
     BackHandler(enabled = currentScreen != Screen.Home) {
         currentScreen = when (currentScreen) {
             is Screen.PlaylistDetail -> Screen.Playlists
+            Screen.Settings -> Screen.My
             else -> Screen.Home
         }
     }
@@ -139,7 +140,12 @@ fun TvApp(
                     onBack = { currentScreen = Screen.Playlists }
                 )
                 Screen.My -> MyScreen(
-                    onNavigateToSettings = { currentScreen = Screen.My }
+                    onNavigateToSettings = { currentScreen = Screen.Settings }
+                )
+                Screen.Settings -> SettingsScreen(
+                    onBack = { currentScreen = Screen.My },
+                    onConfigureServer = { authViewModel.resetToConfig() },
+                    onLogout = { authViewModel.logout() }
                 )
             }
         }
