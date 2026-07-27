@@ -70,6 +70,17 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        SettingsSection("睡眠定时") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OptionChip("关闭", uiState.sleepTimerMinutes == 0) { viewModel.setSleepTimer(0) }
+                OptionChip("30 分钟", uiState.sleepTimerMinutes == 30) { viewModel.setSleepTimer(30) }
+                OptionChip("60 分钟", uiState.sleepTimerMinutes == 60) { viewModel.setSleepTimer(60) }
+                OptionChip("90 分钟", uiState.sleepTimerMinutes == 90) { viewModel.setSleepTimer(90) }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         SettingsSection("关于") {
             SettingsItem(label = "版本", value = "1.0.0")
         }

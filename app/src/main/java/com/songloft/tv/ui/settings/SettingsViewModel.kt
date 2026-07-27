@@ -3,6 +3,7 @@ package com.songloft.tv.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.storage.PreferencesDataStore
+import com.songloft.tv.domain.PlayerController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,12 +14,14 @@ import javax.inject.Inject
 data class SettingsUiState(
     val themeMode: Int = 0,
     val serverUrl: String = "",
-    val audioQuality: String = ""
+    val audioQuality: String = "",
+    val sleepTimerMinutes: Int = 0
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val dataStore: PreferencesDataStore
+    private val dataStore: PreferencesDataStore,
+    private val playerController: PlayerController
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -40,6 +43,15 @@ class SettingsViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(audioQuality = q ?: "")
             }
         }
+        viewModelScope.launch {
+            playerController.state.collect { s ->
+                _uiState.value = _uiState.value.copy(sleepTimerMinutes = s.sleepTimerMinutes)
+            }
+        }
+    }
+
+    fun setSleepTimer(minutes: Int) {
+        playerController.setSleepTimer(minutes)
     }
 
     fun setThemeMode(mode: Int) {

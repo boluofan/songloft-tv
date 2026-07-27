@@ -19,7 +19,9 @@ import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +40,8 @@ data class PlaybackState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
     val duration: Long = 0L,
-    val playMode: PlayMode = PlayMode.ORDER
+    val playMode: PlayMode = PlayMode.ORDER,
+    val sleepTimerMinutes: Int = 0
 )
 
 @Singleton
@@ -176,6 +179,21 @@ class PlayerController @Inject constructor(
     fun duration(): Long = controller?.duration?.takeIf { it > 0 } ?: _state.value.duration
 
     fun withPlayer(action: (Player) -> Unit) = withController(action)
+
+    private var sleepJob: Job? = null
+
+    fun setSleepTimer(minutes: Int) {
+        sleepJob?.cancel()
+        sleepJob = null
+        _state.update { it.copy(sleepTimerMinutes = minutes) }
+        if (minutes > 0) {
+            sleepJob = scope.launch {
+                delay(minutes * 60_000L)
+                controller?.pause()
+                _state.update { it.copy(sleepTimerMinutes = 0) }
+            }
+        }
+    }
 
     private fun reportTransition(previousSong: Song?, song: Song?, reason: Int) {
         // 音轨切换会重建同一首歌的 MediaItem，不重复上报
