@@ -46,7 +46,8 @@ data class PlaybackState(
     val isBuffering: Boolean = false,
     val duration: Long = 0L,
     val playMode: PlayMode = PlayMode.ORDER,
-    val sleepTimerMinutes: Int = 0
+    val sleepTimerMinutes: Int = 0,
+    val sleepAfterSongs: Int = 0
 )
 
 @Singleton
@@ -77,6 +78,7 @@ class PlayerController @Inject constructor(
             val previousSong = _state.value.currentSong
             val song = _state.value.queue.firstOrNull { it.id.toString() == mediaItem?.mediaId }
             reportTransition(previousSong, song, reason)
+            countDownSleepAfterSongs(previousSong, song, reason)
             _state.update {
                 it.copy(
                     currentSong = song,
@@ -240,13 +242,32 @@ class PlayerController @Inject constructor(
     fun setSleepTimer(minutes: Int) {
         sleepJob?.cancel()
         sleepJob = null
-        _state.update { it.copy(sleepTimerMinutes = minutes) }
+        _state.update { it.copy(sleepTimerMinutes = minutes, sleepAfterSongs = 0) }
         if (minutes > 0) {
             sleepJob = scope.launch {
                 delay(minutes * 60_000L)
                 controller?.pause()
                 _state.update { it.copy(sleepTimerMinutes = 0) }
             }
+        }
+    }
+
+    fun setSleepAfterSongs(count: Int) {
+        sleepJob?.cancel()
+        sleepJob = null
+        _state.update { it.copy(sleepTimerMinutes = 0, sleepAfterSongs = count) }
+    }
+
+    private fun countDownSleepAfterSongs(previousSong: Song?, song: Song?, reason: Int) {
+        val remaining = _state.value.sleepAfterSongs
+        if (remaining <= 0) return
+        // 只统计自然播完的歌曲，音轨切换重建的同曲 MediaItem 不计数
+        if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) return
+        if (previousSong == null || previousSong.id == song?.id) return
+        val next = remaining - 1
+        _state.update { it.copy(sleepAfterSongs = next) }
+        if (next == 0) {
+            controller?.pause()
         }
     }
 

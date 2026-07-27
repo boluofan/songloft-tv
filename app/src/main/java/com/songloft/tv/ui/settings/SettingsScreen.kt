@@ -3,7 +3,9 @@ package com.songloft.tv.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -29,6 +31,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
         Text(
@@ -71,11 +74,18 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
 
         SettingsSection("睡眠定时") {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OptionChip("关闭", uiState.sleepTimerMinutes == 0) { viewModel.setSleepTimer(0) }
-                OptionChip("30 分钟", uiState.sleepTimerMinutes == 30) { viewModel.setSleepTimer(30) }
-                OptionChip("60 分钟", uiState.sleepTimerMinutes == 60) { viewModel.setSleepTimer(60) }
-                OptionChip("90 分钟", uiState.sleepTimerMinutes == 90) { viewModel.setSleepTimer(90) }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OptionChip("关闭", uiState.sleepTimerMinutes == 0 && uiState.sleepAfterSongs == 0) { viewModel.setSleepTimer(0) }
+                    OptionChip("30 分钟", uiState.sleepTimerMinutes == 30) { viewModel.setSleepTimer(30) }
+                    OptionChip("60 分钟", uiState.sleepTimerMinutes == 60) { viewModel.setSleepTimer(60) }
+                    OptionChip("90 分钟", uiState.sleepTimerMinutes == 90) { viewModel.setSleepTimer(90) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OptionChip("播完 3 首", uiState.sleepAfterSongs == 3) { viewModel.setSleepAfterSongs(3) }
+                    OptionChip("播完 5 首", uiState.sleepAfterSongs == 5) { viewModel.setSleepAfterSongs(5) }
+                    OptionChip("播完 10 首", uiState.sleepAfterSongs == 10) { viewModel.setSleepAfterSongs(10) }
+                }
             }
         }
 
