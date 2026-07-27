@@ -11,6 +11,7 @@ data class Song(
     val duration: Double,
     @SerializedName("cover_url") val coverUrl: String?,
     @SerializedName("is_video") val isVideo: Boolean = false,
+    @SerializedName("file_size") val fileSize: Long = 0L,
     val tracks: List<Track>? = null
 ) {
     val hasMultiTrack: Boolean get() = (tracks?.size ?: 0) > 1

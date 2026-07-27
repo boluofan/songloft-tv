@@ -51,28 +51,30 @@ class HomeViewModel @Inject constructor(
             val artistsDeferred = async { songRepository.getFacets("artist") }
             val albumsDeferred = async { songRepository.getFacets("album") }
             val yearsDeferred = async { songRepository.getFacets("year") }
-            val songsDeferred = async { songRepository.getSongs(limit = 1) }
+            val statsDeferred = async { songRepository.getLibraryStats() }
             val playlistsDeferred = async { playlistRepository.getPlaylists() }
 
             val artists = artistsDeferred.await().getOrDefault(emptyList())
             val albums = albumsDeferred.await().getOrDefault(emptyList())
             val years = yearsDeferred.await().getOrDefault(emptyList())
-            val songsResult = songsDeferred.await()
+            val statsResult = statsDeferred.await()
             val playlists = playlistsDeferred.await().getOrDefault(emptyList())
 
-            if (artists.isEmpty() && albums.isEmpty() && songsResult.isFailure) {
+            if (artists.isEmpty() && albums.isEmpty() && statsResult.isFailure) {
                 _uiState.value = HomeUiState(
                     isLoading = false,
-                    error = songsResult.exceptionOrNull()?.message ?: "无法连接到服务器"
+                    error = statsResult.exceptionOrNull()?.message ?: "无法连接到服务器"
                 )
                 return@launch
             }
 
-            val songResp = songsResult.getOrNull()
+            val stats = statsResult.getOrNull()
 
             _uiState.value = HomeUiState(
-                totalSongs = songResp?.total ?: 0,
-                localSongs = songResp?.songs?.count { it.type == "local" } ?: 0,
+                totalSongs = stats?.totalSongs ?: 0,
+                localSongs = stats?.localSongs ?: 0,
+                totalDuration = stats?.let { formatDuration(it.totalDurationSec) } ?: "",
+                totalSize = stats?.let { formatSize(it.totalSizeBytes) } ?: "",
                 topArtists = artists.take(6),
                 topAlbums = albums.take(6),
                 topYears = years.take(8),
@@ -80,5 +82,16 @@ class HomeViewModel @Inject constructor(
                 isLoading = false
             )
         }
+    }
+
+    private fun formatDuration(seconds: Double): String {
+        val hours = seconds / 3600
+        return if (hours >= 1) "%.1f 小时".format(hours) else "${(seconds / 60).toInt()} 分钟"
+    }
+
+    private fun formatSize(bytes: Long): String = when {
+        bytes >= 1_000_000_000L -> "%.1f GB".format(bytes / 1e9)
+        bytes >= 1_000_000L -> "%.1f MB".format(bytes / 1e6)
+        else -> "${bytes / 1000} KB"
     }
 }
