@@ -76,7 +76,12 @@ class PlayerController @Inject constructor(
                 it.copy(
                     currentSong = song,
                     currentIndex = controller?.currentMediaItemIndex ?: -1,
-                    currentTrack = song?.tracks?.firstOrNull(),
+                    // 音轨切换会重建同一首歌的 MediaItem，此时保留已选音轨
+                    currentTrack = if (song != null && song.id == previousSong?.id) {
+                        it.currentTrack
+                    } else {
+                        song?.tracks?.firstOrNull()
+                    },
                     duration = ((song?.duration ?: 0.0) * 1000).toLong()
                 )
             }
@@ -234,7 +239,7 @@ class PlayerController @Inject constructor(
     }
 
     private fun buildMediaItem(song: Song, track: Track? = null): MediaItem {
-        val uri = track?.url?.takeIf { it.isNotBlank() }
+        val uri = UrlHelper.resolve(track?.url)
             ?: UrlHelper.songPlayUrl(song.id, quality = audioQuality, track = track?.id)
         return MediaItem.Builder()
             .setMediaId(song.id.toString())
