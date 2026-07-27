@@ -28,4 +28,8 @@ class SongRepository @Inject constructor() {
             resp.lyric ?: throw Exception("无歌词")
         }
     }
+
+    suspend fun reportPlayed(songId: Long, type: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching { api.reportPlayed(songId, type) }
+    }
 }

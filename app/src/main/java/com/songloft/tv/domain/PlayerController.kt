@@ -13,12 +13,17 @@ import com.songloft.tv.MusicService
 import com.songloft.tv.data.api.UrlHelper
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.model.Track
+import com.songloft.tv.data.repository.SongRepository
 import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,8 +42,11 @@ data class PlaybackState(
 
 @Singleton
 class PlayerController @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val songRepository: SongRepository
 ) {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -48,7 +56,9 @@ class PlayerController @Inject constructor(
 
     private val listener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val previousSong = _state.value.currentSong
             val song = _state.value.queue.firstOrNull { it.id.toString() == mediaItem?.mediaId }
+            reportTransition(previousSong, song, reason)
             _state.update {
                 it.copy(
                     currentSong = song,
@@ -154,6 +164,23 @@ class PlayerController @Inject constructor(
     fun currentPosition(): Long = controller?.currentPosition ?: 0L
 
     fun duration(): Long = controller?.duration?.takeIf { it > 0 } ?: _state.value.duration
+
+    private fun reportTransition(previousSong: Song?, song: Song?, reason: Int) {
+        // 音轨切换会重建同一首歌的 MediaItem，不重复上报
+        if (previousSong?.id == song?.id) return
+        scope.launch {
+            previousSong?.let { prev ->
+                when (reason) {
+                    Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ->
+                        songRepository.reportPlayed(prev.id, "finish")
+                    Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ->
+                        songRepository.reportPlayed(prev.id, "skip")
+                    else -> Result.success(Unit)
+                }
+            }
+            song?.let { songRepository.reportPlayed(it.id, "play") }
+        }
+    }
 
     private fun applyPlayMode(c: MediaController, mode: PlayMode) {
         when (mode) {
