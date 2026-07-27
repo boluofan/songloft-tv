@@ -12,7 +12,10 @@ interface SongloftApi {
     suspend fun getSongs(
         @Query("limit") limit: Int = 50,
         @Query("offset") offset: Int = 0,
-        @Query("keyword") keyword: String? = null
+        @Query("keyword") keyword: String? = null,
+        @Query("artist") artist: String? = null,
+        @Query("album") album: String? = null,
+        @Query("year") year: Int? = null
     ): SongListResponse
 
     @GET("songs/{id}/play")

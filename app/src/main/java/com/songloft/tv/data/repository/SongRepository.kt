@@ -20,8 +20,15 @@ class SongRepository @Inject constructor() {
         runCatching { api.getFacets(field).facets }
     }
 
-    suspend fun getSongs(limit: Int = 50, offset: Int = 0, keyword: String? = null): Result<SongListResponse> =
-        withContext(Dispatchers.IO) { runCatching { api.getSongs(limit, offset, keyword) } }
+    suspend fun getSongs(
+        limit: Int = 50,
+        offset: Int = 0,
+        keyword: String? = null,
+        artist: String? = null,
+        album: String? = null,
+        year: Int? = null
+    ): Result<SongListResponse> =
+        withContext(Dispatchers.IO) { runCatching { api.getSongs(limit, offset, keyword, artist, album, year) } }
 
     suspend fun getLibraryStats(): Result<LibraryStats> = withContext(Dispatchers.IO) {
         runCatching {

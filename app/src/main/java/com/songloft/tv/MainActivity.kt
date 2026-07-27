@@ -28,6 +28,7 @@ import com.songloft.tv.ui.config.AuthState
 import com.songloft.tv.ui.config.AuthViewModel
 import com.songloft.tv.ui.components.FloatingPlayerBar
 import com.songloft.tv.ui.home.HomeScreen
+import com.songloft.tv.ui.library.FilteredSongsScreen
 import com.songloft.tv.ui.my.MyScreen
 import com.songloft.tv.ui.navigation.Screen
 import com.songloft.tv.ui.navigation.TvBottomNav
@@ -131,13 +132,13 @@ fun TvApp(
                 Screen.Home -> HomeScreen(
                     onPlaylistClick = { id -> currentScreen = Screen.PlaylistDetail(id) },
                     onArtistClick = { artist ->
-                        currentScreen = Screen.Search
+                        currentScreen = Screen.SongFilter("artist", artist)
                     },
                     onAlbumClick = { album ->
-                        currentScreen = Screen.Search
+                        currentScreen = Screen.SongFilter("album", album)
                     },
                     onYearClick = { year ->
-                        currentScreen = Screen.Search
+                        currentScreen = Screen.SongFilter("year", year.toString())
                     }
                 )
                 Screen.Search -> SearchScreen(
@@ -160,6 +161,12 @@ fun TvApp(
                     onBack = { currentScreen = Screen.My },
                     onConfigureServer = { authViewModel.resetToConfig() },
                     onLogout = { authViewModel.logout() }
+                )
+                is Screen.SongFilter -> FilteredSongsScreen(
+                    field = screen.field,
+                    value = screen.value,
+                    onSongClick = onPlaySongs,
+                    onBack = { currentScreen = Screen.Home }
                 )
             }
 
