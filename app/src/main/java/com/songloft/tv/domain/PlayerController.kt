@@ -165,6 +165,8 @@ class PlayerController @Inject constructor(
 
     fun duration(): Long = controller?.duration?.takeIf { it > 0 } ?: _state.value.duration
 
+    fun withPlayer(action: (Player) -> Unit) = withController(action)
+
     private fun reportTransition(previousSong: Song?, song: Song?, reason: Int) {
         // 音轨切换会重建同一首歌的 MediaItem，不重复上报
         if (previousSong?.id == song?.id) return

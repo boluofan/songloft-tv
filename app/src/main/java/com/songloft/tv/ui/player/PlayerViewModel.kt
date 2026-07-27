@@ -108,6 +108,8 @@ class PlayerViewModel @Inject constructor(
 
     fun switchTrack(track: Track) = playerController.switchTrack(track)
 
+    fun withPlayer(action: (androidx.media3.common.Player) -> Unit) = playerController.withPlayer(action)
+
     fun toggleFavorite() {
         val song = _uiState.value.currentSong ?: return
         viewModelScope.launch {

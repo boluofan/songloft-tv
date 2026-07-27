@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.songloft.tv.data.model.Track
 import com.songloft.tv.ui.theme.TvTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -143,7 +144,33 @@ fun PlayerScreen(
             .focusable()
     ) {
         if (uiState.currentSong != null) {
-            Row(modifier = Modifier.fillMaxSize()) {
+            if (uiState.isVideoMode) {
+                VideoPlayer(
+                    withPlayer = viewModel::withPlayer,
+                    modifier = Modifier.fillMaxSize()
+                )
+                val tracks = uiState.currentSong?.tracks
+                if (tracks != null && tracks.size > 1) {
+                    AnimatedVisibility(
+                        visible = uiState.showControls,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TrackChips(
+                                tracks = tracks,
+                                currentTrackId = uiState.currentTrack?.id,
+                                onSwitch = { viewModel.switchTrack(it) }
+                            )
+                        }
+                    }
+                }
+            } else {
+                Row(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
                         .weight(0.45f)
@@ -198,32 +225,11 @@ fun PlayerScreen(
                         if (tracks != null && tracks.size > 1) {
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                tracks.forEach { track ->
-                                    val isActive = track.id == uiState.currentTrack?.id
-                                    var trackFocused by remember { mutableStateOf(false) }
-                                    Text(
-                                        text = track.name,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                                        color = when {
-                                            trackFocused -> MaterialTheme.colorScheme.onPrimary
-                                            isActive -> MaterialTheme.colorScheme.primary
-                                            else -> Color.White.copy(alpha = 0.6f)
-                                        },
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(
-                                                when {
-                                                    trackFocused -> MaterialTheme.colorScheme.primary
-                                                    isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                                    else -> Color.White.copy(alpha = 0.1f)
-                                                }
-                                            )
-                                            .onFocusChanged { trackFocused = it.isFocused }
-                                            .clickable { viewModel.switchTrack(track) }
-                                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                                    )
-                                }
+                                TrackChips(
+                                    tracks = tracks,
+                                    currentTrackId = uiState.currentTrack?.id,
+                                    onSwitch = { viewModel.switchTrack(it) }
+                                )
                             }
                         }
                     }
@@ -241,6 +247,7 @@ fun PlayerScreen(
                         currentIndex = uiState.currentLyricIndex,
                         currentPosition = uiState.currentPosition
                     )
+                }
                 }
             }
         } else {
@@ -286,5 +293,39 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxHeight().width(400.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun TrackChips(
+    tracks: List<Track>,
+    currentTrackId: String?,
+    onSwitch: (Track) -> Unit
+) {
+    tracks.forEach { track ->
+        val isActive = track.id == currentTrackId
+        var trackFocused by remember { mutableStateOf(false) }
+        Text(
+            text = track.name,
+            fontSize = 13.sp,
+            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+            color = when {
+                trackFocused -> MaterialTheme.colorScheme.onPrimary
+                isActive -> MaterialTheme.colorScheme.primary
+                else -> Color.White.copy(alpha = 0.6f)
+            },
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    when {
+                        trackFocused -> MaterialTheme.colorScheme.primary
+                        isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        else -> Color.White.copy(alpha = 0.1f)
+                    }
+                )
+                .onFocusChanged { trackFocused = it.isFocused }
+                .clickable { onSwitch(track) }
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        )
     }
 }
