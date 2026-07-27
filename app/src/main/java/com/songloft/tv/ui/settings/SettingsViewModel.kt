@@ -46,6 +46,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { dataStore.setThemeMode(mode) }
     }
 
+    fun setAudioQuality(quality: String) {
+        viewModelScope.launch { dataStore.setAudioQuality(quality) }
+    }
+
     fun clearServerConfig() {
         viewModelScope.launch {
             dataStore.setServerUrl("")

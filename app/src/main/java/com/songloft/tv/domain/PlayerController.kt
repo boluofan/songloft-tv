@@ -14,6 +14,7 @@ import com.songloft.tv.data.api.UrlHelper
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.model.Track
 import com.songloft.tv.data.repository.SongRepository
+import com.songloft.tv.data.storage.PreferencesDataStore
 import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -43,10 +44,19 @@ data class PlaybackState(
 @Singleton
 class PlayerController @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val songRepository: SongRepository
+    private val songRepository: SongRepository,
+    dataStore: PreferencesDataStore
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private var audioQuality: String? = null
+
+    init {
+        scope.launch {
+            dataStore.audioQuality.collect { audioQuality = it?.takeIf { q -> q.isNotBlank() } }
+        }
+    }
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -207,7 +217,7 @@ class PlayerController @Inject constructor(
 
     private fun buildMediaItem(song: Song, track: Track? = null): MediaItem {
         val uri = track?.url?.takeIf { it.isNotBlank() }
-            ?: UrlHelper.songPlayUrl(song.id, track = track?.id)
+            ?: UrlHelper.songPlayUrl(song.id, quality = audioQuality, track = track?.id)
         return MediaItem.Builder()
             .setMediaId(song.id.toString())
             .setUri(uri)

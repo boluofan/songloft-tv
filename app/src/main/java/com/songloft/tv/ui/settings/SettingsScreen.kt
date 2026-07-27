@@ -61,10 +61,11 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
 
         SettingsSection("音质") {
-            SettingsItem(
-                label = "播放音质",
-                value = uiState.audioQuality.ifEmpty { "原始" }
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                QualityOption("原始", "", uiState.audioQuality) { viewModel.setAudioQuality("") }
+                QualityOption("MP3", "mp3", uiState.audioQuality) { viewModel.setAudioQuality("mp3") }
+                QualityOption("FLAC", "flac", uiState.audioQuality) { viewModel.setAudioQuality("flac") }
+            }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -158,8 +159,17 @@ private fun SettingsItem(
 
 @Composable
 private fun ThemeOption(label: String, mode: Int, currentMode: Int, onClick: () -> Unit) {
+    OptionChip(label, mode == currentMode, onClick)
+}
+
+@Composable
+private fun QualityOption(label: String, value: String, currentValue: String, onClick: () -> Unit) {
+    OptionChip(label, value == currentValue, onClick)
+}
+
+@Composable
+private fun OptionChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val isSelected = mode == currentMode
 
     Text(
         text = label,
