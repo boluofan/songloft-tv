@@ -14,11 +14,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.data.model.LyricLine
+
+private val ActiveColor = Color.White
+private val InactiveColor = Color.White.copy(alpha = 0.4f)
 
 @Composable
 fun LyricsPanel(
@@ -43,7 +49,7 @@ fun LyricsPanel(
             Text(
                 text = "暂无歌词",
                 fontSize = 18.sp,
-                color = Color.White.copy(alpha = 0.4f)
+                color = InactiveColor
             )
         }
     } else {
@@ -58,16 +64,20 @@ fun LyricsPanel(
                 val distance = kotlin.math.abs(index - currentIndex)
                 val alpha = if (isActive) 1f else (0.08f / distance.coerceAtLeast(1)).coerceIn(0.08f, 0.5f)
 
-                Text(
-                    text = line.text.ifEmpty { "···" },
-                    fontSize = if (isActive) 30.sp else 22.sp,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                    color = Color.White.copy(alpha = alpha),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp, horizontal = 16.dp)
-                )
+                if (isActive && line.hasWords) {
+                    KaraokeLine(line = line, position = currentPosition)
+                } else {
+                    Text(
+                        text = line.text.ifEmpty { "···" },
+                        fontSize = if (isActive) 30.sp else 22.sp,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isActive) ActiveColor else Color.White.copy(alpha = alpha),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp, horizontal = 16.dp)
+                    )
+                }
 
                 if (isActive && line.translation != null) {
                     Text(
@@ -84,3 +94,39 @@ fun LyricsPanel(
         }
     }
 }
+
+/** 当前行逐字渐进高亮：已唱过的字为高亮色，正在唱的字按进度部分点亮。 */
+@Composable
+private fun KaraokeLine(line: LyricLine, position: Long) {
+    val words = line.words ?: return
+    val annotated = buildAnnotatedString {
+        for (word in words) {
+            val lit = when {
+                position >= word.end -> 1f
+                position <= word.start -> 0f
+                word.end > word.start ->
+                    ((position - word.start).toFloat() / (word.end - word.start)).coerceIn(0f, 1f)
+                else -> 0f
+            }
+            val litChars = (word.text.length * lit).toInt().coerceIn(0, word.text.length)
+            if (litChars > 0) {
+                withStyle(SpanActive) { append(word.text.substring(0, litChars)) }
+            }
+            if (litChars < word.text.length) {
+                withStyle(SpanInactive) { append(word.text.substring(litChars)) }
+            }
+        }
+    }
+    Text(
+        text = annotated,
+        fontSize = 30.sp,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 16.dp)
+    )
+}
+
+private val SpanActive = SpanStyle(color = ActiveColor)
+private val SpanInactive = SpanStyle(color = InactiveColor)

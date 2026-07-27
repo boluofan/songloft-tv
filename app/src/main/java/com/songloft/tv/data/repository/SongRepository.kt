@@ -2,6 +2,7 @@ package com.songloft.tv.data.repository
 
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.api.FacetResponse
+import com.songloft.tv.data.api.LyricResponse
 import com.songloft.tv.data.api.SongListResponse
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.data.model.Song
@@ -22,10 +23,11 @@ class SongRepository @Inject constructor() {
     suspend fun getSongs(limit: Int = 50, offset: Int = 0, keyword: String? = null): Result<SongListResponse> =
         withContext(Dispatchers.IO) { runCatching { api.getSongs(limit, offset, keyword) } }
 
-    suspend fun getSongLyric(songId: Long): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun getSongLyric(songId: Long): Result<LyricResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val resp = api.getSongLyric(songId)
-            resp.lyric ?: throw Exception("无歌词")
+            if (resp.lyric.isNullOrBlank() && resp.lxlyric.isNullOrBlank()) throw Exception("无歌词")
+            resp
         }
     }
 

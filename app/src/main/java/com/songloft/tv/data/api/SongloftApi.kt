@@ -93,7 +93,10 @@ data class SongPlayInfo(
 )
 
 data class LyricResponse(
-    val lyric: String? = null
+    val lyric: String? = null,
+    val tlyric: String? = null,
+    val rlyric: String? = null,
+    val lxlyric: String? = null
 )
 
 data class SongListResponse(

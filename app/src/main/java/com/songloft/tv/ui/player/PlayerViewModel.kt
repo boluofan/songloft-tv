@@ -84,7 +84,9 @@ class PlayerViewModel @Inject constructor(
                         _uiState.update { it.copy(duration = duration) }
                     }
                 }
-                delay(500)
+                // 逐字歌词需要更高刷新率才能平滑高亮
+                val hasWords = _uiState.value.lyrics.any { it.hasWords }
+                delay(if (hasWords) 60L else 500L)
             }
         }
     }
@@ -161,8 +163,13 @@ class PlayerViewModel @Inject constructor(
     private fun loadLyrics(songId: Long) {
         _uiState.update { it.copy(lyrics = emptyList(), currentLyricIndex = -1) }
         viewModelScope.launch {
-            songRepository.getSongLyric(songId).onSuccess { lrcText ->
-                val parsed = LyricParser.parse(lrcText)
+            songRepository.getSongLyric(songId).onSuccess { resp ->
+                val parsed = LyricParser.parsePayload(
+                    lyric = resp.lyric,
+                    tlyric = resp.tlyric,
+                    rlyric = resp.rlyric,
+                    lxlyric = resp.lxlyric
+                )
                 _uiState.update { it.copy(lyrics = parsed) }
             }
         }
