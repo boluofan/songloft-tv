@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -170,6 +171,19 @@ fun PlayerScreen(
                     }
                 }
             } else {
+                uiState.currentSong?.coverUrl?.let { cover ->
+                    AsyncImage(
+                        model = cover,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().blur(60.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.6f))
+                    )
+                }
                 Row(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
