@@ -3,7 +3,7 @@ agp = "8.7.0"
 kotlin = "2.1.0"
 compose-bom = "2025.01.00"
 tv-compose = "1.0.0"
-hilt = "2.51"
+hilt = "2.52"
 ksp = "2.1.0-1.0.29"
 retrofit = "2.9.0"
 okhttp = "4.12.0"
@@ -37,5 +37,6 @@ lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-ru
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
