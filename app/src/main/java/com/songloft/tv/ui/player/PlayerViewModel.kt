@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.model.LyricLine
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.model.Track
+import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.SongRepository
 import com.songloft.tv.domain.LyricParser
 import com.songloft.tv.domain.PlayMode
@@ -33,19 +34,22 @@ data class PlayerUiState(
     val currentIndex: Int = -1,
     val showQueueDrawer: Boolean = false,
     val isVideoMode: Boolean = false,
-    val isBuffering: Boolean = false
+    val isBuffering: Boolean = false,
+    val isFavorite: Boolean = false
 )
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val playerController: PlayerController,
-    private val songRepository: SongRepository
+    private val songRepository: SongRepository,
+    private val favoriteRepository: FavoriteRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
     private var lyricSongId: Long? = null
+    private var favoriteIds: MutableSet<Long>? = null
 
     init {
         viewModelScope.launch {
@@ -67,6 +71,7 @@ class PlayerViewModel @Inject constructor(
                 if (songId != null && songId != lyricSongId) {
                     lyricSongId = songId
                     loadLyrics(songId)
+                    refreshFavoriteState(songId)
                 }
             }
         }
@@ -102,6 +107,30 @@ class PlayerViewModel @Inject constructor(
     fun cyclePlayMode() = playerController.cyclePlayMode()
 
     fun switchTrack(track: Track) = playerController.switchTrack(track)
+
+    fun toggleFavorite() {
+        val song = _uiState.value.currentSong ?: return
+        viewModelScope.launch {
+            val ids = favoriteIds ?: return@launch
+            val result = if (song.id in ids) {
+                favoriteRepository.removeFavorite(song.id).onSuccess { ids.remove(song.id) }
+            } else {
+                favoriteRepository.addFavorite(song.id).onSuccess { ids.add(song.id) }
+            }
+            result.onSuccess {
+                _uiState.update { it.copy(isFavorite = song.id in ids) }
+            }
+        }
+    }
+
+    private fun refreshFavoriteState(songId: Long) {
+        viewModelScope.launch {
+            val ids = favoriteIds ?: favoriteRepository.getFavorites()
+                .getOrNull()?.map { it.id }?.toMutableSet()
+                ?.also { favoriteIds = it }
+            _uiState.update { it.copy(isFavorite = ids?.contains(songId) == true) }
+        }
+    }
 
     fun toggleQueueDrawer() {
         _uiState.update { it.copy(showQueueDrawer = !it.showQueueDrawer) }

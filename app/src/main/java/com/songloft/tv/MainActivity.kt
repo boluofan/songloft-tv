@@ -153,6 +153,7 @@ fun TvApp(
                     onBack = { currentScreen = Screen.Playlists }
                 )
                 Screen.My -> MyScreen(
+                    onSongClick = onPlaySongs,
                     onNavigateToSettings = { currentScreen = Screen.Settings }
                 )
                 Screen.Settings -> SettingsScreen(

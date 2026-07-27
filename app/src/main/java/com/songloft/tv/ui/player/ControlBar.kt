@@ -40,6 +40,7 @@ fun ControlBar(
     onSeek: (Long) -> Unit,
     onCyclePlayMode: () -> Unit,
     onToggleQueue: () -> Unit,
+    onToggleFavorite: () -> Unit = {},
     playPauseFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
@@ -104,6 +105,7 @@ fun ControlBar(
                 PlayMode.RANDOM -> "🔀"
             }
             TransportButton(modeIcon, onCyclePlayMode)
+            TransportButton(if (uiState.isFavorite) "♥" else "♡", onToggleFavorite)
             TransportButton("☰", onToggleQueue)
         }
     }

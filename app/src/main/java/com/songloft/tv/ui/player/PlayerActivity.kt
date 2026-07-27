@@ -266,6 +266,7 @@ fun PlayerScreen(
                 onSeek = { viewModel.seekTo(it) },
                 onCyclePlayMode = { viewModel.cyclePlayMode() },
                 onToggleQueue = { viewModel.toggleQueueDrawer() },
+                onToggleFavorite = { viewModel.toggleFavorite() },
                 playPauseFocusRequester = controlBarFocus,
                 modifier = Modifier.fillMaxWidth()
             )

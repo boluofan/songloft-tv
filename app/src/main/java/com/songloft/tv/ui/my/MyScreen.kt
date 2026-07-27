@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,13 +17,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.songloft.tv.data.model.Song
 
 @Composable
 fun MyScreen(
+    viewModel: MyViewModel = hiltViewModel(),
+    onSongClick: (List<Song>, Int) -> Unit = { _, _ -> },
     onNavigateToSettings: () -> Unit = {}
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -41,31 +51,138 @@ fun MyScreen(
             SettingsButton(onClick = onNavigateToSettings)
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
 
-        Text(
-            text = "收藏歌曲",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TabChip("收藏歌曲", uiState.selectedTab == 0) { viewModel.selectTab(0) }
+            TabChip("收藏电台", uiState.selectedTab == 1) { viewModel.selectTab(1) }
+        }
 
         Spacer(Modifier.height(16.dp))
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "连接服务器后即可查看收藏的歌曲",
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
+        val songs = if (uiState.selectedTab == 0) uiState.favoriteSongs else uiState.favoriteRadios
+
+        when {
+            uiState.isLoading -> CenterHint("加载中...")
+            uiState.error != null -> CenterHint("加载失败：${uiState.error}")
+            songs.isEmpty() -> CenterHint(if (uiState.selectedTab == 0) "暂无收藏歌曲" else "暂无收藏电台")
+            else -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    itemsIndexed(songs) { index, song ->
+                        FavoriteSongItem(
+                            song = song,
+                            onClick = { onSongClick(songs, index) }
+                        )
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun ColumnScope.CenterHint(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        )
+    }
+}
+
+@Composable
+private fun TabChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Text(
+        text = label,
+        fontSize = 15.sp,
+        fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
+        color = when {
+            isFocused -> MaterialTheme.colorScheme.onPrimary
+            isSelected -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        },
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                when {
+                    isFocused -> MaterialTheme.colorScheme.primary
+                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+    )
+}
+
+@Composable
+private fun FavoriteSongItem(song: Song, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.title,
+                fontSize = 16.sp,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!song.artist.isNullOrEmpty()) {
+                Text(
+                    text = song.artist,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (song.isVideo) {
+            Text(
+                text = "MV",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text = "▶",
+            fontSize = 14.sp,
+            color = if (isFocused) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+        )
     }
 }
 
