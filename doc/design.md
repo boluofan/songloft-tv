@@ -35,7 +35,7 @@ Songloft TV 是 [Songloft](https://github.com/songloft-org/songloft) 音乐服�
 |------|---------|------|
 | 语言 | Kotlin | 原生 Android 开发 |
 | UI 框架 | Jetpack Compose for TV | `androidx.tv:tv-material` + `tv-foundation` |
-| 最小 SDK | 21 (Android 5.0) | 覆盖绝大多数 TV 设备 |
+| 最小 SDK | 23 (Android 6.0) | 覆盖绝大多数 TV 设备 |
 | 目标 SDK | 35+ | |
 | 播放器 | ExoPlayer (Media3) | 视频/音频播放 |
 | 后台播放 | MediaSessionService | 支持通知栏控制 |
