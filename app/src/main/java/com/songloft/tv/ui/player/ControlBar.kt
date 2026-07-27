@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,9 +42,76 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.domain.PlayMode
+
+private const val SEEK_STEP_MS = 10_000L
+
+@Composable
+private fun SeekBar(
+    progress: Float,
+    onSeekBy: (Long) -> Unit,
+    focusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .height(20.dp)
+            .padding(horizontal = 12.dp)
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> { onSeekBy(-SEEK_STEP_MS); true }
+                    Key.DirectionRight -> { onSeekBy(SEEK_STEP_MS); true }
+                    else -> false
+                }
+            }
+            .focusable(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (isFocused) 6.dp else 4.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White.copy(alpha = if (isFocused) 0.35f else 0.2f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+        }
+        if (isFocused) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress.coerceIn(0f, 1f)),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White)
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun ControlBar(
@@ -77,22 +145,16 @@ fun ControlBar(
                 color = Color.White.copy(alpha = 0.7f)
             )
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(4.dp)
-                    .padding(horizontal = 12.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.2f))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progress)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-            }
+            SeekBar(
+                progress = progress,
+                onSeekBy = { delta ->
+                    val target = (uiState.currentPosition + delta)
+                        .coerceIn(0L, uiState.duration.coerceAtLeast(0L))
+                    onSeek(target)
+                },
+                focusRequester = playPauseFocusRequester,
+                modifier = Modifier.weight(1f)
+            )
 
             Text(
                 text = formatTime(uiState.duration),
@@ -114,8 +176,7 @@ fun ControlBar(
                 playIcon,
                 if (uiState.isPlaying) "暂停" else "播放",
                 onPlayPause,
-                isLarge = true,
-                focusRequester = playPauseFocusRequester
+                isLarge = true
             )
             TransportButton(Icons.Rounded.SkipNext, "下一曲", onNext)
             val modeIcon = when (uiState.playMode) {
