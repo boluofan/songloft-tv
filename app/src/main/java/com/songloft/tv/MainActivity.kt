@@ -14,7 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Surface
@@ -24,6 +26,7 @@ import com.songloft.tv.domain.PlayerController
 import com.songloft.tv.ui.config.AuthSetupScreen
 import com.songloft.tv.ui.config.AuthState
 import com.songloft.tv.ui.config.AuthViewModel
+import com.songloft.tv.ui.components.FloatingPlayerBar
 import com.songloft.tv.ui.home.HomeScreen
 import com.songloft.tv.ui.my.MyScreen
 import com.songloft.tv.ui.navigation.Screen
@@ -50,10 +53,14 @@ class MainActivity : ComponentActivity() {
             TvTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MainApp(
+                        playerController = playerController,
                         onPlaySongs = { songs, index -> openPlayer(songs, index) },
                         onShufflePlay = { songs ->
                             playerController.setPlayMode(PlayMode.RANDOM)
                             openPlayer(songs, Random.nextInt(songs.size))
+                        },
+                        onOpenPlayer = {
+                            startActivity(Intent(this@MainActivity, PlayerActivity::class.java))
                         }
                     )
                 }
@@ -69,14 +76,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp(
+    playerController: PlayerController,
     onPlaySongs: (List<Song>, Int) -> Unit,
-    onShufflePlay: (List<Song>) -> Unit
+    onShufflePlay: (List<Song>) -> Unit,
+    onOpenPlayer: () -> Unit
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
 
     when (authState) {
-        is AuthState.LoggedIn -> TvApp(authViewModel, onPlaySongs, onShufflePlay)
+        is AuthState.LoggedIn -> TvApp(authViewModel, playerController, onPlaySongs, onShufflePlay, onOpenPlayer)
         else -> AuthSetupScreen(authViewModel)
     }
 }
@@ -84,8 +93,10 @@ fun MainApp(
 @Composable
 fun TvApp(
     authViewModel: AuthViewModel,
+    playerController: PlayerController,
     onPlaySongs: (List<Song>, Int) -> Unit,
-    onShufflePlay: (List<Song>) -> Unit
+    onShufflePlay: (List<Song>) -> Unit,
+    onOpenPlayer: () -> Unit
 ) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
 
@@ -113,6 +124,8 @@ fun TvApp(
             )
         }
     ) { padding ->
+        val playbackState by playerController.state.collectAsStateWithLifecycle()
+
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val screen = currentScreen) {
                 Screen.Home -> HomeScreen(
@@ -146,6 +159,19 @@ fun TvApp(
                     onBack = { currentScreen = Screen.My },
                     onConfigureServer = { authViewModel.resetToConfig() },
                     onLogout = { authViewModel.logout() }
+                )
+            }
+
+            playbackState.currentSong?.let { song ->
+                FloatingPlayerBar(
+                    title = song.title,
+                    artist = song.artist,
+                    coverUrl = song.coverUrl,
+                    isPlaying = playbackState.isPlaying,
+                    onClick = onOpenPlayer,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(24.dp)
                 )
             }
         }
