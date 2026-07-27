@@ -52,7 +52,9 @@ fun HomeScreen(
     onPlaylistClick: (Long) -> Unit = {},
     onArtistClick: (String) -> Unit = {},
     onAlbumClick: (String) -> Unit = {},
-    onYearClick: (Int) -> Unit = {}
+    onYearClick: (Int) -> Unit = {},
+    onViewAll: (String) -> Unit = {},
+    onManagePlaylists: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -79,7 +81,8 @@ fun HomeScreen(
         item {
             PlaylistSection(
                 playlists = uiState.playlists,
-                onPlaylistClick = onPlaylistClick
+                onPlaylistClick = onPlaylistClick,
+                onManagePlaylists = onManagePlaylists
             )
         }
 
@@ -88,14 +91,16 @@ fun HomeScreen(
                 artists = uiState.topArtists,
                 albums = uiState.topAlbums,
                 onArtistClick = onArtistClick,
-                onAlbumClick = onAlbumClick
+                onAlbumClick = onAlbumClick,
+                onViewAll = onViewAll
             )
         }
 
         item {
             YearSection(
                 years = uiState.topYears,
-                onYearClick = onYearClick
+                onYearClick = onYearClick,
+                onViewAllYears = { onViewAll("year") }
             )
         }
     }
@@ -142,7 +147,8 @@ private fun RowScope.StatCard(label: String, value: String) {
 @Composable
 private fun PlaylistSection(
     playlists: List<Playlist>,
-    onPlaylistClick: (Long) -> Unit
+    onPlaylistClick: (Long) -> Unit,
+    onManagePlaylists: () -> Unit
 ) {
     Column {
         Row(
@@ -156,7 +162,7 @@ private fun PlaylistSection(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SectionLink(text = "管理歌单", onClick = { /* navigate to playlists tab */ })
+            SectionLink(text = "管理歌单", onClick = onManagePlaylists)
         }
         Spacer(Modifier.height(12.dp))
 
@@ -262,7 +268,8 @@ private fun ArtistsAlbumsRow(
     artists: List<FacetItem>,
     albums: List<FacetItem>,
     onArtistClick: (String) -> Unit,
-    onAlbumClick: (String) -> Unit
+    onAlbumClick: (String) -> Unit,
+    onViewAll: (String) -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -272,12 +279,14 @@ private fun ArtistsAlbumsRow(
             title = "主要歌手",
             items = artists,
             onClick = onArtistClick,
+            onViewAll = { onViewAll("artist") },
             modifier = Modifier.weight(1f)
         )
         CategoryColumn(
             title = "主要专辑",
             items = albums,
             onClick = onAlbumClick,
+            onViewAll = { onViewAll("album") },
             modifier = Modifier.weight(1f)
         )
     }
@@ -288,6 +297,7 @@ private fun CategoryColumn(
     title: String,
     items: List<FacetItem>,
     onClick: (String) -> Unit,
+    onViewAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -302,7 +312,7 @@ private fun CategoryColumn(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SectionLink(text = "查看全部", onClick = { /* navigate to full list */ })
+            SectionLink(text = "查看全部", onClick = onViewAll)
         }
         Spacer(Modifier.height(12.dp))
 
@@ -385,7 +395,8 @@ private fun CategoryCard(
 @Composable
 private fun YearSection(
     years: List<FacetItem>,
-    onYearClick: (Int) -> Unit
+    onYearClick: (Int) -> Unit,
+    onViewAllYears: () -> Unit
 ) {
     Column {
         Row(
@@ -399,7 +410,7 @@ private fun YearSection(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SectionLink(text = "查看全部", onClick = { /* navigate to full year list */ })
+            SectionLink(text = "查看全部", onClick = onViewAllYears)
         }
         Spacer(Modifier.height(12.dp))
 

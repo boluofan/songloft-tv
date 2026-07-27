@@ -28,6 +28,7 @@ import com.songloft.tv.ui.config.AuthState
 import com.songloft.tv.ui.config.AuthViewModel
 import com.songloft.tv.ui.components.FloatingPlayerBar
 import com.songloft.tv.ui.home.HomeScreen
+import com.songloft.tv.ui.library.FacetListScreen
 import com.songloft.tv.ui.library.FilteredSongsScreen
 import com.songloft.tv.ui.my.MyScreen
 import com.songloft.tv.ui.navigation.Screen
@@ -139,7 +140,9 @@ fun TvApp(
                     },
                     onYearClick = { year ->
                         currentScreen = Screen.SongFilter("year", year.toString())
-                    }
+                    },
+                    onViewAll = { field -> currentScreen = Screen.FacetList(field) },
+                    onManagePlaylists = { currentScreen = Screen.Playlists }
                 )
                 Screen.Search -> SearchScreen(
                     onSongClick = onPlaySongs
@@ -166,6 +169,13 @@ fun TvApp(
                     field = screen.field,
                     value = screen.value,
                     onSongClick = onPlaySongs,
+                    onBack = { currentScreen = Screen.Home }
+                )
+                is Screen.FacetList -> FacetListScreen(
+                    field = screen.field,
+                    onItemClick = { value ->
+                        currentScreen = Screen.SongFilter(screen.field, value)
+                    },
                     onBack = { currentScreen = Screen.Home }
                 )
             }
