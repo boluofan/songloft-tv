@@ -45,6 +45,12 @@ android {
         compose = true
     }
 
+    lint {
+        // CI 上 lintVitalAnalyzeRelease 因 NonNullableMutableLiveDataDetector
+        // 崩溃（IncompatibleClassChangeError）导致构建失败，关闭 release lint 检查
+        checkReleaseBuilds = false
+    }
+
     kotlinOptions {
         jvmTarget = "17"
     }
