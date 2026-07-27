@@ -104,6 +104,13 @@ class PlayerViewModel @Inject constructor(
         updatePosition(position)
     }
 
+    fun seekBy(deltaMs: Long) {
+        val duration = playerController.duration()
+        val target = (playerController.currentPosition() + deltaMs)
+            .coerceIn(0L, if (duration > 0) duration else Long.MAX_VALUE)
+        seekTo(target)
+    }
+
     fun nextTrack() = playerController.next()
 
     fun previousTrack() = playerController.previous()

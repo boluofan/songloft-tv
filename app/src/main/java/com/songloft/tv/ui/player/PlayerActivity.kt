@@ -117,29 +117,62 @@ fun PlayerScreen(
         }
     }
 
+    var didSeekDuringPress by remember { mutableStateOf(false) }
+    val seekStepMs = 10_000L
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
             .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                interactionCount++
-                when (event.key) {
-                    Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
-                        viewModel.togglePlay(); true
+                val controlsHidden = !uiState.showControls && !uiState.showQueueDrawer
+                when (event.type) {
+                    KeyEventType.KeyDown -> {
+                        interactionCount++
+                        when (event.key) {
+                            Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
+                                viewModel.togglePlay(); true
+                            }
+                            Key.MediaNext, Key.MediaSkipForward -> {
+                                viewModel.nextTrack(); true
+                            }
+                            Key.MediaPrevious, Key.MediaSkipBackward -> {
+                                viewModel.previousTrack(); true
+                            }
+                            Key.DirectionLeft, Key.DirectionRight -> {
+                                if (controlsHidden) {
+                                    if (event.nativeKeyEvent.repeatCount > 0) {
+                                        didSeekDuringPress = true
+                                        viewModel.seekBy(
+                                            if (event.key == Key.DirectionLeft) -seekStepMs else seekStepMs
+                                        )
+                                    }
+                                    true
+                                } else false
+                            }
+                            Key.DirectionUp, Key.DirectionDown, Key.DirectionCenter, Key.Enter -> {
+                                if (controlsHidden) {
+                                    viewModel.showControls()
+                                    true
+                                } else false
+                            }
+                            else -> false
+                        }
                     }
-                    Key.MediaNext, Key.MediaSkipForward -> {
-                        viewModel.nextTrack(); true
-                    }
-                    Key.MediaPrevious, Key.MediaSkipBackward -> {
-                        viewModel.previousTrack(); true
-                    }
-                    Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft,
-                    Key.DirectionRight, Key.DirectionCenter, Key.Enter -> {
-                        if (!uiState.showControls && !uiState.showQueueDrawer) {
-                            viewModel.showControls()
-                            true
-                        } else false
+                    KeyEventType.KeyUp -> {
+                        when (event.key) {
+                            Key.DirectionLeft, Key.DirectionRight -> {
+                                if (controlsHidden) {
+                                    if (!didSeekDuringPress) {
+                                        if (event.key == Key.DirectionLeft) viewModel.previousTrack()
+                                        else viewModel.nextTrack()
+                                    }
+                                    didSeekDuringPress = false
+                                    true
+                                } else false
+                            }
+                            else -> false
+                        }
                     }
                     else -> false
                 }
