@@ -2,8 +2,11 @@ package com.songloft.tv.data.repository
 
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.storage.PreferencesDataStore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,6 +15,14 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor(
     private val dataStore: PreferencesDataStore
 ) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        ApiClient.onTokensRefreshed = { access, refresh ->
+            scope.launch { dataStore.setTokens(access, refresh) }
+        }
+    }
+
     suspend fun login(serverUrl: String, username: String, password: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -31,6 +42,7 @@ class AuthRepository @Inject constructor(
     suspend fun tryAutoLogin(): Boolean {
         return withContext(Dispatchers.IO) {
             val token = dataStore.accessToken.first()
+            val refresh = dataStore.refreshToken.first()
             val url = dataStore.serverUrl.first()
 
             if (token.isNullOrEmpty() || url.isNullOrEmpty()) return@withContext false
@@ -39,6 +51,7 @@ class AuthRepository @Inject constructor(
                 ApiClient.initialize(url)
                 com.songloft.tv.data.api.UrlHelper.initialize(url)
                 ApiClient.authInterceptor.accessToken = token
+                ApiClient.authInterceptor.refreshToken = refresh
                 ApiClient.getApi().health()
                 true
             }.getOrDefault(false)

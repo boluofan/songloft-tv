@@ -12,6 +12,9 @@ object ApiClient {
     private var api: SongloftApi? = null
     val authInterceptor = AuthInterceptor()
 
+    // 由 AuthRepository 注册，用于持久化刷新后的 token
+    @Volatile var onTokensRefreshed: ((access: String, refresh: String) -> Unit)? = null
+
     fun initialize(url: String) {
         if (url == baseUrl && retrofit != null) return
         baseUrl = url.trimEnd('/')
@@ -23,6 +26,15 @@ object ApiClient {
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
+            .authenticator(
+                TokenAuthenticator(
+                    authInterceptor = authInterceptor,
+                    refreshUrlProvider = { "${baseUrl}/api/v1/auth/refresh" },
+                    onTokensRefreshed = { access, refresh ->
+                        onTokensRefreshed?.invoke(access, refresh)
+                    }
+                )
+            )
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
