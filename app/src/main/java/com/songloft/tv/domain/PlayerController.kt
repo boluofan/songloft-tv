@@ -47,7 +47,9 @@ data class PlaybackState(
     val duration: Long = 0L,
     val playMode: PlayMode = PlayMode.ORDER,
     val sleepTimerMinutes: Int = 0,
-    val sleepAfterSongs: Int = 0
+    val sleepTimerRemaining: Int = 0,
+    val sleepAfterSongs: Int = 0,
+    val sleepAfterSongsRemaining: Int = 0
 )
 
 @Singleton
@@ -242,12 +244,24 @@ class PlayerController @Inject constructor(
     fun setSleepTimer(minutes: Int) {
         sleepJob?.cancel()
         sleepJob = null
-        _state.update { it.copy(sleepTimerMinutes = minutes, sleepAfterSongs = 0) }
+        _state.update {
+            it.copy(
+                sleepTimerMinutes = minutes,
+                sleepTimerRemaining = minutes,
+                sleepAfterSongs = 0,
+                sleepAfterSongsRemaining = 0
+            )
+        }
         if (minutes > 0) {
             sleepJob = scope.launch {
-                delay(minutes * 60_000L)
+                var remaining = minutes
+                while (remaining > 0) {
+                    delay(60_000L)
+                    remaining--
+                    _state.update { it.copy(sleepTimerRemaining = remaining) }
+                }
                 controller?.pause()
-                _state.update { it.copy(sleepTimerMinutes = 0) }
+                _state.update { it.copy(sleepTimerMinutes = 0, sleepTimerRemaining = 0) }
             }
         }
     }
@@ -255,19 +269,27 @@ class PlayerController @Inject constructor(
     fun setSleepAfterSongs(count: Int) {
         sleepJob?.cancel()
         sleepJob = null
-        _state.update { it.copy(sleepTimerMinutes = 0, sleepAfterSongs = count) }
+        _state.update {
+            it.copy(
+                sleepTimerMinutes = 0,
+                sleepTimerRemaining = 0,
+                sleepAfterSongs = count,
+                sleepAfterSongsRemaining = count
+            )
+        }
     }
 
     private fun countDownSleepAfterSongs(previousSong: Song?, song: Song?, reason: Int) {
-        val remaining = _state.value.sleepAfterSongs
+        val remaining = _state.value.sleepAfterSongsRemaining
         if (remaining <= 0) return
         // 只统计自然播完的歌曲，音轨切换重建的同曲 MediaItem 不计数
         if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) return
         if (previousSong == null || previousSong.id == song?.id) return
         val next = remaining - 1
-        _state.update { it.copy(sleepAfterSongs = next) }
+        _state.update { it.copy(sleepAfterSongsRemaining = next) }
         if (next == 0) {
             controller?.pause()
+            _state.update { it.copy(sleepAfterSongs = 0) }
         }
     }
 

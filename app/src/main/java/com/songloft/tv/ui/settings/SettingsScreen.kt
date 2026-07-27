@@ -73,7 +73,12 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSection("睡眠定时") {
+        val sleepSuffix = when {
+            uiState.sleepTimerRemaining > 0 -> "（剩余 ${uiState.sleepTimerRemaining} 分钟）"
+            uiState.sleepAfterSongsRemaining > 0 -> "（剩余 ${uiState.sleepAfterSongsRemaining} 首）"
+            else -> ""
+        }
+        SettingsSection("睡眠定时$sleepSuffix") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OptionChip("关闭", uiState.sleepTimerMinutes == 0 && uiState.sleepAfterSongs == 0) { viewModel.setSleepTimer(0) }

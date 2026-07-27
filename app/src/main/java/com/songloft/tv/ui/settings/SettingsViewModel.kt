@@ -16,7 +16,9 @@ data class SettingsUiState(
     val serverUrl: String = "",
     val audioQuality: String = "",
     val sleepTimerMinutes: Int = 0,
-    val sleepAfterSongs: Int = 0
+    val sleepTimerRemaining: Int = 0,
+    val sleepAfterSongs: Int = 0,
+    val sleepAfterSongsRemaining: Int = 0
 )
 
 @HiltViewModel
@@ -48,7 +50,9 @@ class SettingsViewModel @Inject constructor(
             playerController.state.collect { s ->
                 _uiState.value = _uiState.value.copy(
                     sleepTimerMinutes = s.sleepTimerMinutes,
-                    sleepAfterSongs = s.sleepAfterSongs
+                    sleepTimerRemaining = s.sleepTimerRemaining,
+                    sleepAfterSongs = s.sleepAfterSongs,
+                    sleepAfterSongsRemaining = s.sleepAfterSongsRemaining
                 )
             }
         }
