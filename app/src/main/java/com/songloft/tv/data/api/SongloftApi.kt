@@ -55,7 +55,7 @@ interface SongloftApi {
     @POST("playlists/{id}/songs")
     suspend fun addSongsToPlaylist(
         @Path("id") id: Long,
-        @Body body: Map<String, List<Long>>
+        @Body body: AddSongsRequest
     ): Unit
 
     @DELETE("playlists/{id}/songs/{songId}")
@@ -78,6 +78,10 @@ interface SongloftApi {
 }
 
 // ---- Response Models ----
+
+data class AddSongsRequest(
+    @SerializedName("song_ids") val songIds: List<Long>
+)
 
 data class LoginResponse(
     @SerializedName("access_token") val accessToken: String,

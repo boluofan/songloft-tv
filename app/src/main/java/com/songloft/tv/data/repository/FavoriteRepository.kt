@@ -1,6 +1,7 @@
 package com.songloft.tv.data.repository
 
 import com.songloft.tv.data.api.ApiClient
+import com.songloft.tv.data.api.AddSongsRequest
 import com.songloft.tv.data.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,7 +28,7 @@ class FavoriteRepository @Inject constructor() {
         runCatching {
             val playlistId = resolvePlaylistIdFor(song)
                 ?: throw IllegalStateException("未找到收藏歌单")
-            api.addSongsToPlaylist(playlistId, mapOf("song_ids" to listOf(song.id)))
+            api.addSongsToPlaylist(playlistId, AddSongsRequest(listOf(song.id)))
         }
     }
 
