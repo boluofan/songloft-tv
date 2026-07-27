@@ -31,6 +31,17 @@ class FavoriteRepository @Inject constructor() {
         }
     }
 
+    suspend fun addFavorites(songs: List<Song>): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            songs.groupBy { if (it.type == "radio") "radio" else "normal" }
+                .forEach { (type, group) ->
+                    val playlistId = resolveBuiltInPlaylists()[type]
+                        ?: throw IllegalStateException("未找到收藏歌单")
+                    api.addSongsToPlaylist(playlistId, mapOf("song_ids" to group.map { it.id }))
+                }
+        }
+    }
+
     suspend fun removeFavorite(song: Song): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val playlistId = resolvePlaylistIdFor(song)
