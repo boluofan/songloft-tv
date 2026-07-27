@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -160,18 +162,55 @@ fun SearchScreen(
                 }
             }
         } else if (!uiState.hasSearched) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(48.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            if (uiState.hotTags.isNotEmpty()) {
                 Text(
-                    text = "输入关键词搜索歌曲",
+                    text = "热门搜索",
                     fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
                 )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(uiState.hotTags) { tag ->
+                        HotTagChip(tag) { viewModel.onQueryChanged(tag) }
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "输入关键词搜索歌曲",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun HotTagChip(tag: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Text(
+        text = tag,
+        fontSize = 14.sp,
+        fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
+        color = if (isFocused) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (isFocused) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    )
 }
 
 @Composable
