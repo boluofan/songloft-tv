@@ -97,6 +97,16 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        SettingsSection("日志") {
+            SettingsItem(
+                label = "导出日志",
+                value = uiState.logExportStatus.ifEmpty { "导出运行日志用于排查问题" },
+                onClick = { viewModel.exportLogs() }
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         SettingsSection("关于") {
             val context = LocalContext.current
             val versionName = remember {
