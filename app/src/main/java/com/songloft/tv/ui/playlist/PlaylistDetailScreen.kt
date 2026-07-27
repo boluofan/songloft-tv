@@ -11,8 +11,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
@@ -132,15 +130,6 @@ fun PlaylistDetailScreen(
                             ActionButton(Icons.Rounded.Shuffle, "随机播放") {
                                 if (uiState.songs.isNotEmpty()) onShufflePlay(uiState.songs)
                             }
-                            ActionButton(
-                                icon = if (uiState.favoritedAll) Icons.Rounded.Favorite
-                                else Icons.Rounded.FavoriteBorder,
-                                label = when {
-                                    uiState.isFavoritingAll -> "收藏中..."
-                                    uiState.favoritedAll -> "已收藏"
-                                    else -> "收藏全部"
-                                }
-                            ) { viewModel.favoriteAllSongs() }
                         }
                     }
 

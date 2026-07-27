@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.data.model.Song
-import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,15 +23,12 @@ data class PlaylistDetailUiState(
     val playlist: Playlist? = null,
     val songs: List<Song> = emptyList(),
     val isLoading: Boolean = true,
-    val error: String? = null,
-    val isFavoritingAll: Boolean = false,
-    val favoritedAll: Boolean = false
+    val error: String? = null
 )
 
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
-    private val playlistRepository: PlaylistRepository,
-    private val favoriteRepository: FavoriteRepository
+    private val playlistRepository: PlaylistRepository
 ) : ViewModel() {
 
     private val _listState = MutableStateFlow(PlaylistListUiState())
@@ -84,24 +80,6 @@ class PlaylistViewModel @Inject constructor(
                         isLoading = false,
                         error = e.message
                     )
-                }
-            )
-        }
-    }
-
-    fun favoriteAllSongs() {
-        val songs = _detailState.value.songs
-        if (songs.isEmpty() || _detailState.value.isFavoritingAll) return
-        _detailState.value = _detailState.value.copy(isFavoritingAll = true)
-        viewModelScope.launch {
-            favoriteRepository.addFavorites(songs).fold(
-                onSuccess = {
-                    _detailState.value = _detailState.value.copy(
-                        isFavoritingAll = false, favoritedAll = true
-                    )
-                },
-                onFailure = {
-                    _detailState.value = _detailState.value.copy(isFavoritingAll = false)
                 }
             )
         }
