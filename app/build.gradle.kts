@@ -82,6 +82,8 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.coil.compose)
     implementation(libs.datastore)
+    implementation(libs.zxing.core)
+    implementation(libs.nanohttpd)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
 }

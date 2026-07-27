@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.api.UrlHelper
+import com.songloft.tv.data.config.ConfigWebServer
 import com.songloft.tv.data.repository.AuthRepository
 import com.songloft.tv.data.storage.PreferencesDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +52,44 @@ class AuthViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _configUrl = MutableStateFlow<String?>(null)
+    val configUrl: StateFlow<String?> = _configUrl.asStateFlow()
+
+    private var configServer: ConfigWebServer? = null
+
+    fun startConfigServer() {
+        if (configServer != null) return
+        val ip = ConfigWebServer.localIpAddress() ?: return
+        for (port in CONFIG_PORTS) {
+            val server = ConfigWebServer(port) { serverUrl, username, password ->
+                viewModelScope.launch {
+                    _serverUrl.value = normalizeUrl(serverUrl)
+                    _username.value = username
+                    _password.value = password
+                    login()
+                }
+            }
+            if (runCatching { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }.isSuccess) {
+                configServer = server
+                _configUrl.value = "http://$ip:$port"
+                return
+            }
+        }
+    }
+
+    private fun stopConfigServer() {
+        configServer?.stop()
+        configServer = null
+        _configUrl.value = null
+    }
+
+    private fun normalizeUrl(url: String): String =
+        if (url.startsWith("http://") || url.startsWith("https://")) url else "http://$url"
+
+    override fun onCleared() {
+        stopConfigServer()
+    }
 
     init {
         viewModelScope.launch {
@@ -101,6 +141,7 @@ class AuthViewModel @Inject constructor(
                 .onSuccess {
                     _isLoggingIn.value = false
                     _authState.value = AuthState.LoggedIn(username)
+                    stopConfigServer()
                 }
                 .onFailure { e ->
                     _isLoggingIn.value = false
@@ -122,5 +163,9 @@ class AuthViewModel @Inject constructor(
         _username.value = ""
         _password.value = ""
         _error.value = null
+    }
+
+    companion object {
+        private val CONFIG_PORTS = intArrayOf(18899, 18900, 18901, 18902)
     }
 }

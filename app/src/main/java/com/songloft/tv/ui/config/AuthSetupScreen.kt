@@ -1,6 +1,8 @@
 package com.songloft.tv.ui.config
 
+import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +15,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -48,6 +54,9 @@ private fun LoginForm(viewModel: AuthViewModel) {
     val password by viewModel.password.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoggingIn.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val configUrl by viewModel.configUrl.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { viewModel.startConfigServer() }
 
     var activeField by remember { mutableStateOf(ActiveField.NONE) }
     val showKeyboard = activeField != ActiveField.NONE
@@ -57,10 +66,11 @@ private fun LoginForm(viewModel: AuthViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.weight(1f)) {
         // 表单区域（可滚动）
         Column(
             modifier = Modifier
-                .weight(1f)
+                .weight(0.6f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 56.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -134,6 +144,17 @@ private fun LoginForm(viewModel: AuthViewModel) {
             Spacer(Modifier.height(16.dp))
         }
 
+        configUrl?.let { url ->
+            QrPanel(
+                url = url,
+                modifier = Modifier
+                    .weight(0.4f)
+                    .fillMaxHeight()
+                    .padding(end = 48.dp, top = 24.dp, bottom = 24.dp)
+            )
+        }
+        }
+
         // 键盘区域（始终显示在底部，仅当有激活字段时响应输入）
         if (showKeyboard) {
             TvKeyboard(
@@ -161,6 +182,62 @@ private fun LoginForm(viewModel: AuthViewModel) {
             )
         }
     }
+}
+
+@Composable
+private fun QrPanel(url: String, modifier: Modifier = Modifier) {
+    val qrBitmap = remember(url) { generateQrBitmap(url) }
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White)
+                .padding(12.dp)
+        ) {
+            Image(
+                bitmap = qrBitmap.asImageBitmap(),
+                contentDescription = "扫码配置",
+                modifier = Modifier.size(180.dp)
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "手机扫码配置",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "同一局域网内扫码，在手机上填写\n服务器地址和账号密码",
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = url,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+        )
+    }
+}
+
+private fun generateQrBitmap(content: String, size: Int = 512): Bitmap {
+    val matrix = QRCodeWriter().encode(
+        content, BarcodeFormat.QR_CODE, size, size,
+        mapOf(EncodeHintType.MARGIN to 1)
+    )
+    val pixels = IntArray(size * size) { i ->
+        if (matrix[i % size, i / size]) android.graphics.Color.BLACK
+        else android.graphics.Color.WHITE
+    }
+    return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.RGB_565)
 }
 
 @Composable
