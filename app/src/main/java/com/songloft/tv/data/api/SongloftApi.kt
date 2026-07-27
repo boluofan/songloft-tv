@@ -27,12 +27,6 @@ interface SongloftApi {
     @GET("songs/facets")
     suspend fun getFacets(@Query("field") field: String): FacetResponse
 
-    @GET("songs/favorites")
-    suspend fun getFavorites(
-        @Query("limit") limit: Int = 200,
-        @Query("offset") offset: Int = 0
-    ): SongListResponse
-
     @POST("songs/{id}/played")
     suspend fun reportPlayed(
         @Path("id") id: Long,

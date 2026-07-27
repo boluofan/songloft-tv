@@ -117,9 +117,9 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             val ids = favoriteIds ?: return@launch
             val result = if (song.id in ids) {
-                favoriteRepository.removeFavorite(song.id).onSuccess { ids.remove(song.id) }
+                favoriteRepository.removeFavorite(song).onSuccess { ids.remove(song.id) }
             } else {
-                favoriteRepository.addFavorite(song.id).onSuccess { ids.add(song.id) }
+                favoriteRepository.addFavorite(song).onSuccess { ids.add(song.id) }
             }
             result.onSuccess {
                 _uiState.update { it.copy(isFavorite = song.id in ids) }
