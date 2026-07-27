@@ -2,11 +2,17 @@ package com.songloft.tv
 
 import android.app.PendingIntent
 import android.content.Intent
+import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.ui.player.PlayerActivity
 
 class MusicService : MediaSessionService() {
@@ -14,10 +20,24 @@ class MusicService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
 
+    @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
 
+        // 流媒体请求需携带 JWT，token 可能在运行期刷新，故每次创建数据源时读取
+        val dataSourceFactory = DataSource.Factory {
+            DefaultHttpDataSource.Factory()
+                .setAllowCrossProtocolRedirects(true)
+                .createDataSource()
+                .apply {
+                    ApiClient.authInterceptor.accessToken?.let {
+                        setRequestProperty("Authorization", "Bearer $it")
+                    }
+                }
+        }
+
         player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)

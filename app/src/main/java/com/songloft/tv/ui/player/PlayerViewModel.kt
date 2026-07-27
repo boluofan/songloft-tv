@@ -1,6 +1,5 @@
 package com.songloft.tv.ui.player
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.model.LyricLine
@@ -8,15 +7,17 @@ import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.model.Track
 import com.songloft.tv.data.repository.SongRepository
 import com.songloft.tv.domain.LyricParser
+import com.songloft.tv.domain.PlayMode
+import com.songloft.tv.domain.PlayerController
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-enum class PlayMode { ORDER, LOOP, SINGLE, RANDOM }
 
 data class PlayerUiState(
     val currentSong: Song? = null,
@@ -37,95 +38,101 @@ data class PlayerUiState(
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val playerController: PlayerController,
     private val songRepository: SongRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
-    fun playSong(song: Song, queue: List<Song> = listOf(song), index: Int = 0) {
-        _uiState.value = PlayerUiState(
-            currentSong = song,
-            currentTrack = song.tracks?.firstOrNull(),
-            queue = queue,
-            currentIndex = index,
-            isPlaying = true,
-            isVideoMode = song.isVideo,
-            duration = (song.duration * 1000L).toLong()
-        )
-        loadLyrics(song.id)
+    private var lyricSongId: Long? = null
+
+    init {
+        viewModelScope.launch {
+            playerController.state.collect { s ->
+                _uiState.update {
+                    it.copy(
+                        currentSong = s.currentSong,
+                        currentTrack = s.currentTrack,
+                        isPlaying = s.isPlaying,
+                        isBuffering = s.isBuffering,
+                        duration = s.duration,
+                        playMode = s.playMode,
+                        queue = s.queue,
+                        currentIndex = s.currentIndex,
+                        isVideoMode = s.currentSong?.isVideo == true
+                    )
+                }
+                val songId = s.currentSong?.id
+                if (songId != null && songId != lyricSongId) {
+                    lyricSongId = songId
+                    loadLyrics(songId)
+                }
+            }
+        }
+        viewModelScope.launch {
+            while (isActive) {
+                if (_uiState.value.isPlaying) {
+                    updatePosition(playerController.currentPosition())
+                    val duration = playerController.duration()
+                    if (duration > 0 && duration != _uiState.value.duration) {
+                        _uiState.update { it.copy(duration = duration) }
+                    }
+                }
+                delay(500)
+            }
+        }
     }
 
-    fun togglePlay() {
-        _uiState.value = _uiState.value.copy(isPlaying = !_uiState.value.isPlaying)
+    fun playSong(song: Song, queue: List<Song> = listOf(song), index: Int = 0) {
+        playerController.play(queue, index)
     }
+
+    fun togglePlay() = playerController.togglePlay()
 
     fun seekTo(position: Long) {
-        _uiState.value = _uiState.value.copy(currentPosition = position)
+        playerController.seekTo(position)
+        updatePosition(position)
     }
 
-    fun nextTrack() {
-        val state = _uiState.value
-        val nextIndex = state.currentIndex + 1
-        if (nextIndex < state.queue.size) {
-            playSong(state.queue[nextIndex], state.queue, nextIndex)
-        }
-    }
+    fun nextTrack() = playerController.next()
 
-    fun previousTrack() {
-        val state = _uiState.value
-        val prevIndex = state.currentIndex - 1
-        if (prevIndex >= 0) {
-            playSong(state.queue[prevIndex], state.queue, prevIndex)
-        }
-    }
+    fun previousTrack() = playerController.previous()
 
-    fun cyclePlayMode() {
-        _uiState.value = _uiState.value.copy(
-            playMode = when (_uiState.value.playMode) {
-                PlayMode.ORDER -> PlayMode.LOOP
-                PlayMode.LOOP -> PlayMode.SINGLE
-                PlayMode.SINGLE -> PlayMode.RANDOM
-                PlayMode.RANDOM -> PlayMode.ORDER
-            }
-        )
-    }
+    fun cyclePlayMode() = playerController.cyclePlayMode()
 
-    fun switchTrack(track: Track) {
-        _uiState.value = _uiState.value.copy(currentTrack = track)
-    }
+    fun switchTrack(track: Track) = playerController.switchTrack(track)
 
     fun toggleQueueDrawer() {
-        _uiState.value = _uiState.value.copy(showQueueDrawer = !_uiState.value.showQueueDrawer)
+        _uiState.update { it.copy(showQueueDrawer = !it.showQueueDrawer) }
     }
 
     fun toggleControls() {
-        _uiState.value = _uiState.value.copy(showControls = !_uiState.value.showControls)
+        _uiState.update { it.copy(showControls = !it.showControls) }
     }
 
     fun updatePosition(position: Long) {
         val lyrics = _uiState.value.lyrics
         val index = lyrics.indexOfLast { it.time <= position }
-        _uiState.value = _uiState.value.copy(
-            currentPosition = position,
-            currentLyricIndex = index
-        )
+        _uiState.update {
+            it.copy(currentPosition = position, currentLyricIndex = index)
+        }
     }
 
     fun hideControls() {
-        _uiState.value = _uiState.value.copy(showControls = false)
+        _uiState.update { it.copy(showControls = false) }
     }
 
     fun showControls() {
-        _uiState.value = _uiState.value.copy(showControls = true)
+        _uiState.update { it.copy(showControls = true) }
     }
 
     private fun loadLyrics(songId: Long) {
+        _uiState.update { it.copy(lyrics = emptyList(), currentLyricIndex = -1) }
         viewModelScope.launch {
             songRepository.getSongLyric(songId).onSuccess { lrcText ->
                 val parsed = LyricParser.parse(lrcText)
-                _uiState.value = _uiState.value.copy(lyrics = parsed)
+                _uiState.update { it.copy(lyrics = parsed) }
             }
         }
     }

@@ -7,7 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,7 +31,8 @@ import com.songloft.tv.data.model.Song
 fun PlaylistDetailScreen(
     playlistId: Long,
     viewModel: PlaylistViewModel = hiltViewModel(),
-    onSongClick: (Song) -> Unit = {},
+    onSongClick: (List<Song>, Int) -> Unit = { _, _ -> },
+    onShufflePlay: (List<Song>) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.detailState.collectAsStateWithLifecycle()
@@ -123,8 +124,12 @@ fun PlaylistDetailScreen(
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ActionButton("▶ 播放全部")
-                            ActionButton("🔀 随机播放")
+                            ActionButton("▶ 播放全部") {
+                                if (uiState.songs.isNotEmpty()) onSongClick(uiState.songs, 0)
+                            }
+                            ActionButton("🔀 随机播放") {
+                                if (uiState.songs.isNotEmpty()) onShufflePlay(uiState.songs)
+                            }
                         }
                     }
 
@@ -133,10 +138,10 @@ fun PlaylistDetailScreen(
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        items(uiState.songs) { song ->
+                        itemsIndexed(uiState.songs) { index, song ->
                             SongItem(
                                 song = song,
-                                onClick = { onSongClick(song) }
+                                onClick = { onSongClick(uiState.songs, index) }
                             )
                         }
                     }
@@ -173,7 +178,7 @@ private fun BackButton(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ActionButton(label: String) {
+private fun ActionButton(label: String, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
 
     Text(
@@ -188,7 +193,7 @@ private fun ActionButton(label: String) {
                 else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
             )
             .onFocusChanged { isFocused = it.isFocused }
-            .clickable { }
+            .clickable { onClick() }
             .padding(horizontal = 20.dp, vertical = 12.dp)
     )
 }

@@ -57,15 +57,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.songloft.tv.ui.theme.TvTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 
+@AndroidEntryPoint
 class PlayerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val songId = intent.getLongExtra("song_id", -1L)
-        val songTitle = intent.getStringExtra("song_title")
-        val songArtist = intent.getStringExtra("song_artist")
 
         setContent {
             TvTheme {

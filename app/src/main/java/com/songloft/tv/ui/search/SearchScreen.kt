@@ -6,7 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,7 +29,7 @@ import com.songloft.tv.data.model.Song
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
-    onSongClick: (Song) -> Unit = {}
+    onSongClick: (List<Song>, Int) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showKeyboard by remember { mutableStateOf(true) }
@@ -148,10 +148,10 @@ fun SearchScreen(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(uiState.results) { song ->
+                itemsIndexed(uiState.results) { index, song ->
                     SongResultItem(
                         song = song,
-                        onClick = { onSongClick(song) }
+                        onClick = { onSongClick(uiState.results, index) }
                     )
                 }
             }
