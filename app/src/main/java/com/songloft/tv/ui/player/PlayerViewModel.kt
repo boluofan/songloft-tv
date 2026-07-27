@@ -1,5 +1,6 @@
 package com.songloft.tv.ui.player
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.model.LyricLine
@@ -129,13 +130,18 @@ class PlayerViewModel @Inject constructor(
                 ?.also { favoriteIds = it }
                 ?: mutableSetOf<Long>().also { favoriteIds = it }
 
-            val result = if (song.id in ids) {
+            val wasFavorite = song.id in ids
+            // 乐观更新，失败时回滚
+            _uiState.update { it.copy(isFavorite = !wasFavorite) }
+
+            val result = if (wasFavorite) {
                 favoriteRepository.removeFavorite(song).onSuccess { ids.remove(song.id) }
             } else {
                 favoriteRepository.addFavorite(song).onSuccess { ids.add(song.id) }
             }
-            result.onSuccess {
-                _uiState.update { it.copy(isFavorite = song.id in ids) }
+            result.onFailure { e ->
+                Log.w("PlayerViewModel", "toggleFavorite failed for song ${song.id}", e)
+                _uiState.update { it.copy(isFavorite = wasFavorite) }
             }
         }
     }
