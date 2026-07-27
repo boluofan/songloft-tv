@@ -3,7 +3,6 @@ package com.songloft.tv.ui.config
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -133,7 +132,6 @@ fun ConfigScreen(
                     if (isFocused) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 )
-                .focusable()
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable(enabled = !uiState.isTesting) { viewModel.testConnection() }
                 .padding(horizontal = 48.dp, vertical = 16.dp)
@@ -152,7 +150,6 @@ fun ConfigScreen(
                         if (enterFocused) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     )
-                    .focusable()
                     .onFocusChanged { enterFocused = it.isFocused }
                     .clickable { onConnected() }
                     .padding(horizontal = 24.dp, vertical = 12.dp)
@@ -183,7 +180,6 @@ private fun ConfigTextField(
                     2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { }
             .padding(horizontal = 16.dp),

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -129,7 +128,6 @@ private fun FilterChip(
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -162,7 +160,6 @@ private fun PlaylistGridCard(
                     2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(12.dp),

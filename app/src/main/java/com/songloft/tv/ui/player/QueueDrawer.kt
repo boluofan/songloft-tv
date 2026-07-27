@@ -2,7 +2,6 @@ package com.songloft.tv.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -32,8 +34,12 @@ fun QueueDrawer(
     queue: List<Song>,
     currentIndex: Int,
     onClose: () -> Unit,
+    initialFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = currentIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
+    )
     Column(
         modifier = modifier
             .background(Color(0xE6111827))
@@ -61,7 +67,6 @@ fun QueueDrawer(
                         if (closeFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                         else Color.Transparent
                     )
-                    .focusable()
                     .onFocusChanged { closeFocused = it.isFocused }
                     .clickable { onClose() }
                     .padding(8.dp)
@@ -76,7 +81,7 @@ fun QueueDrawer(
 
         Spacer(Modifier.height(12.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             itemsIndexed(queue) { index, song ->
                 val isCurrent = index == currentIndex
                 var isFocused by remember { mutableStateOf(false) }
@@ -92,7 +97,11 @@ fun QueueDrawer(
                                 else -> Color.Transparent
                             }
                         )
-                        .focusable()
+                        .then(
+                            if (isCurrent && initialFocusRequester != null)
+                                Modifier.focusRequester(initialFocusRequester)
+                            else Modifier
+                        )
                         .onFocusChanged { isFocused = it.isFocused }
                         .clickable { onClose() }
                         .padding(8.dp),

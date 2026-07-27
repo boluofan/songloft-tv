@@ -1,2 +1,7 @@
 /.idea/
 /reference/
+/.gradle/
+/.qoder/
+/build/
+/app/build/
+local.properties

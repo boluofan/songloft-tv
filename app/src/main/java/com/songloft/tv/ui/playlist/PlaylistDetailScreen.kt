@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -167,7 +166,6 @@ private fun BackButton(onBack: () -> Unit) {
                 if (isFocused) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onBack() }
             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -189,7 +187,6 @@ private fun ActionButton(label: String) {
                 if (isFocused) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { }
             .padding(horizontal = 20.dp, vertical = 12.dp)
@@ -216,7 +213,6 @@ private fun SongItem(
                     1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(12.dp),

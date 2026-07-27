@@ -117,6 +117,10 @@ class PlayerViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(showControls = false)
     }
 
+    fun showControls() {
+        _uiState.value = _uiState.value.copy(showControls = true)
+    }
+
     private fun loadLyrics(songId: Long) {
         viewModelScope.launch {
             songRepository.getSongLyric(songId).onSuccess { lrcText ->

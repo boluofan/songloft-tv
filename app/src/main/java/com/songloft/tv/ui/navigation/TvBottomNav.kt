@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -13,20 +14,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun TvBottomNav(
     currentScreen: Screen,
@@ -69,14 +65,7 @@ fun TvBottomNav(
                         ) else Modifier
                     )
                     .onFocusChanged { isFocused = it.isFocused }
-                    .onKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyUp &&
-                            event.key == Key.Enter
-                        ) {
-                            onScreenSelected(screen)
-                            true
-                        } else false
-                    }
+                    .clickable { onScreenSelected(screen) }
                     .padding(horizontal = 32.dp, vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {

@@ -2,6 +2,7 @@ package com.songloft.tv
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,6 +59,13 @@ fun MainApp() {
 @Composable
 fun TvApp(authViewModel: AuthViewModel) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
+
+    BackHandler(enabled = currentScreen != Screen.Home) {
+        currentScreen = when (currentScreen) {
+            is Screen.PlaylistDetail -> Screen.Playlists
+            else -> Screen.Home
+        }
+    }
 
     Scaffold(
         bottomBar = {

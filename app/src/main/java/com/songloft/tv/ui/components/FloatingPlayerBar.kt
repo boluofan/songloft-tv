@@ -3,7 +3,6 @@ package com.songloft.tv.ui.components
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,7 +69,6 @@ fun FloatingPlayerBar(
                     RoundedCornerShape(32.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(4.dp),

@@ -1,9 +1,9 @@
 package com.songloft.tv.ui.search
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,11 @@ fun SearchScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showKeyboard by remember { mutableStateOf(true) }
     val searchBoxFocus = remember { FocusRequester() }
+
+    BackHandler(enabled = showKeyboard) {
+        showKeyboard = false
+        runCatching { searchBoxFocus.requestFocus() }
+    }
 
     Column(
         modifier = Modifier
@@ -62,12 +68,8 @@ fun SearchScreen(
                         2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
                     ) else Modifier
                 )
-                .focusable()
                 .focusRequester(searchBoxFocus)
-                .onFocusChanged {
-                    searchFocused = it.isFocused
-                    if (it.isFocused) showKeyboard = false
-                }
+                .onFocusChanged { searchFocused = it.isFocused }
                 .clickable { showKeyboard = !showKeyboard }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -80,13 +82,21 @@ fun SearchScreen(
                 modifier = Modifier.weight(1f)
             )
             if (uiState.query.isNotEmpty()) {
+                var clearFocused by remember { mutableStateOf(false) }
                 Text(
                     text = "✕",
                     fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = if (clearFocused) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier
-                        .clickable { viewModel.clearSearch() }
                         .padding(start = 8.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (clearFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+                        )
+                        .onFocusChanged { clearFocused = it.isFocused }
+                        .clickable { viewModel.clearSearch() }
+                        .padding(horizontal = 6.dp)
                 )
             }
         }
@@ -180,7 +190,6 @@ private fun SongResultItem(
                     1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(12.dp),

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,7 @@ fun ControlBar(
     onSeek: (Long) -> Unit,
     onCyclePlayMode: () -> Unit,
     onToggleQueue: () -> Unit,
+    playPauseFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -92,7 +94,7 @@ fun ControlBar(
         ) {
             TransportButton("⏮", onPrevious)
             val playIcon = if (uiState.isPlaying) "⏸" else "▶"
-            TransportButton(playIcon, onPlayPause, isLarge = true)
+            TransportButton(playIcon, onPlayPause, isLarge = true, focusRequester = playPauseFocusRequester)
             TransportButton("⏭", onNext)
             val modeIcon = when (uiState.playMode) {
                 PlayMode.ORDER -> "➡️"
@@ -110,7 +112,8 @@ fun ControlBar(
 private fun TransportButton(
     icon: String,
     onClick: () -> Unit,
-    isLarge: Boolean = false
+    isLarge: Boolean = false,
+    focusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -135,7 +138,9 @@ private fun TransportButton(
                 if (isFocused) Modifier.border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(50))
                 else Modifier
             )
-            .focusable()
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
+            )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() },
         contentAlignment = Alignment.Center

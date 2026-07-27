@@ -1,8 +1,9 @@
 package com.songloft.tv.ui.config
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +51,10 @@ private fun LoginForm(viewModel: AuthViewModel) {
 
     var activeField by remember { mutableStateOf(ActiveField.NONE) }
     val showKeyboard = activeField != ActiveField.NONE
+
+    BackHandler(enabled = showKeyboard) {
+        activeField = ActiveField.NONE
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // 表单区域（可滚动）
@@ -111,7 +116,11 @@ private fun LoginForm(viewModel: AuthViewModel) {
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isLoading) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary)
-                    .focusable(enabled = !isLoading)
+                    .then(
+                        if (btnFocused) Modifier.border(
+                            2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(12.dp)
+                        ) else Modifier
+                    )
                     .onFocusChanged { btnFocused = it.isFocused }
                     .clickable(enabled = !isLoading) { viewModel.login() }
                     .padding(horizontal = 56.dp, vertical = 16.dp),
@@ -181,7 +190,6 @@ private fun InputField(
                 else if (focused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                 else MaterialTheme.colorScheme.surfaceVariant
             )
-            .focusable()
             .onFocusChanged {
                 focused = it.isFocused
                 if (it.isFocused) onActivate()

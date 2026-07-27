@@ -63,10 +63,10 @@ fun Modifier.tvFocusable(
                     shape = shape
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
-            .let { m ->
-                if (onClick != null) m.clickable { onClick() } else m
-            }
+            .then(
+                if (onClick != null) Modifier.clickable { onClick() }
+                else Modifier.focusable()
+            )
     }
 )

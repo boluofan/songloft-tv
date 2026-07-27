@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
@@ -158,14 +157,7 @@ private fun PlaylistSection(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            Text(
-                text = "管理歌单",
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clickable { /* navigate to playlists tab */ }
-                    .padding(8.dp)
-            )
+            SectionLink(text = "管理歌单", onClick = { /* navigate to playlists tab */ })
         }
         Spacer(Modifier.height(12.dp))
 
@@ -227,7 +219,6 @@ private fun PlaylistCard(
                     2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(12.dp),
@@ -317,14 +308,7 @@ private fun CategoryColumn(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            Text(
-                text = "查看全部",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clickable { /* navigate to full list */ }
-                    .padding(8.dp)
-            )
+            SectionLink(text = "查看全部", onClick = { /* navigate to full list */ })
         }
         Spacer(Modifier.height(12.dp))
 
@@ -365,7 +349,6 @@ private fun CategoryCard(
                     1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(12.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -427,14 +410,7 @@ private fun YearSection(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            Text(
-                text = "查看全部",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clickable { /* navigate to full year list */ }
-                    .padding(8.dp)
-            )
+            SectionLink(text = "查看全部", onClick = { /* navigate to full year list */ })
         }
         Spacer(Modifier.height(12.dp))
 
@@ -485,7 +461,6 @@ private fun YearCard(
                     2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
                 ) else Modifier
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -504,4 +479,24 @@ private fun YearCard(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
     }
+}
+
+@Composable
+private fun SectionLink(text: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Text(
+        text = text,
+        fontSize = 14.sp,
+        fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
+        color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(8.dp)
+    )
 }

@@ -2,6 +2,7 @@ package com.songloft.tv.ui.player
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -37,12 +38,17 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,15 +85,33 @@ fun PlayerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    var controlsTimer by remember { mutableIntStateOf(0) }
-    LaunchedEffect(uiState.isPlaying) {
-        if (uiState.isPlaying) {
-            controlsTimer = 0
-            while (controlsTimer < 10) {
-                delay(1000)
-                controlsTimer++
-            }
+    var interactionCount by remember { mutableIntStateOf(0) }
+    val controlBarFocus = remember { FocusRequester() }
+    val queueDrawerFocus = remember { FocusRequester() }
+
+    BackHandler {
+        if (uiState.showQueueDrawer) {
+            viewModel.toggleQueueDrawer()
+        } else {
+            onBack()
+        }
+    }
+
+    LaunchedEffect(uiState.isPlaying, uiState.showControls, interactionCount) {
+        if (uiState.isPlaying && uiState.showControls) {
+            delay(10_000)
             viewModel.hideControls()
+        }
+    }
+
+    LaunchedEffect(uiState.showControls, uiState.showQueueDrawer) {
+        // 等待 AnimatedVisibility 完成组合后再请求焦点
+        delay(100)
+        runCatching {
+            when {
+                uiState.showQueueDrawer -> queueDrawerFocus.requestFocus()
+                uiState.showControls -> controlBarFocus.requestFocus()
+            }
         }
     }
 
@@ -95,6 +119,30 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                interactionCount++
+                when (event.key) {
+                    Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
+                        viewModel.togglePlay(); true
+                    }
+                    Key.MediaNext, Key.MediaSkipForward -> {
+                        viewModel.nextTrack(); true
+                    }
+                    Key.MediaPrevious, Key.MediaSkipBackward -> {
+                        viewModel.previousTrack(); true
+                    }
+                    Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft,
+                    Key.DirectionRight, Key.DirectionCenter, Key.Enter -> {
+                        if (!uiState.showControls && !uiState.showQueueDrawer) {
+                            viewModel.showControls()
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            }
+            .focusable()
     ) {
         if (uiState.currentSong != null) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -173,7 +221,6 @@ fun PlayerScreen(
                                                     else -> Color.White.copy(alpha = 0.1f)
                                                 }
                                             )
-                                            .focusable()
                                             .onFocusChanged { trackFocused = it.isFocused }
                                             .clickable { viewModel.switchTrack(track) }
                                             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -221,6 +268,7 @@ fun PlayerScreen(
                 onSeek = { viewModel.seekTo(it) },
                 onCyclePlayMode = { viewModel.cyclePlayMode() },
                 onToggleQueue = { viewModel.toggleQueueDrawer() },
+                playPauseFocusRequester = controlBarFocus,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -235,6 +283,7 @@ fun PlayerScreen(
                 queue = uiState.queue,
                 currentIndex = uiState.currentIndex,
                 onClose = { viewModel.toggleQueueDrawer() },
+                initialFocusRequester = queueDrawerFocus,
                 modifier = Modifier.fillMaxHeight().width(400.dp)
             )
         }

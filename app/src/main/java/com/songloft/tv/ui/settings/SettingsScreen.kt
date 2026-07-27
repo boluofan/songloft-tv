@@ -2,7 +2,6 @@ package com.songloft.tv.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -76,26 +75,38 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        var clearFocused by remember { mutableStateOf(false) }
         Text(
             text = "清除服务器配置",
             fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.error,
+            fontWeight = if (clearFocused) FontWeight.Bold else FontWeight.Normal,
+            color = if (clearFocused) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.error,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (clearFocused) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                )
+                .onFocusChanged { clearFocused = it.isFocused }
                 .clickable { viewModel.clearServerConfig() }
                 .padding(12.dp)
         )
 
         Spacer(Modifier.height(12.dp))
 
+        var logoutFocused by remember { mutableStateOf(false) }
         Text(
             text = "退出登录",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.error,
+            color = if (logoutFocused) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.error,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .focusable()
+                .background(
+                    if (logoutFocused) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                )
+                .onFocusChanged { logoutFocused = it.isFocused }
                 .clickable { onLogout() }
                 .padding(12.dp)
         )
@@ -129,7 +140,6 @@ private fun SettingsItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .then(if (onClick != null) Modifier
-                .focusable()
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable { onClick() }
             else Modifier)
@@ -169,7 +179,6 @@ private fun ThemeOption(label: String, mode: Int, currentMode: Int, onClick: () 
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
             )
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
             .padding(horizontal = 20.dp, vertical = 10.dp)
