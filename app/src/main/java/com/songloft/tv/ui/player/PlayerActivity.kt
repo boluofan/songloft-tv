@@ -152,8 +152,8 @@ fun PlayerScreen(
                     withPlayer = viewModel::withPlayer,
                     modifier = Modifier.fillMaxSize()
                 )
-                val tracks = uiState.currentSong?.tracks
-                if (tracks != null && tracks.size > 1) {
+                val tracks = uiState.availableTracks
+                if (tracks.size > 1) {
                     AnimatedVisibility(
                         visible = uiState.showControls,
                         enter = fadeIn(),
@@ -231,8 +231,8 @@ fun PlayerScreen(
                             overflow = TextOverflow.Ellipsis
                         )
 
-                        val tracks = uiState.currentSong?.tracks
-                        if (tracks != null && tracks.size > 1) {
+                        val tracks = uiState.availableTracks
+                        if (tracks.size > 1) {
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TrackChips(

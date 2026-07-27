@@ -23,6 +23,7 @@ import javax.inject.Inject
 data class PlayerUiState(
     val currentSong: Song? = null,
     val currentTrack: Track? = null,
+    val availableTracks: List<Track> = emptyList(),
     val isPlaying: Boolean = false,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
@@ -58,6 +59,7 @@ class PlayerViewModel @Inject constructor(
                     it.copy(
                         currentSong = s.currentSong,
                         currentTrack = s.currentTrack,
+                        availableTracks = s.embeddedTracks.ifEmpty { s.currentSong?.tracks.orEmpty() },
                         isPlaying = s.isPlaying,
                         isBuffering = s.isBuffering,
                         duration = s.duration,

@@ -4,9 +4,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
 import androidx.core.content.ContextCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.songloft.tv.MusicService
@@ -37,6 +40,8 @@ data class PlaybackState(
     val currentIndex: Int = -1,
     val currentSong: Song? = null,
     val currentTrack: Track? = null,
+    // 媒体文件内嵌的多条音轨（如 MKV 中的原唱/伴奏），由 onTracksChanged 检测
+    val embeddedTracks: List<Track> = emptyList(),
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
     val duration: Long = 0L,
@@ -82,6 +87,11 @@ class PlayerController @Inject constructor(
                     } else {
                         song?.tracks?.firstOrNull()
                     },
+                    embeddedTracks = if (song != null && song.id == previousSong?.id) {
+                        it.embeddedTracks
+                    } else {
+                        emptyList()
+                    },
                     duration = ((song?.duration ?: 0.0) * 1000).toLong()
                 )
             }
@@ -98,6 +108,29 @@ class PlayerController @Inject constructor(
                     isBuffering = playbackState == Player.STATE_BUFFERING,
                     duration = if (duration > 0) duration else it.duration
                 )
+            }
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            val audioGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+            if (audioGroups.size > 1) {
+                val embedded = audioGroups.mapIndexed { index, group ->
+                    val format = group.getTrackFormat(0)
+                    Track(
+                        id = "$EMBEDDED_TRACK_PREFIX$index",
+                        name = format.label ?: "音轨 ${index + 1}",
+                        url = ""
+                    )
+                }
+                val selectedIndex = audioGroups.indexOfFirst { it.isSelected }
+                _state.update {
+                    it.copy(
+                        embeddedTracks = embedded,
+                        currentTrack = embedded.getOrNull(selectedIndex) ?: it.currentTrack
+                    )
+                }
+            } else if (_state.value.embeddedTracks.isNotEmpty()) {
+                _state.update { it.copy(embeddedTracks = emptyList()) }
             }
         }
     }
@@ -167,6 +200,10 @@ class PlayerController @Inject constructor(
     }
 
     fun switchTrack(track: Track) {
+        if (track.id.startsWith(EMBEDDED_TRACK_PREFIX)) {
+            switchEmbeddedTrack(track)
+            return
+        }
         val song = _state.value.currentSong ?: return
         withController { c ->
             val position = c.currentPosition
@@ -177,6 +214,19 @@ class PlayerController @Inject constructor(
             c.play()
         }
         _state.update { it.copy(currentTrack = track) }
+    }
+
+    private fun switchEmbeddedTrack(track: Track) {
+        val groupIndex = track.id.removePrefix(EMBEDDED_TRACK_PREFIX).toIntOrNull() ?: return
+        withController { c ->
+            val audioGroups = c.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+            val group = audioGroups.getOrNull(groupIndex) ?: return@withController
+            c.trackSelectionParameters = c.trackSelectionParameters
+                .buildUpon()
+                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, 0))
+                .build()
+            _state.update { it.copy(currentTrack = track) }
+        }
     }
 
     fun currentPosition(): Long = controller?.currentPosition ?: 0L
@@ -252,5 +302,9 @@ class PlayerController @Inject constructor(
                     .build()
             )
             .build()
+    }
+
+    companion object {
+        private const val EMBEDDED_TRACK_PREFIX = "embedded:"
     }
 }
