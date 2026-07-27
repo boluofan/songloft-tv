@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -97,7 +98,20 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
 
         SettingsSection("关于") {
-            SettingsItem(label = "版本", value = "1.0.0")
+            val context = LocalContext.current
+            val versionName = remember {
+                runCatching {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                }.getOrNull() ?: "未知"
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingsItem(label = "版本", value = versionName)
+                SettingsItem(label = "项目地址", value = "github.com/boluofan/songloft-tv")
+                SettingsItem(
+                    label = "开源组件",
+                    value = "Jetpack Compose · Media3 · Retrofit · Coil · Hilt"
+                )
+            }
         }
 
         Spacer(Modifier.height(24.dp))
