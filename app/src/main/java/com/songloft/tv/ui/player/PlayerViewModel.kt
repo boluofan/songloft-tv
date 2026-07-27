@@ -124,7 +124,11 @@ class PlayerViewModel @Inject constructor(
     fun toggleFavorite() {
         val song = _uiState.value.currentSong ?: return
         viewModelScope.launch {
-            val ids = favoriteIds ?: return@launch
+            val ids = favoriteIds ?: favoriteRepository.getFavorites()
+                .getOrNull()?.map { it.id }?.toMutableSet()
+                ?.also { favoriteIds = it }
+                ?: mutableSetOf<Long>().also { favoriteIds = it }
+
             val result = if (song.id in ids) {
                 favoriteRepository.removeFavorite(song).onSuccess { ids.remove(song.id) }
             } else {

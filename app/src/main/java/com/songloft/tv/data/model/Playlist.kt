@@ -9,8 +9,8 @@ data class Playlist(
     @SerializedName("cover_url") val coverUrl: String? = null,
     @SerializedName("song_count") val songCount: Int = 0,
     val type: String = "normal",
-    val labels: List<String> = emptyList()
+    val labels: List<String>? = emptyList()
 ) {
-    val isBuiltIn: Boolean get() = labels.contains("built_in")
-    val isHidden: Boolean get() = labels.contains("hidden")
+    val isBuiltIn: Boolean get() = labels?.contains("built_in") == true
+    val isHidden: Boolean get() = labels?.contains("hidden") == true
 }
