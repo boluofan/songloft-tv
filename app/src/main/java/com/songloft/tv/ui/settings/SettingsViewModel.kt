@@ -25,6 +25,7 @@ data class SettingsUiState(
     val themeMode: Int = 0,
     val serverUrl: String = "",
     val audioQuality: String = "",
+    val backgroundPlayback: Boolean = true,
     val sleepTimerMinutes: Int = 0,
     val sleepTimerRemaining: Int = 0,
     val sleepAfterSongs: Int = 0,
@@ -59,6 +60,11 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            dataStore.backgroundPlayback.collect { enabled ->
+                _uiState.value = _uiState.value.copy(backgroundPlayback = enabled)
+            }
+        }
+        viewModelScope.launch {
             playerController.state.collect { s ->
                 _uiState.value = _uiState.value.copy(
                     sleepTimerMinutes = s.sleepTimerMinutes,
@@ -84,6 +90,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setAudioQuality(quality: String) {
         viewModelScope.launch { dataStore.setAudioQuality(quality) }
+    }
+
+    fun setBackgroundPlayback(enabled: Boolean) {
+        viewModelScope.launch { dataStore.setBackgroundPlayback(enabled) }
     }
 
     fun clearServerConfig() {

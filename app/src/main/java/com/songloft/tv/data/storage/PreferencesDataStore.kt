@@ -1,6 +1,7 @@
 package com.songloft.tv.data.storage
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -23,6 +24,7 @@ class PreferencesDataStore @Inject constructor(
         private val AUDIO_QUALITY = stringPreferencesKey("audio_quality")
         private val ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
+        private val BACKGROUND_PLAYBACK = booleanPreferencesKey("background_playback")
     }
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
@@ -30,6 +32,7 @@ class PreferencesDataStore @Inject constructor(
     val audioQuality: Flow<String?> = context.dataStore.data.map { it[AUDIO_QUALITY] }
     val accessToken: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN] }
+    val backgroundPlayback: Flow<Boolean> = context.dataStore.data.map { it[BACKGROUND_PLAYBACK] ?: true }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url }
@@ -41,6 +44,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setAudioQuality(quality: String) {
         context.dataStore.edit { it[AUDIO_QUALITY] = quality }
+    }
+
+    suspend fun setBackgroundPlayback(enabled: Boolean) {
+        context.dataStore.edit { it[BACKGROUND_PLAYBACK] = enabled }
     }
 
     suspend fun setTokens(access: String, refresh: String) {

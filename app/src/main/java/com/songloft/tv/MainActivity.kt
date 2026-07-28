@@ -2,8 +2,12 @@ package com.songloft.tv
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Process
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -40,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Surface
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.domain.PlayMode
 import com.songloft.tv.domain.PlayerController
 import com.songloft.tv.ui.config.AuthSetupScreen
@@ -72,6 +77,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var playerController: PlayerController
 
+    @Inject
+    lateinit var preferencesDataStore: PreferencesDataStore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -87,7 +95,7 @@ class MainActivity : ComponentActivity() {
                         onOpenPlayer = {
                             startActivity(Intent(this@MainActivity, PlayerActivity::class.java))
                         },
-                        onExit = { finish() }
+                        onExit = { exitApp() }
                     )
                 }
             }
@@ -97,6 +105,19 @@ class MainActivity : ComponentActivity() {
     private fun openPlayer(songs: List<Song>, index: Int) {
         playerController.play(songs, index)
         startActivity(Intent(this, PlayerActivity::class.java))
+    }
+
+    private fun exitApp() {
+        lifecycleScope.launch {
+            val backgroundPlayback = preferencesDataStore.backgroundPlayback.first()
+            if (backgroundPlayback) {
+                finish()
+            } else {
+                stopService(Intent(this@MainActivity, MusicService::class.java))
+                finishAndRemoveTask()
+                Process.killProcess(Process.myPid())
+            }
+        }
     }
 }
 

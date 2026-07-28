@@ -86,6 +86,15 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        SettingsSection("背景播放（退出应用后继续播放）") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OptionChip("是", uiState.backgroundPlayback) { viewModel.setBackgroundPlayback(true) }
+                OptionChip("否", !uiState.backgroundPlayback) { viewModel.setBackgroundPlayback(false) }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         val sleepSuffix = when {
             uiState.sleepTimerRemaining > 0 -> "（剩余 ${uiState.sleepTimerRemaining} 分钟）"
             uiState.sleepAfterSongsRemaining > 0 -> "（剩余 ${uiState.sleepAfterSongsRemaining} 首）"
