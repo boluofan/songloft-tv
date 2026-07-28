@@ -47,10 +47,14 @@ fun SearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val remoteUrl by viewModel.remoteUrl.collectAsStateWithLifecycle()
-    var showKeyboard by remember { mutableStateOf(true) }
+    var showKeyboard by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     val searchBoxFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
+
+    LaunchedEffect(Unit) {
+        runCatching { searchBoxFocus.requestFocus() }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.remoteSubmitEvents.collect {
