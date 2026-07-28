@@ -116,6 +116,8 @@ class PlayerViewModel @Inject constructor(
 
     fun previousTrack() = playerController.previous()
 
+    fun playAt(index: Int) = playerController.playAt(index)
+
     fun cyclePlayMode() = playerController.cyclePlayMode()
 
     fun switchTrack(track: Track) = playerController.switchTrack(track)

@@ -12,7 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.datastore.preferences.core.intPreferencesKey
+import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.data.storage.dataStore
 import kotlinx.coroutines.flow.map
 
@@ -52,7 +52,7 @@ fun TvTheme(
 ) {
     val context = LocalContext.current
     val themeMode by remember {
-        context.dataStore.data.map { it[intPreferencesKey("theme_mode")] ?: 0 }
+        context.dataStore.data.map { it[PreferencesDataStore.THEME_MODE] ?: 0 }
     }.collectAsState(initial = 0)
 
     val darkTheme = when (themeMode) {

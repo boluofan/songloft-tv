@@ -332,6 +332,7 @@ fun PlayerScreen(
                 queue = uiState.queue,
                 currentIndex = uiState.currentIndex,
                 onClose = { viewModel.toggleQueueDrawer() },
+                onSongClick = { viewModel.playAt(it) },
                 initialFocusRequester = queueDrawerFocus,
                 modifier = Modifier.fillMaxHeight().width(400.dp)
             )

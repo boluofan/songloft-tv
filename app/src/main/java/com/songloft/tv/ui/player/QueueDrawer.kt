@@ -39,6 +39,7 @@ fun QueueDrawer(
     queue: List<Song>,
     currentIndex: Int,
     onClose: () -> Unit,
+    onSongClick: (Int) -> Unit,
     initialFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
@@ -108,7 +109,7 @@ fun QueueDrawer(
                             else Modifier
                         )
                         .onFocusChanged { isFocused = it.isFocused }
-                        .clickable { onClose() }
+                        .clickable { onSongClick(index) }
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

@@ -186,6 +186,13 @@ class PlayerController @Inject constructor(
 
     fun previous() = withController { it.seekToPreviousMediaItem() }
 
+    fun playAt(index: Int) = withController { c ->
+        if (index in 0 until c.mediaItemCount) {
+            c.seekToDefaultPosition(index)
+            c.play()
+        }
+    }
+
     fun seekTo(position: Long) = withController { it.seekTo(position) }
 
     fun setPlayMode(mode: PlayMode) {

@@ -46,7 +46,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 | `getConfig`/`setConfig` | GET/PUT | `config/{key}` | |
 | `health` | GET | `health` | 连通性探测 |
 
-注意：各方法直接返回具体响应类（`SongListResponse` 等），未包裹 `ApiResponse<T>`（该类目前未实际使用）。
+注意：各方法直接返回具体响应类（`SongListResponse` 等），无统一包装类。
 
 ### 2.2 认证机制
 
@@ -122,7 +122,7 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 - **两种模式**：视频（全屏 `VideoPlayer` = PlayerView 绑定 MediaController，多音轨时右上角 TrackChips）；音频（封面 blur(60dp) 毛玻璃背景 + 左封面/右 `LyricsPanel`）。
 - **LyricsPanel**：自动滚动居中；逐字行渲染 KaraokeLine（按 word start/end 进度逐字点亮）；附带翻译行。
 - **ControlBar**：SeekBar + 上一曲/播放暂停/下一曲/播放模式/收藏/队列按钮。
-- **QueueDrawer**：左侧 400dp 抽屉，当前曲高亮，自动滚到当前位置（暂不支持点击跳播）。
+- **QueueDrawer**：左侧 400dp 抽屉，当前曲高亮，自动滚到当前位置，点击条目跳播（`PlayerController.playAt(index)`）。
 
 ## 4. UI 层
 
@@ -161,22 +161,16 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 1. **遥控器手动输入**：三个 InputField（服务器/账号/密码）+ 共享 TvKeyboard，按 activeField 路由按键。
 2. **手机扫码**：`startConfigServer()` 在候选端口 18899-18902 启动 `ConfigWebServer`（NanoHTTPD，`GET /` 返回移动端 HTML 表单、`POST /submit` 接收 server/username/password）；电视端 ZXing 生成 `http://<局域网IP>:<端口>` 二维码；手机提交后回调自动 `normalizeUrl`（补 http:// 前缀）并触发登录，成功后停服。
 
-注：`ConfigScreen.kt`/`ConfigViewModel.kt` 是被 AuthSetupScreen 取代的遗留代码，未被任何入口引用。
-
 ### 4.5 通用组件与主题
 
 - **CoverImage**：`UrlHelper.resolve` + Coil AsyncImage，加载中/失败/无 URL 显示音符占位；Coil 的 OkHttpClient 在 `SongloftTvApp`（ImageLoaderFactory）中挂 AuthInterceptor（封面接口需 JWT）。
 - **FloatingPlayerBar**：右下角迷你条，未聚焦为 96dp 圆形（仅封面），聚焦展开 300dp 露出标题；播放中封面 10s/圈旋转。
 - **TvFocusable / D-Pad 规范**：统一"焦点 = 缩放 1.05-1.1x + primary 边框"模式；`Modifier.tvFocusable()` 是抽象，多数页面内联实现同一模式；无自定义 FocusOrder，依赖 Compose 默认焦点搜索。
-- **主题 TvTheme**：单种子色 `0xFF415F91`，手写 Light/Dark ColorScheme；composable 内直接订阅 DataStore `theme_mode`。
+- **主题 TvTheme**：单种子色 `0xFF415F91`，手写 Light/Dark ColorScheme；composable 内直接订阅 DataStore 的 `PreferencesDataStore.THEME_MODE` key。
 
 ## 5. 已知问题 / 遗留
 
 | 问题 | 位置 |
 |---|---|
-| StateFlow 初始值硬编码了真实服务器地址/账号/明文密码（调试残留，安全隐患） | `ui/config/AuthViewModel.kt` |
-| `ConfigScreen`/`ConfigViewModel` 未被引用，且输入框无法输入 | `ui/config/ConfigScreen.kt` |
-| `ApiResponse<T>` 定义了但未实际使用 | `data/model/ApiResponse.kt` |
-| 播放队列抽屉不支持点击跳播 | `ui/player/QueueDrawer.kt` |
-| 主题 key 在 TvTheme 中为裸字符串 `"theme_mode"`，与 PreferencesDataStore 封装并存，两处需保持一致 | `ui/theme/TvTheme.kt` |
+| StateFlow 初始值硬编码了测试服务器地址/账号/密码（临时测试用，发布前需清理） | `ui/config/AuthViewModel.kt` |
 | 设计稿中的"后台播放开关"、"服务器切换"未实现（后台播放为默认行为） | — |

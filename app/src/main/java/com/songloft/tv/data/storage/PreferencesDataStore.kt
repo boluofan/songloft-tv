@@ -19,7 +19,7 @@ class PreferencesDataStore @Inject constructor(
 ) {
     companion object {
         private val SERVER_URL = stringPreferencesKey("server_url")
-        private val THEME_MODE = intPreferencesKey("theme_mode")
+        val THEME_MODE = intPreferencesKey("theme_mode")
         private val AUDIO_QUALITY = stringPreferencesKey("audio_quality")
         private val ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
