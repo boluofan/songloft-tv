@@ -57,7 +57,6 @@ private const val SEEK_STEP_MS = 10_000L
 private fun SeekBar(
     progress: Float,
     onSeekBy: (Long) -> Unit,
-    focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -66,9 +65,6 @@ private fun SeekBar(
         modifier = modifier
             .height(20.dp)
             .padding(horizontal = 12.dp)
-            .then(
-                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
-            )
             .onFocusChanged { isFocused = it.isFocused }
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -152,7 +148,6 @@ fun ControlBar(
                         .coerceIn(0L, uiState.duration.coerceAtLeast(0L))
                     onSeek(target)
                 },
-                focusRequester = playPauseFocusRequester,
                 modifier = Modifier.weight(1f)
             )
 
@@ -176,7 +171,8 @@ fun ControlBar(
                 playIcon,
                 if (uiState.isPlaying) "暂停" else "播放",
                 onPlayPause,
-                isLarge = true
+                isLarge = true,
+                focusRequester = playPauseFocusRequester
             )
             TransportButton(Icons.Rounded.SkipNext, "下一曲", onNext)
             val modeIcon = when (uiState.playMode) {
