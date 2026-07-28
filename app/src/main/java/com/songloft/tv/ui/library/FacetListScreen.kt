@@ -29,6 +29,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
+import com.songloft.tv.ui.navigation.RestoreFocusEffect
+import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
+import com.songloft.tv.ui.navigation.restorableFocus
 
 @Composable
 fun FacetListScreen(
@@ -42,10 +45,14 @@ fun FacetListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    val restorer = rememberScreenFocusRestorer()
 
     ListBackToTopHandler(listState, topFocus)
+    RestoreFocusEffect(restorer)
 
-    LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
+    LaunchedEffect(Unit) {
+        if (restorer.pendingKey == null) runCatching { topFocus.requestFocus() }
+    }
 
     val title = when (field) {
         "artist" -> "全部歌手"
@@ -100,8 +107,13 @@ fun FacetListScreen(
                         row.forEach { item ->
                             FacetCard(
                                 item = item,
-                                onClick = { onItemClick(item.value) },
-                                modifier = Modifier.weight(1f)
+                                onClick = {
+                                    restorer.record("facet:${item.value}")
+                                    onItemClick(item.value)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .restorableFocus(restorer, "facet:${item.value}")
                             )
                         }
                         repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }

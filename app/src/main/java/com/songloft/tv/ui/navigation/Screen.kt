@@ -14,3 +14,12 @@ sealed class Screen(val route: String, val label: String) {
         val all = listOf<Screen>(Home, Search, Playlists, My)
     }
 }
+
+/** SaveableStateHolder 用的唯一状态键 */
+val Screen.stateKey: String
+    get() = when (this) {
+        is Screen.PlaylistDetail -> "$route:$playlistId"
+        is Screen.SongFilter -> "$route:$field:$value"
+        is Screen.FacetList -> "$route:$field"
+        else -> route
+    }

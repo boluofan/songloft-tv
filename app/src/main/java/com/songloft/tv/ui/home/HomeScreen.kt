@@ -49,6 +49,10 @@ import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
+import com.songloft.tv.ui.navigation.RestoreFocusEffect
+import com.songloft.tv.ui.navigation.ScreenFocusRestorer
+import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
+import com.songloft.tv.ui.navigation.restorableFocus
 
 @Composable
 fun HomeScreen(
@@ -63,8 +67,10 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    val restorer = rememberScreenFocusRestorer()
 
     ListBackToTopHandler(listState, topFocus, topFocusInList = true)
+    RestoreFocusEffect(restorer)
 
     LazyColumn(
         state = listState,
@@ -90,9 +96,16 @@ fun HomeScreen(
         item {
             PlaylistSection(
                 playlists = uiState.playlists,
-                onPlaylistClick = onPlaylistClick,
-                onManagePlaylists = onManagePlaylists,
-                manageFocusRequester = topFocus
+                onPlaylistClick = { id ->
+                    restorer.record("playlist:$id")
+                    onPlaylistClick(id)
+                },
+                onManagePlaylists = {
+                    restorer.record("manage_playlists")
+                    onManagePlaylists()
+                },
+                manageFocusRequester = topFocus,
+                restorer = restorer
             )
         }
 
@@ -100,17 +113,34 @@ fun HomeScreen(
             ArtistsAlbumsRow(
                 artists = uiState.topArtists,
                 albums = uiState.topAlbums,
-                onArtistClick = onArtistClick,
-                onAlbumClick = onAlbumClick,
-                onViewAll = onViewAll
+                onArtistClick = { artist ->
+                    restorer.record("artist:$artist")
+                    onArtistClick(artist)
+                },
+                onAlbumClick = { album ->
+                    restorer.record("album:$album")
+                    onAlbumClick(album)
+                },
+                onViewAll = { field ->
+                    restorer.record("viewall:$field")
+                    onViewAll(field)
+                },
+                restorer = restorer
             )
         }
 
         item {
             YearSection(
                 years = uiState.topYears,
-                onYearClick = onYearClick,
-                onViewAllYears = { onViewAll("year") }
+                onYearClick = { year ->
+                    restorer.record("year:$year")
+                    onYearClick(year)
+                },
+                onViewAllYears = {
+                    restorer.record("viewall:year")
+                    onViewAll("year")
+                },
+                restorer = restorer
             )
         }
     }
@@ -159,6 +189,7 @@ private fun PlaylistSection(
     playlists: List<Playlist>,
     onPlaylistClick: (Long) -> Unit,
     onManagePlaylists: () -> Unit,
+    restorer: ScreenFocusRestorer,
     manageFocusRequester: FocusRequester? = null
 ) {
     Column {
@@ -176,7 +207,8 @@ private fun PlaylistSection(
             SectionLink(
                 text = "管理歌单",
                 onClick = onManagePlaylists,
-                focusRequester = manageFocusRequester
+                focusRequester = manageFocusRequester,
+                modifier = Modifier.restorableFocus(restorer, "manage_playlists")
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -200,7 +232,9 @@ private fun PlaylistSection(
                             PlaylistCard(
                                 playlist = playlist,
                                 onClick = { onPlaylistClick(playlist.id) },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .restorableFocus(restorer, "playlist:${playlist.id}")
                             )
                         }
                         repeat(4 - row.size) {
@@ -284,7 +318,8 @@ private fun ArtistsAlbumsRow(
     albums: List<FacetItem>,
     onArtistClick: (String) -> Unit,
     onAlbumClick: (String) -> Unit,
-    onViewAll: (String) -> Unit
+    onViewAll: (String) -> Unit,
+    restorer: ScreenFocusRestorer
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -293,6 +328,8 @@ private fun ArtistsAlbumsRow(
         CategoryColumn(
             title = "主要歌手",
             items = artists,
+            keyPrefix = "artist",
+            restorer = restorer,
             onClick = onArtistClick,
             onViewAll = { onViewAll("artist") },
             modifier = Modifier.weight(1f)
@@ -300,6 +337,8 @@ private fun ArtistsAlbumsRow(
         CategoryColumn(
             title = "主要专辑",
             items = albums,
+            keyPrefix = "album",
+            restorer = restorer,
             onClick = onAlbumClick,
             onViewAll = { onViewAll("album") },
             modifier = Modifier.weight(1f)
@@ -311,6 +350,8 @@ private fun ArtistsAlbumsRow(
 private fun CategoryColumn(
     title: String,
     items: List<FacetItem>,
+    keyPrefix: String,
+    restorer: ScreenFocusRestorer,
     onClick: (String) -> Unit,
     onViewAll: () -> Unit,
     modifier: Modifier = Modifier
@@ -327,7 +368,11 @@ private fun CategoryColumn(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SectionLink(text = "查看全部", onClick = onViewAll)
+            SectionLink(
+                text = "查看全部",
+                onClick = onViewAll,
+                modifier = Modifier.restorableFocus(restorer, "viewall:$keyPrefix")
+            )
         }
         Spacer(Modifier.height(12.dp))
 
@@ -335,7 +380,8 @@ private fun CategoryColumn(
             items.forEach { item ->
                 CategoryCard(
                     item = item,
-                    onClick = { onClick(item.value) }
+                    onClick = { onClick(item.value) },
+                    modifier = Modifier.restorableFocus(restorer, "$keyPrefix:${item.value}")
                 )
             }
         }
@@ -345,7 +391,8 @@ private fun CategoryColumn(
 @Composable
 private fun CategoryCard(
     item: FacetItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -355,7 +402,7 @@ private fun CategoryCard(
     )
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .scale(scale)
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
@@ -411,7 +458,8 @@ private fun CategoryCard(
 private fun YearSection(
     years: List<FacetItem>,
     onYearClick: (Int) -> Unit,
-    onViewAllYears: () -> Unit
+    onViewAllYears: () -> Unit,
+    restorer: ScreenFocusRestorer
 ) {
     Column {
         Row(
@@ -425,7 +473,11 @@ private fun YearSection(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SectionLink(text = "查看全部", onClick = onViewAllYears)
+            SectionLink(
+                text = "查看全部",
+                onClick = onViewAllYears,
+                modifier = Modifier.restorableFocus(restorer, "viewall:year")
+            )
         }
         Spacer(Modifier.height(12.dp))
 
@@ -443,7 +495,8 @@ private fun YearSection(
                         year = year,
                         onClick = {
                             year.value.toIntOrNull()?.let { onYearClick(it) }
-                        }
+                        },
+                        modifier = Modifier.restorableFocus(restorer, "year:${year.value}")
                     )
                 }
             }
@@ -454,7 +507,8 @@ private fun YearSection(
 @Composable
 private fun YearCard(
     year: FacetItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -464,7 +518,7 @@ private fun YearCard(
     )
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .background(
@@ -500,7 +554,8 @@ private fun YearCard(
 private fun SectionLink(
     text: String,
     onClick: () -> Unit,
-    focusRequester: FocusRequester? = null
+    focusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
@@ -509,7 +564,7 @@ private fun SectionLink(
         fontSize = 14.sp,
         fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
         color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(
                 if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent

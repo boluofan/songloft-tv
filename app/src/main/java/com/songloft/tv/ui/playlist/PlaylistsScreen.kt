@@ -28,6 +28,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
+import com.songloft.tv.ui.navigation.RestoreFocusEffect
+import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
+import com.songloft.tv.ui.navigation.restorableFocus
 
 @Composable
 fun PlaylistsScreen(
@@ -37,8 +40,10 @@ fun PlaylistsScreen(
     val uiState by viewModel.listState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    val restorer = rememberScreenFocusRestorer()
 
     ListBackToTopHandler(listState, topFocus)
+    RestoreFocusEffect(restorer)
 
     Column(
         modifier = Modifier
@@ -95,8 +100,13 @@ fun PlaylistsScreen(
                             rows[rowIndex].forEach { playlist ->
                                 PlaylistGridCard(
                                     playlist = playlist,
-                                    onClick = { onPlaylistClick(playlist.id) },
-                                    modifier = Modifier.weight(1f)
+                                    onClick = {
+                                        restorer.record("playlist:${playlist.id}")
+                                        onPlaylistClick(playlist.id)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .restorableFocus(restorer, "playlist:${playlist.id}")
                                 )
                             }
                             repeat(4 - rows[rowIndex].size) {

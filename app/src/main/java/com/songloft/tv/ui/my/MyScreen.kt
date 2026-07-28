@@ -31,6 +31,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
+import com.songloft.tv.ui.navigation.RestoreFocusEffect
+import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
+import com.songloft.tv.ui.navigation.restorableFocus
 
 @Composable
 fun MyScreen(
@@ -41,8 +44,10 @@ fun MyScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    val restorer = rememberScreenFocusRestorer()
 
     ListBackToTopHandler(listState, topFocus)
+    RestoreFocusEffect(restorer)
 
     Column(
         modifier = Modifier
@@ -60,7 +65,13 @@ fun MyScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SettingsButton(onClick = onNavigateToSettings)
+            SettingsButton(
+                onClick = {
+                    restorer.record("settings")
+                    onNavigateToSettings()
+                },
+                modifier = Modifier.restorableFocus(restorer, "settings")
+            )
         }
 
         Spacer(Modifier.height(24.dp))
@@ -209,7 +220,7 @@ private fun FavoriteSongItem(song: Song, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SettingsButton(onClick: () -> Unit) {
+private fun SettingsButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.1f else 1.0f,
@@ -219,7 +230,7 @@ private fun SettingsButton(onClick: () -> Unit) {
 
     val color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
     Row(
-        modifier = Modifier
+        modifier = modifier
             .scale(scale)
             .clip(RoundedCornerShape(8.dp))
             .background(
