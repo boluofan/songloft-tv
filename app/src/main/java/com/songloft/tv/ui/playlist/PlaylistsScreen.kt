@@ -42,8 +42,9 @@ fun PlaylistsScreen(
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
+    var topFocusHasFocus by remember { mutableStateOf(false) }
 
-    ListBackToTopHandler(listState, topFocus)
+    ListBackToTopHandler(listState, topFocus, topFocusHasFocus = topFocusHasFocus)
     RestoreFocusEffect(restorer)
     DefaultFocusEffect(restorer, topFocus)
 
@@ -64,7 +65,7 @@ fun PlaylistsScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilterChip("全部", uiState.selectedType == null, focusRequester = topFocus) { viewModel.loadPlaylists() }
+                FilterChip("全部", uiState.selectedType == null, focusRequester = topFocus, onFocusChanged = { topFocusHasFocus = it }) { viewModel.loadPlaylists() }
                 FilterChip("普通", uiState.selectedType == "normal") { viewModel.loadPlaylists("normal") }
                 FilterChip("电台", uiState.selectedType == "radio") { viewModel.loadPlaylists("radio") }
             }
@@ -127,6 +128,7 @@ private fun FilterChip(
     label: String,
     isSelected: Boolean,
     focusRequester: FocusRequester? = null,
+    onFocusChanged: ((Boolean) -> Unit)? = null,
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -152,7 +154,10 @@ private fun FilterChip(
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged?.invoke(it.isFocused)
+            }
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp)
     )

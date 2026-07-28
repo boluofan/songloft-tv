@@ -47,8 +47,9 @@ fun MyScreen(
     val topFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
+    var topFocusHasFocus by remember { mutableStateOf(false) }
 
-    ListBackToTopHandler(listState, topFocus)
+    ListBackToTopHandler(listState, topFocus, topFocusHasFocus = topFocusHasFocus)
     RestoreFocusEffect(restorer)
     DefaultFocusEffect(restorer, settingsFocus)
 
@@ -82,7 +83,7 @@ fun MyScreen(
         Spacer(Modifier.height(24.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TabChip("收藏歌曲", uiState.selectedTab == 0, focusRequester = topFocus) { viewModel.selectTab(0) }
+            TabChip("收藏歌曲", uiState.selectedTab == 0, focusRequester = topFocus, onFocusChanged = { topFocusHasFocus = it }) { viewModel.selectTab(0) }
             TabChip("收藏电台", uiState.selectedTab == 1) { viewModel.selectTab(1) }
         }
 
@@ -135,6 +136,7 @@ private fun TabChip(
     label: String,
     isSelected: Boolean,
     focusRequester: FocusRequester? = null,
+    onFocusChanged: ((Boolean) -> Unit)? = null,
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -160,7 +162,10 @@ private fun TabChip(
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged?.invoke(it.isFocused)
+            }
             .clickable { onClick() }
             .padding(horizontal = 20.dp, vertical = 10.dp)
     )

@@ -50,6 +50,7 @@ fun SearchScreen(
     var showKeyboard by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     val searchBoxFocus = remember { FocusRequester() }
+    var searchFocused by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
@@ -72,7 +73,12 @@ fun SearchScreen(
         runCatching { searchBoxFocus.requestFocus() }
     }
 
-    ListBackToTopHandler(listState, topFocus = searchBoxFocus, enabled = !showKeyboard)
+    ListBackToTopHandler(
+        listState,
+        topFocus = searchBoxFocus,
+        topFocusHasFocus = searchFocused,
+        enabled = !showKeyboard
+    )
 
     Column(
         modifier = Modifier
@@ -92,7 +98,6 @@ fun SearchScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            var searchFocused by remember { mutableStateOf(false) }
             Row(
                 modifier = Modifier
                     .weight(1f)
