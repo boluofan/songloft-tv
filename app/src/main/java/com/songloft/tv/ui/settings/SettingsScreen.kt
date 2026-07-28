@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
@@ -151,6 +153,20 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        var showHelpDialog by remember { mutableStateOf(false) }
+        SettingsSection("帮助") {
+            SettingsItem(
+                label = "操作说明",
+                value = "遥控器返回键与焦点操作说明",
+                onClick = { showHelpDialog = true }
+            )
+        }
+        if (showHelpDialog) {
+            HelpDialog(onDismiss = { showHelpDialog = false })
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         SettingsSection("关于") {
             val context = LocalContext.current
             val versionName = remember {
@@ -205,6 +221,129 @@ fun SettingsScreen(
                 .clickable { onLogout() }
                 .padding(12.dp)
         )
+    }
+}
+
+@Composable
+private fun HelpDialog(onDismiss: () -> Unit) {
+    val closeFocus = remember { FocusRequester() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 36.dp, vertical = 28.dp)
+        ) {
+            Text(
+                text = "操作说明",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    HelpBlock(
+                        title = "首页",
+                        lines = listOf(
+                            "列表已滚动时按返回键：快速回到顶部并聚焦顶部按钮",
+                            "已在顶部时按返回键：焦点跳到底部 Tab 栏",
+                            "焦点在底部 Tab 栏时按返回键：弹出退出应用确认"
+                        )
+                    )
+                    HelpBlock(
+                        title = "其他一级界面（搜索 / 歌单 / 我的）",
+                        lines = listOf(
+                            "列表已滚动时按返回键：快速回到顶部并聚焦顶部按钮",
+                            "在顶部但焦点不在顶部按钮时按返回键：焦点跳到顶部按钮",
+                            "焦点已在顶部按钮或底部 Tab 栏时按返回键：回到首页",
+                            "回到首页后继续按返回键：弹出退出应用确认"
+                        )
+                    )
+                    HelpBlock(
+                        title = "二级界面（歌单详情 / 筛选歌曲 / 设置等）",
+                        lines = listOf(
+                            "进入时焦点默认在左上角【返回】按钮，直接按返回键即回上一级",
+                            "列表已滚动时按返回键：先回到顶部并聚焦【返回】按钮",
+                            "在顶部但焦点不在【返回】按钮时按返回键：焦点跳到【返回】按钮",
+                            "焦点已在【返回】按钮时按返回键：直接回上一级",
+                            "焦点在底部 Tab 栏时按返回键：直接回上一级"
+                        )
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    HelpBlock(
+                        title = "播放器",
+                        lines = listOf(
+                            "控制栏隐藏时：左/右键单击切上一首/下一首，长按快退/快进",
+                            "控制栏隐藏时：按上/下/确认键唤出控制栏",
+                            "控制栏 10 秒无操作自动隐藏",
+                            "播放列表侧边栏打开时按返回键：关闭侧边栏",
+                            "其余情况按返回键：退出播放器（音乐可后台继续播放）"
+                        )
+                    )
+                    HelpBlock(
+                        title = "快速聚焦技巧",
+                        lines = listOf(
+                            "长列表中任意位置按返回键 = 一键回顶，无需长按方向键",
+                            "首页在顶部时按返回键：焦点直达底部 Tab 栏",
+                            "任意界面连按返回键最终都会回到首页，再按弹出退出确认"
+                        )
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            var closeFocused by remember { mutableStateOf(false) }
+            Text(
+                text = "我知道了",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (closeFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (closeFocused) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    )
+                    .focusRequester(closeFocus)
+                    .onFocusChanged { closeFocused = it.isFocused }
+                    .clickable { onDismiss() }
+                    .padding(horizontal = 28.dp, vertical = 10.dp)
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) { runCatching { closeFocus.requestFocus() } }
+}
+
+@Composable
+private fun HelpBlock(title: String, lines: List<String>) {
+    Column {
+        Text(
+            text = title,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.height(6.dp))
+        lines.forEach { line ->
+            Text(
+                text = "· $line",
+                fontSize = 13.sp,
+                lineHeight = 20.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+            )
+        }
     }
 }
 
