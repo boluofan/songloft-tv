@@ -9,6 +9,7 @@ data class Song(
     val artist: String?,
     val album: String?,
     val duration: Double,
+    val url: String? = null,
     @SerializedName("cover_url") val coverUrl: String?,
     @SerializedName("is_video") val isVideo: Boolean = false,
     @SerializedName("file_size") val fileSize: Long = 0L,

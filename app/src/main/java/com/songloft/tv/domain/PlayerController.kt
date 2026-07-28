@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
@@ -332,11 +333,14 @@ class PlayerController @Inject constructor(
     }
 
     private fun buildMediaItem(song: Song, track: Track? = null): MediaItem {
+        val radioUrl = if (song.type == "radio") UrlHelper.resolve(song.url) else null
         val uri = UrlHelper.resolve(track?.url)
+            ?: radioUrl
             ?: UrlHelper.songPlayUrl(song.id, quality = audioQuality, track = track?.id)
         return MediaItem.Builder()
             .setMediaId(song.id.toString())
             .setUri(uri)
+            .apply { if (uri.endsWith(".m3u8")) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(song.title)
