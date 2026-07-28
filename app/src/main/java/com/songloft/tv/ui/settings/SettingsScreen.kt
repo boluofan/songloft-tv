@@ -6,12 +6,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -28,6 +33,9 @@ fun SettingsScreen(
     onLogout: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val topFocus = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
 
     Column(
         modifier = Modifier
@@ -35,12 +43,16 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
-        Text(
-            text = "设置",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BackButton(onBack, focusRequester = topFocus)
+            Spacer(Modifier.width(16.dp))
+            Text(
+                text = "设置",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
 
         Spacer(Modifier.height(24.dp))
 
@@ -208,17 +220,45 @@ private fun SettingsItem(
 }
 
 @Composable
-private fun ThemeOption(label: String, mode: Int, currentMode: Int, onClick: () -> Unit) {
-    OptionChip(label, mode == currentMode, onClick)
+private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+    var isFocused by remember { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                if (isFocused) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = "返回",
+            tint = if (isFocused) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+@Composable
+private fun ThemeOption(label: String, mode: Int, currentMode: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OptionChip(label, mode == currentMode, modifier, onClick)
 }
 
 @Composable
 private fun QualityOption(label: String, value: String, currentValue: String, onClick: () -> Unit) {
-    OptionChip(label, value == currentValue, onClick)
+    OptionChip(label, value == currentValue, Modifier, onClick)
 }
 
 @Composable
-private fun OptionChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
+private fun OptionChip(label: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
 
     Text(
@@ -230,7 +270,7 @@ private fun OptionChip(label: String, isSelected: Boolean, onClick: () -> Unit) 
             isFocused -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurface
         },
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(
                 when {

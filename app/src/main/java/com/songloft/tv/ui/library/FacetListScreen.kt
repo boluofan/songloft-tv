@@ -45,6 +45,8 @@ fun FacetListScreen(
 
     ListBackToTopHandler(listState, topFocus)
 
+    LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
+
     val title = when (field) {
         "artist" -> "全部歌手"
         "album" -> "全部专辑"

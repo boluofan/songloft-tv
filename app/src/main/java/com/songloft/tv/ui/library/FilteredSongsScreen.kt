@@ -46,6 +46,8 @@ fun FilteredSongsScreen(
 
     ListBackToTopHandler(listState, topFocus)
 
+    LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

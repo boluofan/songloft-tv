@@ -50,6 +50,8 @@ fun PlaylistDetailScreen(
 
     ListBackToTopHandler(listState, topFocus)
 
+    LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
+
     LaunchedEffect(playlistId) {
         viewModel.loadPlaylistDetail(playlistId)
     }
