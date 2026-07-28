@@ -88,33 +88,38 @@ fun SearchScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        var searchFocused by remember { mutableStateOf(false) }
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    if (searchFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-                .then(
-                    if (searchFocused) Modifier.border(
-                        2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
-                    ) else Modifier
-                )
-                .focusRequester(searchBoxFocus)
-                .onFocusChanged { searchFocused = it.isFocused }
-                .clickable { showKeyboard = !showKeyboard }
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = if (uiState.query.isEmpty()) "点击搜索歌曲..." else uiState.query,
-                fontSize = 20.sp,
-                color = if (uiState.query.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
+            var searchFocused by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (searchFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                    .then(
+                        if (searchFocused) Modifier.border(
+                            2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
+                        ) else Modifier
+                    )
+                    .focusRequester(searchBoxFocus)
+                    .onFocusChanged { searchFocused = it.isFocused }
+                    .clickable { showKeyboard = !showKeyboard }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (uiState.query.isEmpty()) "点击搜索歌曲..." else uiState.query,
+                    fontSize = 20.sp,
+                    color = if (uiState.query.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             if (uiState.query.isNotEmpty()) {
                 var clearFocused by remember { mutableStateOf(false) }
                 Icon(
@@ -123,14 +128,15 @@ fun SearchScreen(
                     tint = if (clearFocused) MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier
-                        .padding(start = 8.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .padding(start = 12.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(
-                            if (clearFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+                            if (clearFocused) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         )
                         .onFocusChanged { clearFocused = it.isFocused }
                         .clickable { viewModel.clearSearch() }
-                        .padding(horizontal = 6.dp)
+                        .padding(horizontal = 10.dp, vertical = 14.dp)
                 )
             }
             var qrFocused by remember { mutableStateOf(false) }
@@ -140,17 +146,18 @@ fun SearchScreen(
                 tint = if (qrFocused) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier
-                    .padding(start = 8.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .padding(start = 12.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(
-                        if (qrFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+                        if (qrFocused) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     )
                     .onFocusChanged { qrFocused = it.isFocused }
                     .clickable {
                         viewModel.startRemoteInput()
                         showQrDialog = true
                     }
-                    .padding(horizontal = 6.dp)
+                    .padding(horizontal = 10.dp, vertical = 14.dp)
             )
         }
 
