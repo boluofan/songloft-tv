@@ -1,6 +1,7 @@
 package com.songloft.tv.ui.search
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.QrCode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,13 +27,17 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.components.generateQrBitmap
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
@@ -40,9 +46,22 @@ fun SearchScreen(
     onSongClick: (List<Song>, Int) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val remoteUrl by viewModel.remoteUrl.collectAsStateWithLifecycle()
     var showKeyboard by remember { mutableStateOf(true) }
+    var showQrDialog by remember { mutableStateOf(false) }
     val searchBoxFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
+
+    LaunchedEffect(Unit) {
+        viewModel.remoteSubmitEvents.collect {
+            showQrDialog = false
+            showKeyboard = false
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { viewModel.stopRemoteInput() }
+    }
 
     BackHandler(enabled = showKeyboard) {
         showKeyboard = false
@@ -110,6 +129,25 @@ fun SearchScreen(
                         .padding(horizontal = 6.dp)
                 )
             }
+            var qrFocused by remember { mutableStateOf(false) }
+            Icon(
+                imageVector = Icons.Rounded.QrCode,
+                contentDescription = "扫码搜索",
+                tint = if (qrFocused) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        if (qrFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                    .onFocusChanged { qrFocused = it.isFocused }
+                    .clickable {
+                        viewModel.startRemoteInput()
+                        showQrDialog = true
+                    }
+                    .padding(horizontal = 6.dp)
+            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -192,6 +230,66 @@ fun SearchScreen(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
                 }
+            }
+        }
+    }
+
+    if (showQrDialog) {
+        SearchQrDialog(url = remoteUrl, onDismiss = { showQrDialog = false })
+    }
+}
+
+@Composable
+private fun SearchQrDialog(url: String?, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (url == null) {
+                Text(
+                    text = "未获取到局域网地址\n请检查电视网络连接",
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            } else {
+                val qrBitmap = remember(url) { generateQrBitmap(url) }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White)
+                        .padding(12.dp)
+                ) {
+                    Image(
+                        bitmap = qrBitmap.asImageBitmap(),
+                        contentDescription = "扫码搜索",
+                        modifier = Modifier.size(200.dp)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "手机扫码搜索",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "同一局域网内扫码，在手机上输入\n关键字远程搜索，可反复提交",
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = url,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                )
             }
         }
     }

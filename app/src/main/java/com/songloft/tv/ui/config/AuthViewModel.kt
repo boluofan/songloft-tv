@@ -62,14 +62,14 @@ class AuthViewModel @Inject constructor(
         if (configServer != null) return
         val ip = ConfigWebServer.localIpAddress() ?: return
         for (port in CONFIG_PORTS) {
-            val server = ConfigWebServer(port) { serverUrl, username, password ->
+            val server = ConfigWebServer(port, onConfig = { serverUrl, username, password ->
                 viewModelScope.launch {
                     _serverUrl.value = normalizeUrl(serverUrl)
                     _username.value = username
                     _password.value = password
                     login()
                 }
-            }
+            })
             if (runCatching { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }.isSuccess) {
                 configServer = server
                 _configUrl.value = "http://$ip:$port"
