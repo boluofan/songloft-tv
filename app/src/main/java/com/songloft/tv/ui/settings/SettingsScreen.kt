@@ -1,5 +1,6 @@
 package com.songloft.tv.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.songloft.tv.ui.navigation.LocalTabBarBridge
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -34,17 +37,38 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val topFocus = remember { FocusRequester() }
+    val scrollState = rememberScrollState()
+    var backButtonHasFocus by remember { mutableStateOf(false) }
+    val bridge = LocalTabBarBridge.current
+    val scope = rememberCoroutineScope()
+
+    BackHandler(
+        enabled = bridge?.hasFocus != true
+    ) {
+        if (scrollState.value > 0) {
+            scope.launch {
+                runCatching { topFocus.requestFocus() }
+                scrollState.animateScrollTo(0)
+            }
+        } else if (!backButtonHasFocus) {
+            scope.launch {
+                runCatching { topFocus.requestFocus() }
+            }
+        } else {
+            bridge?.focusTabBar()
+        }
+    }
 
     LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BackButton(onBack, focusRequester = topFocus)
+            BackButton(onBack, focusRequester = topFocus, onFocusChanged = { backButtonHasFocus = it })
             Spacer(Modifier.width(16.dp))
             Text(
                 text = "设置",
@@ -229,7 +253,7 @@ private fun SettingsItem(
 }
 
 @Composable
-private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {
     var isFocused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
@@ -242,7 +266,10 @@ private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = nu
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged?.invoke(it.isFocused)
+            }
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {

@@ -43,8 +43,9 @@ fun FilteredSongsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    var backButtonHasFocus by remember { mutableStateOf(false) }
 
-    ListBackToTopHandler(listState, topFocus)
+    ListBackToTopHandler(listState, topFocus, topFocusHasFocus = backButtonHasFocus)
 
     LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
 
@@ -54,7 +55,7 @@ fun FilteredSongsScreen(
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BackButton(onBack, focusRequester = topFocus)
+            BackButton(onBack, focusRequester = topFocus, onFocusChanged = { backButtonHasFocus = it })
             Spacer(Modifier.width(16.dp))
             Text(
                 text = uiState.title,
@@ -100,7 +101,7 @@ fun FilteredSongsScreen(
 }
 
 @Composable
-private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {
     var isFocused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
@@ -113,7 +114,10 @@ private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = nu
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged?.invoke(it.isFocused)
+            }
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {

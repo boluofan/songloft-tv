@@ -47,8 +47,9 @@ fun PlaylistDetailScreen(
     val uiState by viewModel.detailState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    var backButtonHasFocus by remember { mutableStateOf(false) }
 
-    ListBackToTopHandler(listState, topFocus)
+    ListBackToTopHandler(listState, topFocus, topFocusHasFocus = backButtonHasFocus)
 
     LaunchedEffect(Unit) { runCatching { topFocus.requestFocus() } }
 
@@ -69,7 +70,7 @@ fun PlaylistDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            BackButton(onBack, focusRequester = topFocus)
+            BackButton(onBack, focusRequester = topFocus, onFocusChanged = { backButtonHasFocus = it })
         }
 
         Spacer(Modifier.height(16.dp))
@@ -163,7 +164,7 @@ fun PlaylistDetailScreen(
 }
 
 @Composable
-private fun BackButton(onBack: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun BackButton(onBack: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.05f else 1.0f,
@@ -182,7 +183,10 @@ private fun BackButton(onBack: () -> Unit, focusRequester: FocusRequester? = nul
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged?.invoke(it.isFocused)
+            }
             .clickable { onBack() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -33,6 +33,7 @@ val LocalTabBarBridge = compositionLocalOf<TabBarBridge?> { null }
 fun ListBackToTopHandler(
     listState: LazyListState,
     topFocus: FocusRequester? = null,
+    topFocusHasFocus: Boolean = false,
     topFocusInList: Boolean = false,
     enabled: Boolean = true
 ) {
@@ -55,6 +56,11 @@ fun ListBackToTopHandler(
                     topFocus?.let { runCatching { it.requestFocus() } }
                     listState.scrollToItem(0)
                 }
+            }
+        } else if (topFocus != null && !topFocusHasFocus && !topFocusInList) {
+            // 列表在顶部但返回按钮尚未聚焦：先聚焦返回按钮，不跳转 Tab 栏
+            scope.launch {
+                topFocus?.let { runCatching { it.requestFocus() } }
             }
         } else {
             bridge?.focusTabBar()
