@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -21,6 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +34,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
 fun PlaylistDetailScreen(
@@ -41,6 +45,10 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.detailState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val topFocus = remember { FocusRequester() }
+
+    ListBackToTopHandler(listState, topFocus)
 
     LaunchedEffect(playlistId) {
         viewModel.loadPlaylistDetail(playlistId)
@@ -59,7 +67,7 @@ fun PlaylistDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            BackButton(onBack)
+            BackButton(onBack, focusRequester = topFocus)
         }
 
         Spacer(Modifier.height(16.dp))
@@ -136,6 +144,7 @@ fun PlaylistDetailScreen(
                     Spacer(Modifier.height(20.dp))
 
                     LazyColumn(
+                        state = listState,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(uiState.songs) { index, song ->
@@ -152,7 +161,7 @@ fun PlaylistDetailScreen(
 }
 
 @Composable
-private fun BackButton(onBack: () -> Unit) {
+private fun BackButton(onBack: () -> Unit, focusRequester: FocusRequester? = null) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.05f else 1.0f,
@@ -167,6 +176,9 @@ private fun BackButton(onBack: () -> Unit) {
             .background(
                 if (isFocused) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            )
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onBack() }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
 fun SearchScreen(
@@ -40,11 +42,14 @@ fun SearchScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showKeyboard by remember { mutableStateOf(true) }
     val searchBoxFocus = remember { FocusRequester() }
+    val listState = rememberLazyListState()
 
     BackHandler(enabled = showKeyboard) {
         showKeyboard = false
         runCatching { searchBoxFocus.requestFocus() }
     }
+
+    ListBackToTopHandler(listState, topFocus = searchBoxFocus, enabled = !showKeyboard)
 
     Column(
         modifier = Modifier
@@ -152,6 +157,7 @@ fun SearchScreen(
             )
 
             LazyColumn(
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 itemsIndexed(uiState.results) { index, song ->

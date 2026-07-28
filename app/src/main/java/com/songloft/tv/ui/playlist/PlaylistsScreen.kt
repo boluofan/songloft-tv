@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.Playlist
+import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
 fun PlaylistsScreen(
@@ -31,6 +35,10 @@ fun PlaylistsScreen(
     onPlaylistClick: (Long) -> Unit = {}
 ) {
     val uiState by viewModel.listState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val topFocus = remember { FocusRequester() }
+
+    ListBackToTopHandler(listState, topFocus)
 
     Column(
         modifier = Modifier
@@ -49,7 +57,7 @@ fun PlaylistsScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilterChip("全部", uiState.selectedType == null) { viewModel.loadPlaylists() }
+                FilterChip("全部", uiState.selectedType == null, focusRequester = topFocus) { viewModel.loadPlaylists() }
                 FilterChip("普通", uiState.selectedType == "normal") { viewModel.loadPlaylists("normal") }
                 FilterChip("电台", uiState.selectedType == "radio") { viewModel.loadPlaylists("radio") }
             }
@@ -75,6 +83,7 @@ fun PlaylistsScreen(
             }
             else -> {
                 LazyColumn(
+                    state = listState,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     val rows = uiState.playlists.chunked(4)
@@ -105,6 +114,7 @@ fun PlaylistsScreen(
 private fun FilterChip(
     label: String,
     isSelected: Boolean,
+    focusRequester: FocusRequester? = null,
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -126,6 +136,9 @@ private fun FilterChip(
                     isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
+            )
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }

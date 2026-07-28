@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -16,6 +17,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.ui.components.CoverImage
+import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
 fun FacetListScreen(
@@ -36,6 +40,10 @@ fun FacetListScreen(
     LaunchedEffect(field) { viewModel.load(field) }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val topFocus = remember { FocusRequester() }
+
+    ListBackToTopHandler(listState, topFocus)
 
     val title = when (field) {
         "artist" -> "全部歌手"
@@ -50,7 +58,7 @@ fun FacetListScreen(
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BackButton(onBack)
+            BackButton(onBack, focusRequester = topFocus)
             Spacer(Modifier.width(16.dp))
             Text(
                 text = title,
@@ -80,7 +88,7 @@ fun FacetListScreen(
             uiState.items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("暂无数据", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             }
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            else -> LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val rows = uiState.items.chunked(3)
                 items(rows) { row ->
                     Row(
@@ -103,7 +111,7 @@ fun FacetListScreen(
 }
 
 @Composable
-private fun BackButton(onClick: () -> Unit) {
+private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var isFocused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
@@ -112,6 +120,9 @@ private fun BackButton(onClick: () -> Unit) {
             .background(
                 if (isFocused) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() },

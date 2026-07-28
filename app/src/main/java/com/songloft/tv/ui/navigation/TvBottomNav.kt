@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,13 +31,15 @@ fun TvBottomNav(
     modifier: Modifier = Modifier
 ) {
     val tabs = remember { listOf(Screen.Home, Screen.Search, Screen.Playlists, Screen.My) }
+    val bridge = LocalTabBarBridge.current
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(80.dp)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-            .padding(horizontal = 48.dp),
+            .padding(horizontal = 48.dp)
+            .onFocusChanged { bridge?.hasFocus = it.hasFocus },
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -63,6 +66,11 @@ fun TvBottomNav(
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                             RoundedCornerShape(8.dp)
                         ) else Modifier
+                    )
+                    .then(
+                        if (isSelected && bridge != null) {
+                            Modifier.focusRequester(bridge.tabFocusRequester)
+                        } else Modifier
                     )
                     .onFocusChanged { isFocused = it.isFocused }
                     .clickable { onScreenSelected(screen) }

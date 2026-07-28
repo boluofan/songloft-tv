@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -19,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
 fun MyScreen(
@@ -35,6 +39,10 @@ fun MyScreen(
     onNavigateToSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val topFocus = remember { FocusRequester() }
+
+    ListBackToTopHandler(listState, topFocus)
 
     Column(
         modifier = Modifier
@@ -58,7 +66,7 @@ fun MyScreen(
         Spacer(Modifier.height(24.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TabChip("收藏歌曲", uiState.selectedTab == 0) { viewModel.selectTab(0) }
+            TabChip("收藏歌曲", uiState.selectedTab == 0, focusRequester = topFocus) { viewModel.selectTab(0) }
             TabChip("收藏电台", uiState.selectedTab == 1) { viewModel.selectTab(1) }
         }
 
@@ -72,6 +80,7 @@ fun MyScreen(
             songs.isEmpty() -> CenterHint(if (uiState.selectedTab == 0) "暂无收藏歌曲" else "暂无收藏电台")
             else -> {
                 LazyColumn(
+                    state = listState,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -106,7 +115,12 @@ private fun ColumnScope.CenterHint(text: String) {
 }
 
 @Composable
-private fun TabChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
+private fun TabChip(
+    label: String,
+    isSelected: Boolean,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit
+) {
     var isFocused by remember { mutableStateOf(false) }
 
     Text(
@@ -126,6 +140,9 @@ private fun TabChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
                     isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 }
+            )
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }

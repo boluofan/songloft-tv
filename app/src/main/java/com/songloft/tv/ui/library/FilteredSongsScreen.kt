@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -17,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
 fun FilteredSongsScreen(
@@ -37,6 +41,10 @@ fun FilteredSongsScreen(
     LaunchedEffect(field, value) { viewModel.load(field, value) }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val topFocus = remember { FocusRequester() }
+
+    ListBackToTopHandler(listState, topFocus)
 
     Column(
         modifier = Modifier
@@ -44,7 +52,7 @@ fun FilteredSongsScreen(
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BackButton(onBack)
+            BackButton(onBack, focusRequester = topFocus)
             Spacer(Modifier.width(16.dp))
             Text(
                 text = uiState.title,
@@ -76,7 +84,7 @@ fun FilteredSongsScreen(
             uiState.songs.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("暂无歌曲", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             }
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            else -> LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 itemsIndexed(uiState.songs) { index, song ->
                     SongRow(
                         index = index,
@@ -90,7 +98,7 @@ fun FilteredSongsScreen(
 }
 
 @Composable
-private fun BackButton(onClick: () -> Unit) {
+private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var isFocused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
@@ -99,6 +107,9 @@ private fun BackButton(onClick: () -> Unit) {
             .background(
                 if (isFocused) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() },

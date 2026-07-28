@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,7 +32,9 @@ import com.songloft.tv.ui.home.HomeScreen
 import com.songloft.tv.ui.library.FacetListScreen
 import com.songloft.tv.ui.library.FilteredSongsScreen
 import com.songloft.tv.ui.my.MyScreen
+import com.songloft.tv.ui.navigation.LocalTabBarBridge
 import com.songloft.tv.ui.navigation.Screen
+import com.songloft.tv.ui.navigation.TabBarBridge
 import com.songloft.tv.ui.navigation.TvBottomNav
 import com.songloft.tv.ui.player.PlayerActivity
 import com.songloft.tv.ui.playlist.PlaylistDetailScreen
@@ -101,6 +104,7 @@ fun TvApp(
     onOpenPlayer: () -> Unit
 ) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
+    val tabBarBridge = remember { TabBarBridge() }
 
     BackHandler(enabled = currentScreen != Screen.Home) {
         currentScreen = when (currentScreen) {
@@ -110,87 +114,89 @@ fun TvApp(
         }
     }
 
-    Scaffold(
-        bottomBar = {
-            TvBottomNav(
-                currentScreen = currentScreen,
-                onScreenSelected = { screen ->
-                    currentScreen = when (screen) {
-                        is Screen.Home -> Screen.Home
-                        is Screen.Search -> Screen.Search
-                        is Screen.Playlists -> Screen.Playlists
-                        is Screen.My -> Screen.My
-                        else -> Screen.Home
+    CompositionLocalProvider(LocalTabBarBridge provides tabBarBridge) {
+        Scaffold(
+            bottomBar = {
+                TvBottomNav(
+                    currentScreen = currentScreen,
+                    onScreenSelected = { screen ->
+                        currentScreen = when (screen) {
+                            is Screen.Home -> Screen.Home
+                            is Screen.Search -> Screen.Search
+                            is Screen.Playlists -> Screen.Playlists
+                            is Screen.My -> Screen.My
+                            else -> Screen.Home
+                        }
                     }
-                }
-            )
-        }
-    ) { padding ->
-        val playbackState by playerController.state.collectAsStateWithLifecycle()
-
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when (val screen = currentScreen) {
-                Screen.Home -> HomeScreen(
-                    onPlaylistClick = { id -> currentScreen = Screen.PlaylistDetail(id) },
-                    onArtistClick = { artist ->
-                        currentScreen = Screen.SongFilter("artist", artist)
-                    },
-                    onAlbumClick = { album ->
-                        currentScreen = Screen.SongFilter("album", album)
-                    },
-                    onYearClick = { year ->
-                        currentScreen = Screen.SongFilter("year", year.toString())
-                    },
-                    onViewAll = { field -> currentScreen = Screen.FacetList(field) },
-                    onManagePlaylists = { currentScreen = Screen.Playlists }
-                )
-                Screen.Search -> SearchScreen(
-                    onSongClick = onPlaySongs
-                )
-                Screen.Playlists -> PlaylistsScreen(
-                    onPlaylistClick = { id -> currentScreen = Screen.PlaylistDetail(id) }
-                )
-                is Screen.PlaylistDetail -> PlaylistDetailScreen(
-                    playlistId = screen.playlistId,
-                    onSongClick = onPlaySongs,
-                    onShufflePlay = onShufflePlay,
-                    onBack = { currentScreen = Screen.Playlists }
-                )
-                Screen.My -> MyScreen(
-                    onSongClick = onPlaySongs,
-                    onNavigateToSettings = { currentScreen = Screen.Settings }
-                )
-                Screen.Settings -> SettingsScreen(
-                    onBack = { currentScreen = Screen.My },
-                    onConfigureServer = { authViewModel.resetToConfig() },
-                    onLogout = { authViewModel.logout() }
-                )
-                is Screen.SongFilter -> FilteredSongsScreen(
-                    field = screen.field,
-                    value = screen.value,
-                    onSongClick = onPlaySongs,
-                    onBack = { currentScreen = Screen.Home }
-                )
-                is Screen.FacetList -> FacetListScreen(
-                    field = screen.field,
-                    onItemClick = { value ->
-                        currentScreen = Screen.SongFilter(screen.field, value)
-                    },
-                    onBack = { currentScreen = Screen.Home }
                 )
             }
+        ) { padding ->
+            val playbackState by playerController.state.collectAsStateWithLifecycle()
 
-            playbackState.currentSong?.let { song ->
-                FloatingPlayerBar(
-                    title = song.title,
-                    artist = song.artist,
-                    coverUrl = song.coverUrl,
-                    isPlaying = playbackState.isPlaying,
-                    onClick = onOpenPlayer,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(24.dp)
-                )
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                when (val screen = currentScreen) {
+                    Screen.Home -> HomeScreen(
+                        onPlaylistClick = { id -> currentScreen = Screen.PlaylistDetail(id) },
+                        onArtistClick = { artist ->
+                            currentScreen = Screen.SongFilter("artist", artist)
+                        },
+                        onAlbumClick = { album ->
+                            currentScreen = Screen.SongFilter("album", album)
+                        },
+                        onYearClick = { year ->
+                            currentScreen = Screen.SongFilter("year", year.toString())
+                        },
+                        onViewAll = { field -> currentScreen = Screen.FacetList(field) },
+                        onManagePlaylists = { currentScreen = Screen.Playlists }
+                    )
+                    Screen.Search -> SearchScreen(
+                        onSongClick = onPlaySongs
+                    )
+                    Screen.Playlists -> PlaylistsScreen(
+                        onPlaylistClick = { id -> currentScreen = Screen.PlaylistDetail(id) }
+                    )
+                    is Screen.PlaylistDetail -> PlaylistDetailScreen(
+                        playlistId = screen.playlistId,
+                        onSongClick = onPlaySongs,
+                        onShufflePlay = onShufflePlay,
+                        onBack = { currentScreen = Screen.Playlists }
+                    )
+                    Screen.My -> MyScreen(
+                        onSongClick = onPlaySongs,
+                        onNavigateToSettings = { currentScreen = Screen.Settings }
+                    )
+                    Screen.Settings -> SettingsScreen(
+                        onBack = { currentScreen = Screen.My },
+                        onConfigureServer = { authViewModel.resetToConfig() },
+                        onLogout = { authViewModel.logout() }
+                    )
+                    is Screen.SongFilter -> FilteredSongsScreen(
+                        field = screen.field,
+                        value = screen.value,
+                        onSongClick = onPlaySongs,
+                        onBack = { currentScreen = Screen.Home }
+                    )
+                    is Screen.FacetList -> FacetListScreen(
+                        field = screen.field,
+                        onItemClick = { value ->
+                            currentScreen = Screen.SongFilter(screen.field, value)
+                        },
+                        onBack = { currentScreen = Screen.Home }
+                    )
+                }
+
+                playbackState.currentSong?.let { song ->
+                    FloatingPlayerBar(
+                        title = song.title,
+                        artist = song.artist,
+                        coverUrl = song.coverUrl,
+                        isPlaying = playbackState.isPlaying,
+                        onClick = onOpenPlayer,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(24.dp)
+                    )
+                }
             }
         }
     }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.data.model.Playlist
+import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
 @Composable
 fun HomeScreen(
@@ -57,8 +61,13 @@ fun HomeScreen(
     onManagePlaylists: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val topFocus = remember { FocusRequester() }
+
+    ListBackToTopHandler(listState, topFocus, topFocusInList = true)
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 48.dp),
@@ -82,7 +91,8 @@ fun HomeScreen(
             PlaylistSection(
                 playlists = uiState.playlists,
                 onPlaylistClick = onPlaylistClick,
-                onManagePlaylists = onManagePlaylists
+                onManagePlaylists = onManagePlaylists,
+                manageFocusRequester = topFocus
             )
         }
 
@@ -148,7 +158,8 @@ private fun RowScope.StatCard(label: String, value: String) {
 private fun PlaylistSection(
     playlists: List<Playlist>,
     onPlaylistClick: (Long) -> Unit,
-    onManagePlaylists: () -> Unit
+    onManagePlaylists: () -> Unit,
+    manageFocusRequester: FocusRequester? = null
 ) {
     Column {
         Row(
@@ -162,7 +173,11 @@ private fun PlaylistSection(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SectionLink(text = "管理歌单", onClick = onManagePlaylists)
+            SectionLink(
+                text = "管理歌单",
+                onClick = onManagePlaylists,
+                focusRequester = manageFocusRequester
+            )
         }
         Spacer(Modifier.height(12.dp))
 
@@ -482,7 +497,11 @@ private fun YearCard(
 }
 
 @Composable
-private fun SectionLink(text: String, onClick: () -> Unit) {
+private fun SectionLink(
+    text: String,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
+) {
     var isFocused by remember { mutableStateOf(false) }
 
     Text(
@@ -494,6 +513,9 @@ private fun SectionLink(text: String, onClick: () -> Unit) {
             .clip(RoundedCornerShape(8.dp))
             .background(
                 if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+            )
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
