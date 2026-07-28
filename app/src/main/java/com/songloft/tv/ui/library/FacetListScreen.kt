@@ -46,8 +46,9 @@ fun FacetListScreen(
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
+    var backButtonHasFocus by remember { mutableStateOf(false) }
 
-    ListBackToTopHandler(listState, topFocus)
+    ListBackToTopHandler(listState, topFocus, topFocusHasFocus = backButtonHasFocus)
     RestoreFocusEffect(restorer)
 
     LaunchedEffect(Unit) {
@@ -67,7 +68,7 @@ fun FacetListScreen(
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BackButton(onBack, focusRequester = topFocus)
+            BackButton(onBack, focusRequester = topFocus, onFocusChanged = { backButtonHasFocus = it })
             Spacer(Modifier.width(16.dp))
             Text(
                 text = title,
@@ -125,7 +126,7 @@ fun FacetListScreen(
 }
 
 @Composable
-private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {
     var isFocused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
@@ -138,7 +139,10 @@ private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = nu
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged?.invoke(it.isFocused)
+            }
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {

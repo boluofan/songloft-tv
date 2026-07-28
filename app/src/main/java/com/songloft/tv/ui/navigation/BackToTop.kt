@@ -27,7 +27,8 @@ val LocalTabBarBridge = compositionLocalOf<TabBarBridge?> { null }
 
 /**
  * 三段式返回键：列表非顶部时回顶并聚焦 [topFocus]；已在顶部时聚焦底部 Tab 栏；
- * 焦点已在 Tab 栏时本 handler 禁用，返回键穿透到外层既有 BackHandler。
+ * 焦点已在 Tab 栏、或（跟踪了 [topFocusHasFocus] 的二级界面）焦点已在返回按钮且列表在顶部时，
+ * 本 handler 禁用，返回键穿透到外层既有 BackHandler 直接返回上一级。
  */
 @Composable
 fun ListBackToTopHandler(
@@ -41,6 +42,7 @@ fun ListBackToTopHandler(
     val scope = rememberCoroutineScope()
     BackHandler(
         enabled = enabled && bridge?.hasFocus != true &&
+            !(topFocusHasFocus && !listState.canScrollBackward) &&
             (listState.canScrollBackward || bridge != null)
     ) {
         if (listState.canScrollBackward) {

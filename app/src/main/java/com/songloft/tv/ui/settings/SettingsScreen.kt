@@ -42,20 +42,19 @@ fun SettingsScreen(
     val bridge = LocalTabBarBridge.current
     val scope = rememberCoroutineScope()
 
+    // 焦点已在返回按钮且页面在顶部时禁用，返回键穿透到外层 BackHandler 直接返回上一级
     BackHandler(
-        enabled = bridge?.hasFocus != true
+        enabled = bridge?.hasFocus != true && !(backButtonHasFocus && scrollState.value == 0)
     ) {
         if (scrollState.value > 0) {
             scope.launch {
                 runCatching { topFocus.requestFocus() }
                 scrollState.animateScrollTo(0)
             }
-        } else if (!backButtonHasFocus) {
+        } else {
             scope.launch {
                 runCatching { topFocus.requestFocus() }
             }
-        } else {
-            bridge?.focusTabBar()
         }
     }
 
