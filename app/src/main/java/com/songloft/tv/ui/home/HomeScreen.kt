@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.data.model.Playlist
+import com.songloft.tv.ui.navigation.DefaultFocusEffect
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 import com.songloft.tv.ui.navigation.RestoreFocusEffect
 import com.songloft.tv.ui.navigation.ScreenFocusRestorer
@@ -71,6 +72,7 @@ fun HomeScreen(
 
     ListBackToTopHandler(listState, topFocus, topFocusInList = true)
     RestoreFocusEffect(restorer)
+    DefaultFocusEffect(restorer, topFocus)
 
     LazyColumn(
         state = listState,

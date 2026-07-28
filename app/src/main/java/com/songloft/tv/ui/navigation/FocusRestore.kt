@@ -58,3 +58,18 @@ fun RestoreFocusEffect(restorer: ScreenFocusRestorer) {
         restorer.pendingKey = null
     }
 }
+
+/**
+ * 界面进入组合后把默认焦点落到指定元素上；
+ * 有待恢复焦点（从二级界面返回）时让位给 RestoreFocusEffect。
+ */
+@Composable
+fun DefaultFocusEffect(restorer: ScreenFocusRestorer, target: FocusRequester) {
+    LaunchedEffect(Unit) {
+        if (restorer.pendingKey != null) return@LaunchedEffect
+        repeat(10) {
+            withFrameNanos { }
+            if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+}

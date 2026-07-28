@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.navigation.DefaultFocusEffect
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 import com.songloft.tv.ui.navigation.RestoreFocusEffect
 import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
@@ -44,10 +45,12 @@ fun MyScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    val settingsFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
 
     ListBackToTopHandler(listState, topFocus)
     RestoreFocusEffect(restorer)
+    DefaultFocusEffect(restorer, settingsFocus)
 
     Column(
         modifier = Modifier
@@ -70,7 +73,9 @@ fun MyScreen(
                     restorer.record("settings")
                     onNavigateToSettings()
                 },
-                modifier = Modifier.restorableFocus(restorer, "settings")
+                modifier = Modifier
+                    .focusRequester(settingsFocus)
+                    .restorableFocus(restorer, "settings")
             )
         }
 
