@@ -161,6 +161,10 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(showQueueDrawer = !it.showQueueDrawer) }
     }
 
+    fun closeQueueDrawer() {
+        _uiState.update { it.copy(showQueueDrawer = false) }
+    }
+
     fun toggleControls() {
         _uiState.update { it.copy(showControls = !it.showControls) }
     }

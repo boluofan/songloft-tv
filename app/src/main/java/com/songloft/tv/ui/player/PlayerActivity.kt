@@ -93,7 +93,7 @@ fun PlayerScreen(
 
     BackHandler {
         if (uiState.showQueueDrawer) {
-            viewModel.toggleQueueDrawer()
+            viewModel.closeQueueDrawer()
         } else {
             onBack()
         }
@@ -130,6 +130,13 @@ fun PlayerScreen(
                     KeyEventType.KeyDown -> {
                         interactionCount++
                         when (event.key) {
+                            // 优先于焦点链处理，保证抽屉一次返回即关闭
+                            Key.Back -> {
+                                if (uiState.showQueueDrawer) {
+                                    viewModel.closeQueueDrawer()
+                                    true
+                                } else false
+                            }
                             Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
                                 viewModel.togglePlay(); true
                             }
