@@ -91,6 +91,8 @@ class ConfigWebServer(
             button.submit{width:100%;margin-top:24px;padding:14px;font-size:16px;font-weight:bold;
             border:none;border-radius:8px;background:#415F91;color:#fff}
             #searchStatus{margin-top:16px;font-size:14px;text-align:center;color:#8fb0e8;min-height:20px}
+            .feedback{display:block;margin-top:32px;text-align:center;font-size:13px;color:#6b7280}
+            .feedback a{color:#8fb0e8;text-decoration:none}
             </style></head><body>
             <h2>Songloft TV</h2>
             <div class="tabs">
@@ -115,6 +117,9 @@ class ConfigWebServer(
                 <button class="submit" type="submit">搜索</button>
               </form>
               <div id="searchStatus"></div>
+            </div>
+            <div class="feedback">遇到问题？
+              <a href="https://github.com/boluofan/songloft-tv/issues" target="_blank" rel="noopener">问题反馈</a>
             </div>
             <script>
             function showTab(name){

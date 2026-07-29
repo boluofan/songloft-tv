@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -42,7 +44,8 @@ enum class TvKeyboardMode { SEARCH, LOGIN }
 fun TvKeyboard(
     onKeyPress: (String) -> Unit,
     modifier: Modifier = Modifier,
-    mode: TvKeyboardMode = TvKeyboardMode.SEARCH
+    mode: TvKeyboardMode = TvKeyboardMode.SEARCH,
+    firstKeyFocusRequester: FocusRequester? = null
 ) {
     var isShifted by remember { mutableStateOf(false) }
 
@@ -58,8 +61,14 @@ fun TvKeyboard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
-            digits.forEach { digit ->
-                KeyboardKey(key = digit, onClick = { onKeyPress(digit) }, width = 56.dp)
+            digits.forEachIndexed { index, digit ->
+                KeyboardKey(
+                    key = digit,
+                    onClick = { onKeyPress(digit) },
+                    width = 56.dp,
+                    modifier = if (index == 0 && firstKeyFocusRequester != null)
+                        Modifier.focusRequester(firstKeyFocusRequester) else Modifier
+                )
                 Spacer(Modifier.width(8.dp))
             }
         }
@@ -151,6 +160,7 @@ private fun KeyboardKey(
     key: String,
     onClick: () -> Unit,
     width: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     isActionKey: Boolean = false,
     isHighlighted: Boolean = false
@@ -163,7 +173,7 @@ private fun KeyboardKey(
     )
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .scale(scale)
             .width(width)
             .height(44.dp)

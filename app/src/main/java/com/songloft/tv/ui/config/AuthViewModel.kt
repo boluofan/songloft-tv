@@ -35,13 +35,13 @@ class AuthViewModel @Inject constructor(
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
-    private val _serverUrl = MutableStateFlow("https://songloft.boluofan.top:23456/")
+    private val _serverUrl = MutableStateFlow("")
     val serverUrl: StateFlow<String> = _serverUrl.asStateFlow()
 
-    private val _username = MutableStateFlow("boluofan")
+    private val _username = MutableStateFlow("")
     val username: StateFlow<String> = _username.asStateFlow()
 
-    private val _password = MutableStateFlow("Boluofan.123")
+    private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
 
     private val _isTesting = MutableStateFlow(false)

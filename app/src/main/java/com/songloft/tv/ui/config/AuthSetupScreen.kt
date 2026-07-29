@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -16,10 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -57,7 +63,13 @@ private fun LoginForm(viewModel: AuthViewModel) {
     LaunchedEffect(Unit) { viewModel.startConfigServer() }
 
     var activeField by remember { mutableStateOf(ActiveField.NONE) }
+    var passwordVisible by remember { mutableStateOf(false) }
     val showKeyboard = activeField != ActiveField.NONE
+    val keyboardFocus = remember { FocusRequester() }
+
+    LaunchedEffect(showKeyboard) {
+        if (showKeyboard) runCatching { keyboardFocus.requestFocus() }
+    }
 
     BackHandler(enabled = showKeyboard) {
         activeField = ActiveField.NONE
@@ -99,14 +111,42 @@ private fun LoginForm(viewModel: AuthViewModel) {
 
             Spacer(Modifier.height(16.dp))
 
-            InputField(
-                label = "密码",
-                value = password,
-                placeholder = "输入密码",
-                isPassword = true,
-                isActive = activeField == ActiveField.PASSWORD,
-                onActivate = { activeField = ActiveField.PASSWORD }
-            )
+            Row(verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    InputField(
+                        label = "密码",
+                        value = password,
+                        placeholder = "输入密码",
+                        isPassword = true,
+                        passwordVisible = passwordVisible,
+                        isActive = activeField == ActiveField.PASSWORD,
+                        onActivate = { activeField = ActiveField.PASSWORD }
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                var eyeFocused by remember { mutableStateOf(false) }
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (eyeFocused) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        .onFocusChanged { eyeFocused = it.isFocused }
+                        .clickable { passwordVisible = !passwordVisible },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Rounded.Visibility
+                                      else Icons.Rounded.VisibilityOff,
+                        contentDescription = if (passwordVisible) "隐藏密码" else "显示密码",
+                        tint = if (eyeFocused) MaterialTheme.colorScheme.onPrimary
+                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
 
             Spacer(Modifier.height(24.dp))
 
@@ -155,8 +195,45 @@ private fun LoginForm(viewModel: AuthViewModel) {
 
         // 键盘区域（始终显示在底部，仅当有激活字段时响应输入）
         if (showKeyboard) {
+            // 回显栏：键盘可能遮挡表单，这里实时显示当前字段内容（始终明文，便于核对输入）
+            val echoLabel = when (activeField) {
+                ActiveField.SERVER_URL -> "服务器地址"
+                ActiveField.USERNAME -> "账号"
+                ActiveField.PASSWORD -> "密码"
+                else -> ""
+            }
+            val echoText = when (activeField) {
+                ActiveField.SERVER_URL -> serverUrl
+                ActiveField.USERNAME -> username
+                ActiveField.PASSWORD -> password
+                else -> ""
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 32.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "$echoLabel：",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Text(
+                    if (echoText.isEmpty()) "（未输入）" else echoText,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (echoText.isEmpty())
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    else MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             TvKeyboard(
                 mode = TvKeyboardMode.LOGIN,
+                firstKeyFocusRequester = keyboardFocus,
                 onKeyPress = { key ->
                     val current = when (activeField) {
                         ActiveField.SERVER_URL -> serverUrl
@@ -233,6 +310,7 @@ private fun InputField(
     value: String,
     placeholder: String,
     isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
     isActive: Boolean = false,
     onActivate: () -> Unit
 ) {
@@ -254,17 +332,20 @@ private fun InputField(
                 else if (focused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                 else MaterialTheme.colorScheme.surfaceVariant
             )
-            .onFocusChanged {
-                focused = it.isFocused
-                if (it.isFocused) onActivate()
-            }
+            .then(
+                if (focused) Modifier.border(
+                    2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
+                ) else Modifier
+            )
+            // 仅确认键（点击）激活键盘，焦点经过不弹出
+            .onFocusChanged { focused = it.isFocused }
             .clickable { onActivate() }
             .padding(16.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
             text = when {
-                value.isNotEmpty() && isPassword -> "●●●●●●"
+                value.isNotEmpty() && isPassword && !passwordVisible -> "●".repeat(value.length)
                 value.isNotEmpty() -> value
                 else -> placeholder
             },

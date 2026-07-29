@@ -199,7 +199,10 @@ fun SettingsScreen(
                     else MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
                 )
                 .onFocusChanged { clearFocused = it.isFocused }
-                .clickable { viewModel.clearServerConfig() }
+                .clickable {
+                    viewModel.clearServerConfig()
+                    onConfigureServer()
+                }
                 .padding(12.dp)
         )
 

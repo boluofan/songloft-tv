@@ -6,6 +6,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.domain.PlayerController
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -100,6 +101,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             dataStore.setServerUrl("")
             dataStore.clearTokens()
+            ApiClient.authInterceptor.accessToken = null
+            ApiClient.authInterceptor.refreshToken = null
         }
     }
 

@@ -50,6 +50,11 @@ fun SearchScreen(
     var showKeyboard by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     val searchBoxFocus = remember { FocusRequester() }
+    val keyboardFocus = remember { FocusRequester() }
+
+    LaunchedEffect(showKeyboard) {
+        if (showKeyboard) runCatching { keyboardFocus.requestFocus() }
+    }
     var searchFocused by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
@@ -249,6 +254,7 @@ fun SearchScreen(
                 Spacer(Modifier.height(8.dp))
             }
             TvKeyboard(
+                firstKeyFocusRequester = keyboardFocus,
                 onKeyPress = { key ->
                     when (key) {
                         "←退格" -> {
