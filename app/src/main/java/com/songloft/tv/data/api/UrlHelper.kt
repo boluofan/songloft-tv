@@ -1,7 +1,18 @@
 package com.songloft.tv.data.api
 
+import android.os.Build
+
 object UrlHelper {
     private var baseUrl: String = ""
+
+    // Android 5（API 21/22）系统无 FLAC 解码器，追加 format=mp3 让服务端转码
+    // （服务端对 mp3 源直接透传，FLAC/WAV 等转为 mp3，见 songloft GetSongPlay）
+    // 注：官方保证系统自带 FLAC 解码器是 API 27 起，API 23~26 不保证（实际多数固件带了）；
+    // 若此类设备反馈播不了 FLAC，把阈值改成 SDK_INT < 27 (O_MR1) 即可
+    private const val LEGACY_TRANSCODE_PARAM = "format=mp3"
+
+    private val needsLegacyTranscode: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
 
     fun initialize(url: String) {
         baseUrl = url.trimEnd('/')
@@ -12,6 +23,7 @@ object UrlHelper {
         val params = mutableListOf<String>()
         quality?.let { params.add("quality=$it") }
         track?.let { params.add("track=$it") }
+        if (needsLegacyTranscode) params.add(LEGACY_TRANSCODE_PARAM)
         if (params.isNotEmpty()) sb.append("?").append(params.joinToString("&"))
         return sb.toString()
     }

@@ -23,7 +23,7 @@ object ApiClient {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
-        val client = OkHttpClient.Builder()
+        val client = TlsCompat.apply(OkHttpClient.Builder())
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
             .authenticator(

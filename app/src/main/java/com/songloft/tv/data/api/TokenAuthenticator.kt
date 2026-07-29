@@ -19,7 +19,7 @@ class TokenAuthenticator(
     private val onTokensRefreshed: (access: String, refresh: String) -> Unit
 ) : Authenticator {
 
-    private val refreshClient = OkHttpClient()
+    private val refreshClient = TlsCompat.apply(OkHttpClient.Builder()).build()
     private val gson = Gson()
 
     override fun authenticate(route: Route?, response: Response): Request? {

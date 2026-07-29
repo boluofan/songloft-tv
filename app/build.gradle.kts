@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.songloft.tv"
-        minSdk = 23
+        minSdk = 21
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
@@ -62,7 +62,9 @@ android {
 }
 
 dependencies {
-    val composeBom = platform(libs.compose.bom)
+    // enforcedPlatform：传递依赖会把 Compose 顶到 1.8+（minSdk 23），
+    // 为支持 Android 5 强制锁定 BOM 版本（1.7.x，minSdk 21）
+    val composeBom = enforcedPlatform(libs.compose.bom)
     implementation(composeBom)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
