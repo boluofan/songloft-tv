@@ -345,10 +345,10 @@ class PlayerController @Inject constructor(
             ?: radioUrl
             ?: UrlHelper.songPlayUrl(
                 song.id,
-                quality = audioQuality,
+                transcodeFormat = audioQuality,
                 track = track?.id,
                 isVideo = song.isVideo,
-                format = song.format
+                sourceFormat = song.format
             )
         return MediaItem.Builder()
             .setMediaId(song.id.toString())

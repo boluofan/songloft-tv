@@ -101,7 +101,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSection("音质") {
+        SettingsSection("音频格式（服务端转码，视频/多音轨文件不受影响）") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 QualityOption("原始", "", uiState.audioQuality) { viewModel.setAudioQuality("") }
                 QualityOption("MP3", "mp3", uiState.audioQuality) { viewModel.setAudioQuality("mp3") }

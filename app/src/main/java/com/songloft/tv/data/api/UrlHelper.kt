@@ -5,12 +5,10 @@ import android.os.Build
 object UrlHelper {
     private var baseUrl: String = ""
 
-    // Android 5（API 21/22）系统无 FLAC 解码器，追加 format=mp3 让服务端转码
+    // Android 5（API 21/22）系统无 FLAC 解码器，强制 format=mp3 让服务端转码
     // （服务端对 mp3 源直接透传，FLAC/WAV 等转为 mp3，见 songloft GetSongPlay）
     // 注：官方保证系统自带 FLAC 解码器是 API 27 起，API 23~26 不保证（实际多数固件带了）；
     // 若此类设备反馈播不了 FLAC，把阈值改成 SDK_INT < 27 (O_MR1) 即可
-    private const val LEGACY_TRANSCODE_PARAM = "format=mp3"
-
     private val needsLegacyTranscode: Boolean
         get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
 
@@ -20,10 +18,10 @@ object UrlHelper {
 
     fun songPlayUrl(
         songId: Long,
-        quality: String? = null,
+        transcodeFormat: String? = null,
         track: String? = null,
         isVideo: Boolean = false,
-        format: String? = null
+        sourceFormat: String? = null
     ): String {
         val sb = StringBuilder("${baseUrl}/api/v1/songs/$songId/play")
         val params = mutableListOf<String>()
@@ -33,14 +31,17 @@ object UrlHelper {
                 // 保留视频轨与内嵌多音轨（原唱/伴奏），quality/format 会触发 ffmpeg -vn 丢轨
                 params.add("media=video")
             }
-            isMultiTrackContainer(format) -> {
+            isMultiTrackContainer(sourceFormat) -> {
                 // mka 多音轨容器不带任何转码参数直出原容器（对齐 songloft-player 原生端），
                 // ExoPlayer 的 MatroskaExtractor 可枚举全部音轨供原唱/伴奏切换
             }
             else -> {
-                quality?.let { params.add("quality=$it") }
                 track?.let { params.add("track=$it") }
-                if (needsLegacyTranscode) params.add(LEGACY_TRANSCODE_PARAM)
+                // 服务端 format= 才是容器格式参数（quality= 只认 128/192/320 比特率）；
+                // Android 5 强制 mp3 覆盖用户选择（系统解不了 FLAC）
+                val format = if (needsLegacyTranscode) "mp3"
+                else transcodeFormat?.takeIf { it.isNotBlank() }
+                format?.let { params.add("format=$it") }
             }
         }
         if (params.isNotEmpty()) sb.append("?").append(params.joinToString("&"))
