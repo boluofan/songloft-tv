@@ -1,14 +1,17 @@
 package com.songloft.tv.ui.search
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.config.ConfigWebServer
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.repository.SongRepository
+import com.songloft.tv.util.LogStore
 import com.songloft.tv.util.PinyinEntry
 import com.songloft.tv.util.PinyinMatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,6 +38,7 @@ data class SearchUiState(
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val songRepository: SongRepository
 ) : ViewModel() {
 
@@ -60,7 +64,7 @@ class SearchViewModel @Inject constructor(
                     onQueryChanged(keyword)
                     _remoteSubmitEvents.emit(Unit)
                 }
-            })
+            }, logsDir = LogStore.dir(context))
             if (runCatching { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }.isSuccess) {
                 remoteServer = server
                 _remoteUrl.value = "http://$ip:$port/#search"

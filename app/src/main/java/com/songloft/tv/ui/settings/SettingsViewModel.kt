@@ -1,14 +1,12 @@
 package com.songloft.tv.ui.settings
 
-import android.content.ContentValues
 import android.content.Context
-import android.os.Build
-import android.provider.MediaStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.domain.PlayerController
+import com.songloft.tv.util.LogStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -114,29 +112,13 @@ class SettingsViewModel @Inject constructor(
                     SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".txt"
                 val process = Runtime.getRuntime()
                     .exec(arrayOf("logcat", "-d", "-v", "threadtime"))
+                val file = File(LogStore.dir(context), fileName)
                 process.inputStream.bufferedReader().use { reader ->
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val values = ContentValues().apply {
-                            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                            put(MediaStore.Downloads.MIME_TYPE, "text/plain")
-                        }
-                        val resolver = context.contentResolver
-                        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                            ?: throw IllegalStateException("无法创建下载文件")
-                        resolver.openOutputStream(uri)!!.bufferedWriter().use { writer ->
-                            reader.forEachLine { writer.appendLine(sanitizeLogLine(it)) }
-                        }
-                        "已导出到 下载/$fileName（已脱敏）"
-                    } else {
-                        val dir = context.getExternalFilesDir(null)
-                            ?: throw IllegalStateException("外部存储不可用")
-                        val file = File(dir, fileName)
-                        file.bufferedWriter().use { writer ->
-                            reader.forEachLine { writer.appendLine(sanitizeLogLine(it)) }
-                        }
-                        "已导出到 ${file.absolutePath}（已脱敏）"
+                    file.bufferedWriter().use { writer ->
+                        reader.forEachLine { writer.appendLine(sanitizeLogLine(it)) }
                     }
                 }
+                "已导出 $fileName（已脱敏），手机扫码页面「日志」页签可下载"
             }.getOrElse { e -> "导出失败：${e.message}" }
             _uiState.value = _uiState.value.copy(logExportStatus = status)
         }

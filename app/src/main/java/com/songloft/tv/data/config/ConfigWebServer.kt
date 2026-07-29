@@ -1,18 +1,22 @@
 package com.songloft.tv.data.config
 
 import fi.iki.elonen.NanoHTTPD
+import java.io.File
+import java.io.FileInputStream
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
 /**
  * 局域网 Web 服务：手机扫码打开页签页面，
  * 「登录配置」页签提交服务器地址/账号/密码回电视端登录，
- * 「搜索」页签提交关键字触发电视端搜索。
+ * 「搜索」页签提交关键字触发电视端搜索，
+ * 「日志」页签列出电视端导出的日志文件并支持下载。
  */
 class ConfigWebServer(
     port: Int,
     private val onConfig: ((server: String, username: String, password: String) -> Unit)? = null,
-    private val onSearch: ((keyword: String) -> Unit)? = null
+    private val onSearch: ((keyword: String) -> Unit)? = null,
+    private val logsDir: File? = null
 ) : NanoHTTPD(port) {
 
     override fun serve(session: IHTTPSession): Response {
@@ -42,6 +46,30 @@ class ConfigWebServer(
                 onSearch(keyword)
                 text(Response.Status.OK, "已发送，电视端正在搜索。")
             }
+        }
+        if (session.method == Method.GET && session.uri == "/logs") {
+            val files = logsDir?.listFiles { f -> f.isFile }
+                ?.sortedByDescending { it.lastModified() }
+                .orEmpty()
+            val json = files.joinToString(",", "[", "]") {
+                """{"name":"${it.name}","size":${it.length()},"mtime":${it.lastModified()}}"""
+            }
+            return newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", json)
+        }
+        if (session.method == Method.GET && session.uri == "/logs/download") {
+            val name = session.parameters["name"]?.firstOrNull().orEmpty()
+            if (logsDir == null || name.isBlank() ||
+                name.contains('/') || name.contains('\\') || name.contains("..")
+            ) {
+                return text(Response.Status.BAD_REQUEST, "无效的文件名。")
+            }
+            val file = File(logsDir, name)
+            if (!file.isFile) return text(Response.Status.NOT_FOUND, "文件不存在。")
+            val response = newFixedLengthResponse(
+                Response.Status.OK, "text/plain; charset=utf-8", FileInputStream(file), file.length()
+            )
+            response.addHeader("Content-Disposition", "attachment; filename=\"$name\"")
+            return response
         }
         return html(Response.Status.OK, PAGE)
     }
@@ -91,6 +119,12 @@ class ConfigWebServer(
             button.submit{width:100%;margin-top:24px;padding:14px;font-size:16px;font-weight:bold;
             border:none;border-radius:8px;background:#415F91;color:#fff}
             #searchStatus{margin-top:16px;font-size:14px;text-align:center;color:#8fb0e8;min-height:20px}
+            #logList{margin-top:16px}
+            #logList .hint{font-size:14px;text-align:center;color:#6b7280}
+            #logList a{display:block;padding:12px;margin-bottom:8px;font-size:14px;
+            border:1px solid #374151;border-radius:8px;background:#1f2937;color:#8fb0e8;
+            text-decoration:none;word-break:break-all}
+            #logList a span{color:#6b7280;font-size:12px;margin-left:8px}
             .feedback{display:block;margin-top:32px;text-align:center;font-size:13px;color:#6b7280}
             .feedback a{color:#8fb0e8;text-decoration:none}
             </style></head><body>
@@ -98,6 +132,7 @@ class ConfigWebServer(
             <div class="tabs">
               <button class="tab" id="tabConfig" onclick="showTab('config')">登录配置</button>
               <button class="tab" id="tabSearch" onclick="showTab('search')">搜索</button>
+              <button class="tab" id="tabLogs" onclick="showTab('logs')">日志</button>
             </div>
             <div class="panel" id="panelConfig">
               <form method="post" action="/submit">
@@ -118,17 +153,48 @@ class ConfigWebServer(
               </form>
               <div id="searchStatus"></div>
             </div>
+            <div class="panel" id="panelLogs">
+              <div id="logList"><div class="hint">加载中…</div></div>
+            </div>
             <div class="feedback">遇到问题？
               <a href="https://github.com/boluofan/songloft-tv/issues" target="_blank" rel="noopener">问题反馈</a>
             </div>
             <script>
             function showTab(name){
-              document.getElementById('tabConfig').classList.toggle('active',name==='config');
-              document.getElementById('tabSearch').classList.toggle('active',name==='search');
-              document.getElementById('panelConfig').classList.toggle('active',name==='config');
-              document.getElementById('panelSearch').classList.toggle('active',name==='search');
+              ['Config','Search','Logs'].forEach(function(t){
+                var k=t.toLowerCase();
+                document.getElementById('tab'+t).classList.toggle('active',name===k);
+                document.getElementById('panel'+t).classList.toggle('active',name===k);
+              });
+              if(name==='logs')loadLogs();
             }
-            showTab(location.hash==='#search'?'search':'config');
+            function fmtSize(n){
+              if(n>=1048576)return (n/1048576).toFixed(1)+' MB';
+              if(n>=1024)return (n/1024).toFixed(1)+' KB';
+              return n+' B';
+            }
+            function fmtTime(t){
+              var d=new Date(t),p=function(x){return x<10?'0'+x:x};
+              return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+
+                p(d.getHours())+':'+p(d.getMinutes());
+            }
+            function loadLogs(){
+              var el=document.getElementById('logList');
+              el.innerHTML='<div class="hint">加载中…</div>';
+              fetch('/logs').then(function(r){return r.json();}).then(function(list){
+                if(!list.length){
+                  el.innerHTML='<div class="hint">暂无日志。请先在电视端 设置 → 日志 → 导出日志</div>';
+                  return;
+                }
+                el.innerHTML=list.map(function(f){
+                  return '<a href="/logs/download?name='+encodeURIComponent(f.name)+'" download>'+
+                    f.name+'<span>'+fmtSize(f.size)+' · '+fmtTime(f.mtime)+'</span></a>';
+                }).join('');
+              }).catch(function(){
+                el.innerHTML='<div class="hint">加载失败，请刷新重试</div>';
+              });
+            }
+            showTab(location.hash==='#search'?'search':location.hash==='#logs'?'logs':'config');
             document.getElementById('searchForm').addEventListener('submit',function(e){
               e.preventDefault();
               var status=document.getElementById('searchStatus');

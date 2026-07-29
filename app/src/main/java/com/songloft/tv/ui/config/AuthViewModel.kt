@@ -1,5 +1,6 @@
 package com.songloft.tv.ui.config
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.api.ApiClient
@@ -7,7 +8,9 @@ import com.songloft.tv.data.api.UrlHelper
 import com.songloft.tv.data.config.ConfigWebServer
 import com.songloft.tv.data.repository.AuthRepository
 import com.songloft.tv.data.storage.PreferencesDataStore
+import com.songloft.tv.util.LogStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +31,7 @@ sealed class AuthState {
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
     private val dataStore: PreferencesDataStore
 ) : ViewModel() {
@@ -69,7 +73,7 @@ class AuthViewModel @Inject constructor(
                     _password.value = password
                     login()
                 }
-            })
+            }, logsDir = LogStore.dir(context))
             if (runCatching { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }.isSuccess) {
                 configServer = server
                 _configUrl.value = "http://$ip:$port"
