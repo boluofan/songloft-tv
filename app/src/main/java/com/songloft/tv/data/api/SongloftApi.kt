@@ -28,7 +28,10 @@ interface SongloftApi {
     suspend fun getSongLyric(@Path("id") id: Long): LyricResponse
 
     @GET("songs/facets")
-    suspend fun getFacets(@Query("field") field: String): FacetResponse
+    suspend fun getFacets(
+        @Query("field") field: String,
+        @Query("limit") limit: Int = 20
+    ): FacetResponse
 
     @POST("songs/{id}/played")
     suspend fun reportPlayed(

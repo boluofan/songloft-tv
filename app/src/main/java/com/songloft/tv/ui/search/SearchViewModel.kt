@@ -6,8 +6,11 @@ import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.config.ConfigWebServer
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.repository.SongRepository
+import com.songloft.tv.util.PinyinEntry
+import com.songloft.tv.util.PinyinMatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fi.iki.elonen.NanoHTTPD
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class SearchUiState(
@@ -25,6 +29,7 @@ data class SearchUiState(
     val isSearching: Boolean = false,
     val hasSearched: Boolean = false,
     val hotTags: List<String> = emptyList(),
+    val candidates: List<String> = emptyList(),
     val error: String? = null
 )
 
@@ -74,18 +79,25 @@ class SearchViewModel @Inject constructor(
         stopRemoteInput()
     }
 
+    private var pinyinIndex: List<PinyinEntry> = emptyList()
+
     init {
         viewModelScope.launch {
-            songRepository.getFacets("artist").onSuccess { facets ->
-                _uiState.value = _uiState.value.copy(
-                    hotTags = facets.map { it.value }.filter { it.isNotBlank() }.take(10)
-                )
+            songRepository.getFacets("artist", limit = 1000).onSuccess { facets ->
+                val values = facets.map { it.value }.filter { it.isNotBlank() }
+                _uiState.value = _uiState.value.copy(hotTags = values.take(10))
+                pinyinIndex = withContext(Dispatchers.Default) { PinyinMatcher.index(values) }
             }
         }
     }
 
     fun onQueryChanged(query: String) {
-        _uiState.value = _uiState.value.copy(query = query)
+        val candidates = if (query.length >= 2 && query.all { it in 'a'..'z' || it in 'A'..'Z' }) {
+            PinyinMatcher.match(query, pinyinIndex)
+        } else {
+            emptyList()
+        }
+        _uiState.value = _uiState.value.copy(query = query, candidates = candidates)
         searchJob?.cancel()
         if (query.isBlank()) {
             _uiState.value = _uiState.value.copy(results = emptyList(), hasSearched = false)

@@ -26,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.generateQrBitmap
 import com.songloft.tv.ui.search.TvKeyboard
+import com.songloft.tv.ui.search.TvKeyboardMode
 
 private enum class ActiveField { NONE, SERVER_URL, USERNAME, PASSWORD }
 
@@ -155,6 +156,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
         // 键盘区域（始终显示在底部，仅当有激活字段时响应输入）
         if (showKeyboard) {
             TvKeyboard(
+                mode = TvKeyboardMode.LOGIN,
                 onKeyPress = { key ->
                     val current = when (activeField) {
                         ActiveField.SERVER_URL -> serverUrl

@@ -16,8 +16,8 @@ class SongRepository @Inject constructor() {
 
     private val api get() = ApiClient.getApi()
 
-    suspend fun getFacets(field: String): Result<List<FacetItem>> = withContext(Dispatchers.IO) {
-        runCatching { api.getFacets(field).facets }
+    suspend fun getFacets(field: String, limit: Int = 20): Result<List<FacetItem>> = withContext(Dispatchers.IO) {
+        runCatching { api.getFacets(field, limit).facets }
     }
 
     suspend fun getSongs(

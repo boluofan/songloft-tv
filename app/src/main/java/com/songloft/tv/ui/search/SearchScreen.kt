@@ -85,14 +85,17 @@ fun SearchScreen(
             .fillMaxSize()
             .padding(horizontal = 48.dp, vertical = 24.dp)
     ) {
-        Text(
-            text = "搜索音乐",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        // 键盘弹出时隐藏标题，避免键盘底部操作行（空格/退格/确定）被屏幕裁掉
+        if (!showKeyboard) {
+            Text(
+                text = "搜索音乐",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
 
-        Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -168,26 +171,8 @@ fun SearchScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        if (showKeyboard) {
-            TvKeyboard(
-                onKeyPress = { key ->
-                    when (key) {
-                        "←退格" -> {
-                            val current = uiState.query
-                            if (current.isNotEmpty()) {
-                                viewModel.onQueryChanged(current.substring(0, current.length - 1))
-                            }
-                        }
-                        "清空" -> viewModel.clearSearch()
-                        "确定" -> { showKeyboard = false; searchBoxFocus.requestFocus() }
-                        "空格" -> viewModel.onQueryChanged("${uiState.query} ")
-                        else -> viewModel.onQueryChanged("${uiState.query}$key")
-                    }
-                }
-            )
-            Spacer(Modifier.height(12.dp))
-        }
-
+        // 结果区占据剩余高度，键盘固定贴底，保证操作行不被挤出屏幕
+        Column(Modifier.weight(1f)) {
         if (uiState.isSearching) {
             Box(
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
@@ -247,6 +232,38 @@ fun SearchScreen(
                     )
                 }
             }
+        }
+        }
+
+        if (showKeyboard) {
+            if (uiState.candidates.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(uiState.candidates) { candidate ->
+                        HotTagChip(candidate) {
+                            viewModel.onQueryChanged(candidate)
+                            showKeyboard = false
+                            runCatching { searchBoxFocus.requestFocus() }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            TvKeyboard(
+                onKeyPress = { key ->
+                    when (key) {
+                        "←退格" -> {
+                            val current = uiState.query
+                            if (current.isNotEmpty()) {
+                                viewModel.onQueryChanged(current.substring(0, current.length - 1))
+                            }
+                        }
+                        "清空" -> viewModel.clearSearch()
+                        "确定" -> { showKeyboard = false; searchBoxFocus.requestFocus() }
+                        "空格" -> viewModel.onQueryChanged("${uiState.query} ")
+                        else -> viewModel.onQueryChanged("${uiState.query}$key")
+                    }
+                }
+            )
         }
     }
 

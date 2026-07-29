@@ -30,10 +30,19 @@ private val letters = listOf(
     listOf("Z", "X", "C", "V", "B", "N", "M")
 )
 
+private val digits = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+
+private val symbols = listOf(".", ",", "'", "!", "@", "-", "_", ":", "/", "?", "&", "#")
+
+private val loginTokens = listOf("http://", "https://", "192.168.", ":58091", ".com", ".cn", ".net", ".top")
+
+enum class TvKeyboardMode { SEARCH, LOGIN }
+
 @Composable
 fun TvKeyboard(
     onKeyPress: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mode: TvKeyboardMode = TvKeyboardMode.SEARCH
 ) {
     var isShifted by remember { mutableStateOf(false) }
 
@@ -41,9 +50,20 @@ fun TvKeyboard(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // 数字行
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            digits.forEach { digit ->
+                KeyboardKey(key = digit, onClick = { onKeyPress(digit) }, width = 56.dp)
+                Spacer(Modifier.width(8.dp))
+            }
+        }
+
         // 字母行
         letters.forEach { row ->
             Row(
@@ -71,12 +91,29 @@ fun TvKeyboard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
-            listOf(".", "@", "-", "_", ":").forEach { sym ->
+            symbols.forEach { sym ->
                 KeyboardKey(key = sym, onClick = { onKeyPress(sym) }, width = 56.dp)
                 Spacer(Modifier.width(8.dp))
             }
         }
-        Spacer(Modifier.height(4.dp))
+
+        // 登录页网络快捷符号行
+        if (mode == TvKeyboardMode.LOGIN) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                loginTokens.forEach { token ->
+                    KeyboardKey(
+                        key = token,
+                        onClick = { onKeyPress(token) },
+                        width = if (token.length > 5) 96.dp else 68.dp,
+                        isActionKey = true
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+            }
+        }
 
         // 操作键行
         Row(
@@ -129,7 +166,7 @@ private fun KeyboardKey(
         modifier = Modifier
             .scale(scale)
             .width(width)
-            .height(52.dp)
+            .height(44.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
                 when {

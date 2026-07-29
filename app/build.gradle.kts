@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.datastore)
     implementation(libs.zxing.core)
     implementation(libs.nanohttpd)
+    implementation(libs.tinypinyin)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
 }
