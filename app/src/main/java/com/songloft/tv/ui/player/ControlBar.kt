@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -119,6 +121,7 @@ fun ControlBar(
     onCyclePlayMode: () -> Unit,
     onToggleQueue: () -> Unit,
     onToggleFavorite: () -> Unit = {},
+    onCycleAudioTrack: () -> Unit = {},
     playPauseFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
@@ -187,6 +190,17 @@ fun ControlBar(
                 "收藏",
                 onToggleFavorite
             )
+            if (uiState.availableTracks.size > 1) {
+                // 第 1 条音轨视为原唱（Mic），其余视为伴唱（MicOff），与播放/暂停图标同样随状态切换
+                val trackIndex = uiState.availableTracks
+                    .indexOfFirst { it.id == uiState.currentTrack?.id }
+                val isOriginal = trackIndex <= 0
+                TransportButton(
+                    if (isOriginal) Icons.Rounded.Mic else Icons.Rounded.MicOff,
+                    if (isOriginal) "原唱" else "伴唱",
+                    onCycleAudioTrack
+                )
+            }
             TransportButton(Icons.AutoMirrored.Rounded.QueueMusic, "播放队列", onToggleQueue)
         }
     }

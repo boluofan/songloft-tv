@@ -18,15 +18,37 @@ object UrlHelper {
         baseUrl = url.trimEnd('/')
     }
 
-    fun songPlayUrl(songId: Long, quality: String? = null, track: String? = null): String {
+    fun songPlayUrl(
+        songId: Long,
+        quality: String? = null,
+        track: String? = null,
+        isVideo: Boolean = false,
+        format: String? = null
+    ): String {
         val sb = StringBuilder("${baseUrl}/api/v1/songs/$songId/play")
         val params = mutableListOf<String>()
-        quality?.let { params.add("quality=$it") }
-        track?.let { params.add("track=$it") }
-        if (needsLegacyTranscode) params.add(LEGACY_TRANSCODE_PARAM)
+        when {
+            isVideo -> {
+                // 视频文件只带 media=video：服务端据此原容器透传（不转码），
+                // 保留视频轨与内嵌多音轨（原唱/伴奏），quality/format 会触发 ffmpeg -vn 丢轨
+                params.add("media=video")
+            }
+            isMultiTrackContainer(format) -> {
+                // mka 多音轨容器不带任何转码参数直出原容器（对齐 songloft-player 原生端），
+                // ExoPlayer 的 MatroskaExtractor 可枚举全部音轨供原唱/伴奏切换
+            }
+            else -> {
+                quality?.let { params.add("quality=$it") }
+                track?.let { params.add("track=$it") }
+                if (needsLegacyTranscode) params.add(LEGACY_TRANSCODE_PARAM)
+            }
+        }
         if (params.isNotEmpty()) sb.append("?").append(params.joinToString("&"))
         return sb.toString()
     }
+
+    private fun isMultiTrackContainer(format: String?): Boolean =
+        format?.lowercase() == "mka"
 
     fun songCoverUrl(songId: Long): String = "${baseUrl}/api/v1/songs/$songId/cover"
 

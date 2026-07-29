@@ -122,6 +122,14 @@ class PlayerViewModel @Inject constructor(
 
     fun switchTrack(track: Track) = playerController.switchTrack(track)
 
+    fun cycleAudioTrack() {
+        val s = _uiState.value
+        val tracks = s.availableTracks
+        if (tracks.size < 2) return
+        val currentIndex = tracks.indexOfFirst { it.id == s.currentTrack?.id }
+        switchTrack(tracks[(currentIndex + 1) % tracks.size])
+    }
+
     fun withPlayer(action: (androidx.media3.common.Player) -> Unit) = playerController.withPlayer(action)
 
     fun toggleFavorite() {

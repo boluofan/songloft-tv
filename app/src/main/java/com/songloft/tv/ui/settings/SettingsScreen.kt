@@ -157,7 +157,7 @@ fun SettingsScreen(
         SettingsSection("帮助") {
             SettingsItem(
                 label = "操作说明",
-                value = "遥控器返回键与焦点操作说明",
+                value = "操作及按键说明",
                 onClick = { showHelpDialog = true }
             )
         }

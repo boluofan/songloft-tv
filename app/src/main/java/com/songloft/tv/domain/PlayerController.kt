@@ -343,7 +343,13 @@ class PlayerController @Inject constructor(
         val radioUrl = if (song.type == "radio") UrlHelper.resolve(song.url) else null
         val uri = UrlHelper.resolve(track?.url)
             ?: radioUrl
-            ?: UrlHelper.songPlayUrl(song.id, quality = audioQuality, track = track?.id)
+            ?: UrlHelper.songPlayUrl(
+                song.id,
+                quality = audioQuality,
+                track = track?.id,
+                isVideo = song.isVideo,
+                format = song.format
+            )
         return MediaItem.Builder()
             .setMediaId(song.id.toString())
             .setUri(uri)

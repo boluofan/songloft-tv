@@ -12,9 +12,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -58,7 +55,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.songloft.tv.data.api.UrlHelper
-import com.songloft.tv.data.model.Track
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.ui.theme.TvTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -192,26 +188,6 @@ fun PlayerScreen(
                     withPlayer = viewModel::withPlayer,
                     modifier = Modifier.fillMaxSize()
                 )
-                val tracks = uiState.availableTracks
-                if (tracks.size > 1) {
-                    AnimatedVisibility(
-                        visible = uiState.showControls,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            TrackChips(
-                                tracks = tracks,
-                                currentTrackId = uiState.currentTrack?.id,
-                                onSwitch = { viewModel.switchTrack(it) }
-                            )
-                        }
-                    }
-                }
             } else {
                 UrlHelper.resolve(uiState.currentSong?.coverUrl)?.let { cover ->
                     AsyncImage(
@@ -270,18 +246,6 @@ fun PlayerScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-
-                        val tracks = uiState.availableTracks
-                        if (tracks.size > 1) {
-                            Spacer(Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TrackChips(
-                                    tracks = tracks,
-                                    currentTrackId = uiState.currentTrack?.id,
-                                    onSwitch = { viewModel.switchTrack(it) }
-                                )
-                            }
-                        }
                     }
                 }
 
@@ -324,6 +288,7 @@ fun PlayerScreen(
                 onCyclePlayMode = { viewModel.cyclePlayMode() },
                 onToggleQueue = { viewModel.toggleQueueDrawer() },
                 onToggleFavorite = { viewModel.toggleFavorite() },
+                onCycleAudioTrack = { viewModel.cycleAudioTrack() },
                 playPauseFocusRequester = controlBarFocus,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -347,36 +312,3 @@ fun PlayerScreen(
     }
 }
 
-@Composable
-private fun TrackChips(
-    tracks: List<Track>,
-    currentTrackId: String?,
-    onSwitch: (Track) -> Unit
-) {
-    tracks.forEach { track ->
-        val isActive = track.id == currentTrackId
-        var trackFocused by remember { mutableStateOf(false) }
-        Text(
-            text = track.name,
-            fontSize = 13.sp,
-            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-            color = when {
-                trackFocused -> MaterialTheme.colorScheme.onPrimary
-                isActive -> MaterialTheme.colorScheme.primary
-                else -> Color.White.copy(alpha = 0.6f)
-            },
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    when {
-                        trackFocused -> MaterialTheme.colorScheme.primary
-                        isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        else -> Color.White.copy(alpha = 0.1f)
-                    }
-                )
-                .onFocusChanged { trackFocused = it.isFocused }
-                .clickable { onSwitch(track) }
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-    }
-}
