@@ -88,10 +88,10 @@ fun PlayerScreen(
     val queueDrawerFocus = remember { FocusRequester() }
 
     BackHandler {
-        if (uiState.showQueueDrawer) {
-            viewModel.closeQueueDrawer()
-        } else {
-            onBack()
+        when {
+            uiState.showQueueDrawer -> viewModel.closeQueueDrawer()
+            uiState.showControls -> viewModel.hideControls()
+            else -> onBack()
         }
     }
 
@@ -126,12 +126,19 @@ fun PlayerScreen(
                     KeyEventType.KeyDown -> {
                         interactionCount++
                         when (event.key) {
-                            // 优先于焦点链处理，保证抽屉一次返回即关闭
+                            // 优先于焦点链处理，保证抽屉/工具栏一次返回即关闭
                             Key.Back -> {
-                                if (uiState.showQueueDrawer) {
-                                    viewModel.closeQueueDrawer()
-                                    true
-                                } else false
+                                when {
+                                    uiState.showQueueDrawer -> {
+                                        viewModel.closeQueueDrawer()
+                                        true
+                                    }
+                                    uiState.showControls -> {
+                                        viewModel.hideControls()
+                                        true
+                                    }
+                                    else -> false
+                                }
                             }
                             Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
                                 viewModel.togglePlay(); true
