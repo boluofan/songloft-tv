@@ -49,7 +49,7 @@ private val symbolGrid = listOf(
     listOf("^", "`", "·", "。", "！", "？")
 )
 
-private val loginTokens = listOf("http://", "https://", "192.168.", ":58091", ".com", ".cn", ".net", ".top")
+private val loginTokens = listOf(".", "/", ":", "http://", "https://", "192.168.", ":58091", ".com", ".cn", ".net", ".top")
 
 private val keySpacing = 8.dp
 private val gridKeyWidth = 60.dp
@@ -145,7 +145,11 @@ fun TvKeyboard(
                     KeyboardKey(
                         key = token,
                         onClick = { onKeyPress(token) },
-                        width = if (token.length > 5) 96.dp else 68.dp,
+                        width = when {
+                            token.length == 1 -> 48.dp
+                            token.length > 5 -> 96.dp
+                            else -> 68.dp
+                        },
                         isActionKey = true
                     )
                 }
