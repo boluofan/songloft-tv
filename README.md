@@ -2,21 +2,24 @@
 
 [Songloft](https://github.com/songloft-org/songloft) 音乐服务器的 Android TV 客户端。面向电视大屏场景，提供简洁、沉浸的音乐和 MV 播放体验。
 
+> 系统要求：Android 5.0（API 21）及以上，兼容老款电视/盒子设备。
+
 ## 功能特性
 
 - **服务器配置**：手动输入地址或手机扫码配置登录（JWT 双 Token 认证）
 - **首页概览**：统计卡片、我的歌单、主要歌手/专辑、年份速览
-- **搜索**：D-Pad 全屏自定义键盘，搜索结果可直接播放/收藏
+- **搜索**：6×6 方阵 TV 键盘（缩短遥控器移动距离），支持手机扫码远程输入关键字，热门搜索推荐
 - **歌单浏览**：网格歌单，分页加载，支持类型过滤
 - **我的**：收藏歌曲、收藏电台（HLS 播放）
 - **全屏播放器**：
   - MV 视频播放 + 音频封面/歌词模式
   - 原唱/伴奏双音轨切换
-  - LRC 同步歌词滚动
+  - LRC 同步歌词滚动，支持逐字卡拉OK高亮与翻译歌词
   - 毛玻璃封面背景、自动隐藏控制栏
   - 播放模式切换（顺序/列表循环/单曲循环/随机）、播放队列抽屉
 - **悬浮迷你播放器**：旋转封面 + 歌名，全页面悬浮
-- **设置**：主题模式、音质选择、后台播放、睡眠定时器、日志导出、关于
+- **设置**：主题模式、音质选择、后台播放、睡眠定时器、日志导出（网页下载）、问题反馈、操作说明、关于
+- **遥控体验**：全局 D-Pad 焦点导航、退出二次确认、二级页面“从哪儿来回哪儿去”返回逻辑
 
 设计与规划详见 [doc/design.md](doc/design.md) 和 [doc/plan.md](doc/plan.md)，代码实现细节详见 [doc/implementation.md](doc/implementation.md)。
 
@@ -33,7 +36,7 @@
 | 存储 | DataStore Preferences |
 | 扫码配置 | ZXing 生成二维码 + NanoHTTPD 内置配置服务 |
 
-- minSdk 23（Android 6.0）/ targetSdk 35
+- minSdk 21（Android 5.0）/ targetSdk 35
 - JDK 17，Gradle 8.10
 
 ## 构建
@@ -99,6 +102,19 @@ app/src/main/java/com/songloft/tv/
 ├── MusicService.kt   # MediaSessionService 后台播放
 └── SongloftTvApp.kt
 ```
+
+## 致谢
+
+本项目在设计与实现过程中参考了以下优秀项目（详见 [doc/design.md](doc/design.md)）：
+
+| 项目 | 参考内容                     |
+|------|--------------------------|
+| [songloft](https://github.com/songloft-org/songloft) | 主程序，音乐服务器后端，提供全部 API 接口  |
+| [songloft-player](https://github.com/songloft-org/songloft-player) | API 接口定义、数据模型、功能逻辑、主题与样式 |
+| [music-tv](https://github.com/boluofan/music-tv) | TV 原生 UI 布局、焦点交互、沉浸播放器模式 |
+| [songloft-library-plus](https://github.com/charce526/songloft-library-plus) | 【首页】概览功能与布局                |
+
+感谢以上项目的开源贡献。
 
 ## License
 

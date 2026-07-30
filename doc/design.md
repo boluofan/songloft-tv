@@ -24,7 +24,7 @@ Songloft TV 是 [Songloft](https://github.com/songloft-org/songloft) 音乐服�
 | 项目 | 参考内容                     |
 |------|--------------------------|
 | [songloft-player](https://github.com/songloft-org/songloft-player) | API 接口定义、数据模型、功能逻辑       |
-| [music-tv](https://github.com/GanHuaLin/rouroumusic-tv) | TV 原生 UI 布局、焦点交互、沉浸播放器模式 |
+| [music-tv](https://github.com/boluofan/music-tv) | TV 原生 UI 布局、焦点交互、沉浸播放器模式 |
 | [songloft-library-plus-main](https://github.com/charce526/songloft-library-plus) | 首页功能、布局参考                |
 
 ---
