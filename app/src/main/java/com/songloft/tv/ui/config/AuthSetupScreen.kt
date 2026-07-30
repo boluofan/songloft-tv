@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -66,9 +67,26 @@ private fun LoginForm(viewModel: AuthViewModel) {
     var passwordVisible by remember { mutableStateOf(false) }
     val showKeyboard = activeField != ActiveField.NONE
     val keyboardFocus = remember { FocusRequester() }
+    val serverUrlFocus = remember { FocusRequester() }
+    val usernameFocus = remember { FocusRequester() }
+    val passwordFocus = remember { FocusRequester() }
+    // 键盘收起后把焦点还给之前激活的输入框
+    var lastActiveField by remember { mutableStateOf(ActiveField.NONE) }
 
     LaunchedEffect(showKeyboard) {
-        if (showKeyboard) runCatching { keyboardFocus.requestFocus() }
+        if (showKeyboard) {
+            lastActiveField = activeField
+            runCatching { keyboardFocus.requestFocus() }
+        } else {
+            runCatching {
+                when (lastActiveField) {
+                    ActiveField.SERVER_URL -> serverUrlFocus.requestFocus()
+                    ActiveField.USERNAME -> usernameFocus.requestFocus()
+                    ActiveField.PASSWORD -> passwordFocus.requestFocus()
+                    ActiveField.NONE -> {}
+                }
+            }
+        }
     }
 
     BackHandler(enabled = showKeyboard) {
@@ -95,6 +113,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
                 label = "服务器地址",
                 value = serverUrl,
                 placeholder = "http://192.168.1.100:58091",
+                focusRequester = serverUrlFocus,
                 isActive = activeField == ActiveField.SERVER_URL,
                 onActivate = { activeField = ActiveField.SERVER_URL }
             )
@@ -105,6 +124,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
                 label = "账号",
                 value = username,
                 placeholder = "admin",
+                focusRequester = usernameFocus,
                 isActive = activeField == ActiveField.USERNAME,
                 onActivate = { activeField = ActiveField.USERNAME }
             )
@@ -117,6 +137,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
                         label = "密码",
                         value = password,
                         placeholder = "输入密码",
+                        focusRequester = passwordFocus,
                         isPassword = true,
                         passwordVisible = passwordVisible,
                         isActive = activeField == ActiveField.PASSWORD,
@@ -309,6 +330,7 @@ private fun InputField(
     label: String,
     value: String,
     placeholder: String,
+    focusRequester: FocusRequester,
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
     isActive: Boolean = false,
@@ -338,6 +360,7 @@ private fun InputField(
                 ) else Modifier
             )
             // 仅确认键（点击）激活键盘，焦点经过不弹出
+            .focusRequester(focusRequester)
             .onFocusChanged { focused = it.isFocused }
             .clickable { onActivate() }
             .padding(16.dp),
