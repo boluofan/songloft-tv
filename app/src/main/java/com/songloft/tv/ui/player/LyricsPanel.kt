@@ -78,6 +78,7 @@ fun LyricsPanel(
                     Text(
                         text = line.text.ifEmpty { "···" },
                         fontSize = if (isActive) 30.sp else 22.sp,
+                        lineHeight = if (isActive) 42.sp else 30.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                         color = if (isActive) ActiveColor else Color.White.copy(alpha = alpha),
                         style = TextStyle(shadow = LyricShadow),
@@ -130,6 +131,7 @@ private fun KaraokeLine(line: LyricLine, position: Long) {
     Text(
         text = annotated,
         fontSize = 30.sp,
+        lineHeight = 42.sp,
         fontWeight = FontWeight.Bold,
         style = TextStyle(shadow = LyricShadow),
         textAlign = TextAlign.Center,
