@@ -28,6 +28,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
+import com.songloft.tv.ui.update.UpdateViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -169,6 +170,7 @@ fun SettingsScreen(
 
         SettingsSection("关于") {
             val context = LocalContext.current
+            val updateViewModel: UpdateViewModel = hiltViewModel()
             val versionName = remember {
                 runCatching {
                     context.packageManager.getPackageInfo(context.packageName, 0).versionName
@@ -176,6 +178,11 @@ fun SettingsScreen(
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SettingsItem(label = "版本", value = versionName)
+                SettingsItem(
+                    label = "检查更新",
+                    value = "获取最新版本",
+                    onClick = { updateViewModel.manualCheck() }
+                )
                 SettingsItem(label = "项目地址", value = "github.com/boluofan/songloft-tv")
                 SettingsItem(
                     label = "开源组件",

@@ -42,6 +42,8 @@ jobs:
         id: version
         run: |
           GRADLE_VERSION=$(grep 'versionName = ' app/build.gradle.kts | sed 's/.*versionName = "\(.*\)".*/\1/')
+          VERSION_CODE=$(grep 'versionCode = ' app/build.gradle.kts | tr -dc '0-9')
+          VERSION_CODE=${VERSION_CODE:-0}
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="$GRADLE_VERSION"
           else
@@ -50,6 +52,7 @@ jobs:
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
           GIT_COMMIT=$(git rev-parse --short HEAD)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "build_time=$BUILD_TIME" >> "$GITHUB_OUTPUT"
           echo "git_commit=$GIT_COMMIT" >> "$GITHUB_OUTPUT"
 
@@ -77,12 +80,14 @@ jobs:
       - name: Generate version.json
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
           GIT_COMMIT: ${{ steps.version.outputs.git_commit }}
           BUILD_TIME: ${{ steps.version.outputs.build_time }}
         run: |
           cat > apk-output/version.json <<EOF
           {
             "version": "${VERSION}",
+            "version_code": ${VERSION_CODE},
             "git_commit": "${GIT_COMMIT}",
             "build_time": "${BUILD_TIME}"
           }

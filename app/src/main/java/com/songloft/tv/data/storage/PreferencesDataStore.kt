@@ -25,6 +25,7 @@ class PreferencesDataStore @Inject constructor(
         private val ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         private val BACKGROUND_PLAYBACK = booleanPreferencesKey("background_playback")
+        private val IGNORED_VERSION_CODE = intPreferencesKey("ignored_version_code")
     }
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
@@ -33,6 +34,7 @@ class PreferencesDataStore @Inject constructor(
     val accessToken: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN] }
     val backgroundPlayback: Flow<Boolean> = context.dataStore.data.map { it[BACKGROUND_PLAYBACK] ?: true }
+    val ignoredVersionCode: Flow<Int> = context.dataStore.data.map { it[IGNORED_VERSION_CODE] ?: 0 }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url }
@@ -48,6 +50,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setBackgroundPlayback(enabled: Boolean) {
         context.dataStore.edit { it[BACKGROUND_PLAYBACK] = enabled }
+    }
+
+    suspend fun setIgnoredVersionCode(code: Int) {
+        context.dataStore.edit { it[IGNORED_VERSION_CODE] = code }
     }
 
     suspend fun setTokens(access: String, refresh: String) {

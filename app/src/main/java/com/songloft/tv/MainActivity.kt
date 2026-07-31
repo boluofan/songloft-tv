@@ -67,6 +67,8 @@ import com.songloft.tv.ui.playlist.PlaylistsScreen
 import com.songloft.tv.ui.search.SearchScreen
 import com.songloft.tv.ui.settings.SettingsScreen
 import com.songloft.tv.ui.theme.TvTheme
+import com.songloft.tv.ui.update.UpdateDialog
+import com.songloft.tv.ui.update.UpdateViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.random.Random
@@ -175,6 +177,17 @@ fun TvApp(
             onDismiss = { showExitDialog = false }
         )
     }
+
+    val updateViewModel: UpdateViewModel = hiltViewModel()
+    val updateState by updateViewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { updateViewModel.autoCheckOnLaunch() }
+    UpdateDialog(
+        state = updateState,
+        onStartDownload = updateViewModel::startDownload,
+        onIgnore = updateViewModel::ignoreVersion,
+        onRetryCheck = updateViewModel::manualCheck,
+        onDismiss = updateViewModel::dismiss
+    )
 
     CompositionLocalProvider(LocalTabBarBridge provides tabBarBridge) {
         Scaffold(
