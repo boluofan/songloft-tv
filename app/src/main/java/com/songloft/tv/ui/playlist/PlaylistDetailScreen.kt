@@ -120,7 +120,7 @@ fun PlaylistDetailScreen(
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "${uiState.songs.size} 首歌曲",
+                                text = "${maxOf(uiState.total, uiState.songs.size)} 首歌曲",
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )

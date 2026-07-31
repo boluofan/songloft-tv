@@ -70,7 +70,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 
 - **AuthRepository**：`login`（初始化 ApiClient/UrlHelper + 存 token）、`tryAutoLogin`、`logout`；init 中注册 token 刷新回调持久化。
 - **FavoriteRepository**：收藏基于服务端 **`built_in` 标签歌单**实现——`type=normal` 歌单收藏歌曲、`type=radio` 歌单收藏电台；内部缓存 type→playlistId 映射；`getFavorites` 拉取所有内置歌单歌曲合并。
-- **PlaylistRepository**：歌单列表/详情/歌曲。
+- **PlaylistRepository**：歌单列表/详情/歌曲（详情页按 500 首/页循环拉取直至全量，修复原先只显示前 50 首的问题）。
 - **SongRepository**：`getSongs`、`getFacets`、`getSongLyric`（歌词全空抛异常）、`reportPlayed`、`getLibraryStats`（分页拉全库统计，上限 5000 首）。
 
 ### 2.5 存储（`data/storage/PreferencesDataStore.kt`）

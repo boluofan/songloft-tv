@@ -7,6 +7,7 @@ import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ data class PlaylistListUiState(
 data class PlaylistDetailUiState(
     val playlist: Playlist? = null,
     val songs: List<Song> = emptyList(),
+    val total: Int = 0,
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -41,6 +43,8 @@ class PlaylistViewModel @Inject constructor(
 
     private val _detailState = MutableStateFlow(PlaylistDetailUiState())
     val detailState: StateFlow<PlaylistDetailUiState> = _detailState.asStateFlow()
+
+    private var detailJob: Job? = null
 
     val favoriteIds: StateFlow<Set<Long>> = favoriteRepository.favoriteIds
         .map { it ?: emptySet() }
@@ -76,18 +80,13 @@ class PlaylistViewModel @Inject constructor(
     }
 
     fun loadPlaylistDetail(id: Long) {
+        detailJob?.cancel()
         _detailState.value = PlaylistDetailUiState(isLoading = true)
-        viewModelScope.launch {
-            val detailResult = playlistRepository.getPlaylistDetail(id)
-            val songsResult = playlistRepository.getPlaylistSongs(id)
-
-            detailResult.fold(
+        detailJob = viewModelScope.launch {
+            playlistRepository.getPlaylistDetail(id).fold(
                 onSuccess = { playlist ->
-                    _detailState.value = _detailState.value.copy(
-                        playlist = playlist,
-                        songs = songsResult.getOrDefault(emptyList()),
-                        isLoading = false
-                    )
+                    _detailState.value = _detailState.value.copy(playlist = playlist)
+                    loadAllSongs(id)
                 },
                 onFailure = { e ->
                     _detailState.value = _detailState.value.copy(
@@ -99,7 +98,29 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
+    private suspend fun loadAllSongs(id: Long) {
+        var offset = 0
+        while (true) {
+            val page = playlistRepository.getPlaylistSongs(id, limit = SONGS_PAGE_SIZE, offset = offset)
+                .getOrNull() ?: break
+            val current = _detailState.value
+            _detailState.value = current.copy(
+                songs = current.songs + page.songs,
+                total = page.total,
+                isLoading = false
+            )
+            offset += page.songs.size
+            if (page.songs.isEmpty() || offset >= page.total) break
+        }
+        _detailState.value = _detailState.value.copy(isLoading = false)
+    }
+
     fun clearDetail() {
+        detailJob?.cancel()
         _detailState.value = PlaylistDetailUiState()
+    }
+
+    private companion object {
+        const val SONGS_PAGE_SIZE = 500
     }
 }
