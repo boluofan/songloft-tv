@@ -27,10 +27,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +56,7 @@ import com.songloft.tv.ui.navigation.RestoreFocusEffect
 import com.songloft.tv.ui.navigation.ScreenFocusRestorer
 import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
 import com.songloft.tv.ui.navigation.restorableFocus
+import kotlinx.coroutines.ensureActive
 
 @Composable
 fun HomeScreen(
@@ -69,10 +72,23 @@ fun HomeScreen(
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
+    var manageHasFocus by remember { mutableStateOf(false) }
 
     ListBackToTopHandler(listState, topFocus, topFocusInList = true)
     RestoreFocusEffect(restorer)
     DefaultFocusEffect(restorer, topFocus)
+
+    // 焦点落到顶部「管理歌单」时滚回列表顶，露出上方不可聚焦的标题和统计卡片；
+    // 焦点系统自带的 bringIntoView 滚动会取消单次 scrollToItem，故按帧重试直到到顶
+    LaunchedEffect(manageHasFocus) {
+        if (!manageHasFocus) return@LaunchedEffect
+        repeat(10) {
+            withFrameNanos { }
+            if (!listState.canScrollBackward) return@LaunchedEffect
+            runCatching { listState.scrollToItem(0) }
+            ensureActive()
+        }
+    }
 
     LazyColumn(
         state = listState,
@@ -84,7 +100,7 @@ fun HomeScreen(
     ) {
         item {
             Text(
-                text = "音乐库概览",
+                text = "曲库概览",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -107,6 +123,7 @@ fun HomeScreen(
                     onManagePlaylists()
                 },
                 manageFocusRequester = topFocus,
+                onManageFocusChanged = { manageHasFocus = it },
                 restorer = restorer
             )
         }
@@ -192,7 +209,8 @@ private fun PlaylistSection(
     onPlaylistClick: (Long) -> Unit,
     onManagePlaylists: () -> Unit,
     restorer: ScreenFocusRestorer,
-    manageFocusRequester: FocusRequester? = null
+    manageFocusRequester: FocusRequester? = null,
+    onManageFocusChanged: (Boolean) -> Unit = {}
 ) {
     Column {
         Row(
@@ -210,7 +228,9 @@ private fun PlaylistSection(
                 text = "管理歌单",
                 onClick = onManagePlaylists,
                 focusRequester = manageFocusRequester,
-                modifier = Modifier.restorableFocus(restorer, "manage_playlists")
+                modifier = Modifier
+                    .restorableFocus(restorer, "manage_playlists")
+                    .onFocusChanged { onManageFocusChanged(it.isFocused) }
             )
         }
         Spacer(Modifier.height(12.dp))
