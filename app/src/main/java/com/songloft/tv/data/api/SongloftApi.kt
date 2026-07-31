@@ -33,6 +33,11 @@ interface SongloftApi {
         @Query("limit") limit: Int = 20
     ): FacetResponse
 
+    @GET("songs/names")
+    suspend fun getSongNames(
+        @Query("field") field: String
+    ): SongNamesResponse
+
     @POST("songs/{id}/played")
     suspend fun reportPlayed(
         @Path("id") id: Long,
@@ -116,6 +121,12 @@ data class FacetResponse(
     val field: String? = null,
     val limit: Int = 0,
     val offset: Int = 0
+)
+
+data class SongNamesResponse(
+    val field: String? = null,
+    val names: List<String> = emptyList(),
+    val total: Int = 0
 )
 
 data class PlaylistListResponse(

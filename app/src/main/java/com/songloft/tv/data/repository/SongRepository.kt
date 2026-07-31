@@ -20,6 +20,10 @@ class SongRepository @Inject constructor() {
         runCatching { api.getFacets(field, limit).facets }
     }
 
+    suspend fun getSongNames(field: String): Result<List<String>> = withContext(Dispatchers.IO) {
+        runCatching { api.getSongNames(field).names }
+    }
+
     suspend fun getSongs(
         limit: Int = 50,
         offset: Int = 0,

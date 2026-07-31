@@ -37,6 +37,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 | `getSongPlayUrl` | GET | `songs/{id}/play` | 可选 quality |
 | `getSongLyric` | GET | `songs/{id}/lyric` | lyric/tlyric/rlyric/lxlyric |
 | `getFacets` | GET | `songs/facets` | field=artist/album/year |
+| `getSongNames` | GET | `songs/names` | field=title/artist，去重全量名字，供拼音检索 |
 | `reportPlayed` | POST | `songs/{id}/played` | type=play/finish/skip |
 | `getPlaylists` | GET | `playlists` | 可选 type |
 | `getPlaylistDetail` | GET | `playlists/{id}` | |
@@ -137,7 +138,7 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 | 页面 | 实现要点 |
 |---|---|
 | 首页 Home | 5 个 async 并发拉统计/歌手/专辑/年份/歌单；统计卡 ×4、歌单 4 列网格（≤8）、歌手/专辑两列（各 6）、年份胶囊行（8） |
-| 搜索 Search | 300ms 防抖搜索；自定义 `TvKeyboard`（QWERTY + URL 符号行 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10 |
+| 搜索 Search | 300ms 防抖搜索；自定义 `TvKeyboard`（QWERTY + URL 符号行 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10；拼音/首字母候选取 `songs/names`（title+artist 去重全量）经 `PinyinMatcher` 索引，输入 ≥2 个字母时匹配候选（旧服务器无该接口时回退 artist facet 值） |
 | 分类 FacetList | 全部歌手/专辑/年份，3 列网格 → 点击进 SongFilter |
 | 筛选 FilteredSongs | 按 artist/album/year 拉 500 首列表 |
 | 歌单 Playlists | 全部/普通/电台 FilterChip 过滤，4 列网格；详情页有"播放全部/随机播放" |

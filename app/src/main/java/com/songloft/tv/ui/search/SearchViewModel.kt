@@ -100,13 +100,19 @@ class SearchViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { favoriteRepository.ensureFavoriteIdsLoaded() }
-        viewModelScope.launch {
-            songRepository.getFacets("artist", limit = 1000).onSuccess { facets ->
-                val values = facets.map { it.value }.filter { it.isNotBlank() }
-                _uiState.value = _uiState.value.copy(hotTags = values.take(10))
-                pinyinIndex = withContext(Dispatchers.Default) { PinyinMatcher.index(values) }
-            }
+        viewModelScope.launch { loadSearchIndex() }
+    }
+
+    private suspend fun loadSearchIndex() {
+        val popularArtists = songRepository.getFacets("artist", limit = 1000).getOrNull()
+            .orEmpty().map { it.value }.filter { it.isNotBlank() }
+        if (popularArtists.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(hotTags = popularArtists.take(10))
         }
+        val titles = songRepository.getSongNames("title").getOrDefault(emptyList())
+        val artists = songRepository.getSongNames("artist").getOrDefault(emptyList())
+        val names = (titles + artists).ifEmpty { popularArtists }
+        pinyinIndex = withContext(Dispatchers.Default) { PinyinMatcher.index(names) }
     }
 
     fun onQueryChanged(query: String) {
