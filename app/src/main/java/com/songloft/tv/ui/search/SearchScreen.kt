@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.QrCode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,13 +29,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.components.SongItemFavoriteMode
+import com.songloft.tv.ui.components.SongListItem
 import com.songloft.tv.ui.components.generateQrBitmap
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
@@ -46,6 +46,7 @@ fun SearchScreen(
     onSongClick: (List<Song>, Int) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val remoteUrl by viewModel.remoteUrl.collectAsStateWithLifecycle()
     var showKeyboard by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
@@ -202,12 +203,16 @@ fun SearchScreen(
 
             LazyColumn(
                 state = listState,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(vertical = 6.dp)
             ) {
                 itemsIndexed(uiState.results) { index, song ->
-                    SongResultItem(
+                    SongListItem(
                         song = song,
-                        onClick = { onSongClick(uiState.results, index) }
+                        onClick = { onSongClick(uiState.results, index) },
+                        favoriteMode = SongItemFavoriteMode.TOGGLE,
+                        isFavorite = song.id in favoriteIds,
+                        onFavoriteClick = { viewModel.toggleFavorite(song) }
                     )
                 }
             }
@@ -356,72 +361,3 @@ private fun HotTagChip(tag: String, onClick: () -> Unit) {
     )
 }
 
-@Composable
-private fun SongResultItem(
-    song: Song,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)
-            )
-            .then(
-                if (isFocused) Modifier.border(
-                    1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)
-                ) else Modifier
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() }
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = buildString {
-                    song.artist?.let { append(it) }
-                    song.album?.let {
-                        if (isNotEmpty()) append(" · ")
-                        append(it)
-                    }
-                },
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        if (song.isVideo) {
-            Text(
-                text = "MV",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        Icon(
-            imageVector = Icons.Rounded.PlayArrow,
-            contentDescription = "播放",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
-    }
-}

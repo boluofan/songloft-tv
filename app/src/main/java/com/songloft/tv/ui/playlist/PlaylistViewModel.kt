@@ -4,11 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,7 +32,8 @@ data class PlaylistDetailUiState(
 
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val favoriteRepository: FavoriteRepository
 ) : ViewModel() {
 
     private val _listState = MutableStateFlow(PlaylistListUiState())
@@ -37,8 +42,17 @@ class PlaylistViewModel @Inject constructor(
     private val _detailState = MutableStateFlow(PlaylistDetailUiState())
     val detailState: StateFlow<PlaylistDetailUiState> = _detailState.asStateFlow()
 
+    val favoriteIds: StateFlow<Set<Long>> = favoriteRepository.favoriteIds
+        .map { it ?: emptySet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     init {
         loadPlaylists()
+        viewModelScope.launch { favoriteRepository.ensureFavoriteIdsLoaded() }
+    }
+
+    fun toggleFavorite(song: Song) {
+        viewModelScope.launch { favoriteRepository.toggleFavorite(song) }
     }
 
     fun loadPlaylists(type: String? = null) {

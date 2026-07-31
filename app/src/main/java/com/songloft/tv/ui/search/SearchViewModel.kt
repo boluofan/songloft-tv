@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.config.ConfigWebServer
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.SongRepository
 import com.songloft.tv.util.LogStore
 import com.songloft.tv.util.PinyinEntry
@@ -19,9 +20,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -39,11 +43,20 @@ data class SearchUiState(
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val songRepository: SongRepository
+    private val songRepository: SongRepository,
+    private val favoriteRepository: FavoriteRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+
+    val favoriteIds: StateFlow<Set<Long>> = favoriteRepository.favoriteIds
+        .map { it ?: emptySet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun toggleFavorite(song: Song) {
+        viewModelScope.launch { favoriteRepository.toggleFavorite(song) }
+    }
 
     private var searchJob: Job? = null
 
@@ -86,6 +99,7 @@ class SearchViewModel @Inject constructor(
     private var pinyinIndex: List<PinyinEntry> = emptyList()
 
     init {
+        viewModelScope.launch { favoriteRepository.ensureFavoriteIdsLoaded() }
         viewModelScope.launch {
             songRepository.getFacets("artist", limit = 1000).onSuccess { facets ->
                 val values = facets.map { it.value }.filter { it.isNotBlank() }

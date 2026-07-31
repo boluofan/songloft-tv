@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,12 +23,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.components.SongItemFavoriteMode
+import com.songloft.tv.ui.components.SongListItem
 import com.songloft.tv.ui.navigation.DefaultFocusEffect
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 import com.songloft.tv.ui.navigation.RestoreFocusEffect
@@ -99,12 +99,16 @@ fun MyScreen(
                 LazyColumn(
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(vertical = 6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     itemsIndexed(songs) { index, song ->
-                        FavoriteSongItem(
+                        SongListItem(
                             song = song,
-                            onClick = { onSongClick(songs, index) }
+                            onClick = { onSongClick(songs, index) },
+                            favoriteMode = SongItemFavoriteMode.REMOVE,
+                            onFavoriteClick = { viewModel.removeFavorite(song) },
+                            showAlbumInSubtitle = false
                         )
                     }
                 }
@@ -169,64 +173,6 @@ private fun TabChip(
             .clickable { onClick() }
             .padding(horizontal = 20.dp, vertical = 10.dp)
     )
-}
-
-@Composable
-private fun FavoriteSongItem(song: Song, onClick: () -> Unit) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                fontSize = 16.sp,
-                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (!song.artist.isNullOrEmpty()) {
-                Text(
-                    text = song.artist,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        if (song.isVideo) {
-            Text(
-                text = "MV",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-        }
-        Icon(
-            imageVector = Icons.Rounded.PlayArrow,
-            contentDescription = "播放",
-            tint = if (isFocused) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-            modifier = Modifier.size(18.dp)
-        )
-    }
 }
 
 @Composable

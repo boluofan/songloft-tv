@@ -51,9 +51,18 @@ class PlayerViewModel @Inject constructor(
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
     private var lyricSongId: Long? = null
-    private var favoriteIds: MutableSet<Long>? = null
 
     init {
+        viewModelScope.launch {
+            favoriteRepository.ensureFavoriteIdsLoaded()
+        }
+        viewModelScope.launch {
+            favoriteRepository.favoriteIds.collect { ids ->
+                _uiState.update {
+                    it.copy(isFavorite = it.currentSong?.id?.let { id -> ids?.contains(id) } == true)
+                }
+            }
+        }
         viewModelScope.launch {
             playerController.state.collect { s ->
                 _uiState.update {
@@ -74,7 +83,9 @@ class PlayerViewModel @Inject constructor(
                 if (songId != null && songId != lyricSongId) {
                     lyricSongId = songId
                     loadLyrics(songId)
-                    refreshFavoriteState(songId)
+                    _uiState.update {
+                        it.copy(isFavorite = favoriteRepository.favoriteIds.value?.contains(songId) == true)
+                    }
                 }
             }
         }
@@ -135,33 +146,9 @@ class PlayerViewModel @Inject constructor(
     fun toggleFavorite() {
         val song = _uiState.value.currentSong ?: return
         viewModelScope.launch {
-            val ids = favoriteIds ?: favoriteRepository.getFavorites()
-                .getOrNull()?.map { it.id }?.toMutableSet()
-                ?.also { favoriteIds = it }
-                ?: mutableSetOf<Long>().also { favoriteIds = it }
-
-            val wasFavorite = song.id in ids
-            // 乐观更新，失败时回滚
-            _uiState.update { it.copy(isFavorite = !wasFavorite) }
-
-            val result = if (wasFavorite) {
-                favoriteRepository.removeFavorite(song).onSuccess { ids.remove(song.id) }
-            } else {
-                favoriteRepository.addFavorite(song).onSuccess { ids.add(song.id) }
-            }
-            result.onFailure { e ->
+            favoriteRepository.toggleFavorite(song).onFailure { e ->
                 Log.w("PlayerViewModel", "toggleFavorite failed for song ${song.id}", e)
-                _uiState.update { it.copy(isFavorite = wasFavorite) }
             }
-        }
-    }
-
-    private fun refreshFavoriteState(songId: Long) {
-        viewModelScope.launch {
-            val ids = favoriteIds ?: favoriteRepository.getFavorites()
-                .getOrNull()?.map { it.id }?.toMutableSet()
-                ?.also { favoriteIds = it }
-            _uiState.update { it.copy(isFavorite = ids?.contains(songId) == true) }
         }
     }
 

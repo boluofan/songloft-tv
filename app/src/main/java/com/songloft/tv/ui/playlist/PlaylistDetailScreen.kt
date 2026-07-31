@@ -3,7 +3,6 @@ package com.songloft.tv.ui.playlist
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +32,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
+import com.songloft.tv.ui.components.SongItemFavoriteMode
+import com.songloft.tv.ui.components.SongListItem
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 
@@ -45,6 +46,7 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.detailState.collectAsStateWithLifecycle()
+    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
     var backButtonHasFocus by remember { mutableStateOf(false) }
@@ -148,12 +150,17 @@ fun PlaylistDetailScreen(
 
                     LazyColumn(
                         state = listState,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(vertical = 6.dp)
                     ) {
                         itemsIndexed(uiState.songs) { index, song ->
-                            SongItem(
+                            SongListItem(
                                 song = song,
-                                onClick = { onSongClick(uiState.songs, index) }
+                                onClick = { onSongClick(uiState.songs, index) },
+                                favoriteMode = SongItemFavoriteMode.TOGGLE,
+                                isFavorite = song.id in favoriteIds,
+                                onFavoriteClick = { viewModel.toggleFavorite(song) },
+                                showAlbumInSubtitle = false
                             )
                         }
                     }
@@ -231,63 +238,3 @@ private fun ActionButton(icon: ImageVector, label: String, onClick: () -> Unit) 
     }
 }
 
-@Composable
-private fun SongItem(
-    song: Song,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)
-            )
-            .then(
-                if (isFocused) Modifier.border(
-                    1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)
-                ) else Modifier
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() }
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = song.artist ?: "",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-        }
-        if (song.isVideo) {
-            Text(
-                text = "MV",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-        }
-        Icon(
-            imageVector = Icons.Rounded.PlayArrow,
-            contentDescription = "播放",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
-    }
-}
