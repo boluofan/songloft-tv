@@ -1,0 +1,4 @@
+#!/bin/sh
+# 自动将提交信息首行 type 前缀后的全角冒号（：）替换为半角冒号加空格
+# 例如 "fix：xxx" -> "fix: xxx"，避免 CI changelog 无法识别 Conventional Commits
+sed -i -E '1s/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]*\))?(!)?：[ ]*/\1\2\3: /' "$1"
