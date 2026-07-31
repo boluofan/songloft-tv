@@ -35,7 +35,7 @@ Songloft TV — [Songloft](https://github.com/songloft-org/songloft) 音乐服�
 - UI 优先使用 `androidx.tv` 组件；所有可交互元素必须支持 D-Pad 焦点（参考 `ui/components/TvFocusable.kt`）
 - API 响应用具体数据类（`SongListResponse` 等，定义在 `SongloftApi.kt`）；Retrofit 请求体也用具体数据类，不要用 Map/通配符泛型（曾引发运行时异常，见 16a910f）
 - 电台/流媒体播放用服务端返回的 m3u8 地址（HLS），依赖 `media3-exoplayer-hls`
-- 提交信息为中文，格式 `feat:` / `fix:` / `chore:` 前缀（参考 git log）
+- 提交信息为中文，格式 `feat:` / `fix:` / `chore:` 前缀（参考 git log）；冒号必须半角，否则 CI changelog 无法识别。克隆仓库后执行 `git config core.hooksPath .githooks` 启用 commit-msg hook 自动纠正全角冒号
 - 文档（doc/、README）用中文维护
 
 ## 版本发布
