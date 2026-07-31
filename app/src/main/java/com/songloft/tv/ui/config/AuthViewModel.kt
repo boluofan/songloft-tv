@@ -3,8 +3,6 @@ package com.songloft.tv.ui.config
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.songloft.tv.data.api.ApiClient
-import com.songloft.tv.data.api.UrlHelper
 import com.songloft.tv.data.config.ConfigWebServer
 import com.songloft.tv.data.repository.AuthRepository
 import com.songloft.tv.data.storage.PreferencesDataStore
@@ -12,13 +10,12 @@ import com.songloft.tv.util.LogStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fi.iki.elonen.NanoHTTPD
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 
 sealed class AuthState {
@@ -68,7 +65,7 @@ class AuthViewModel @Inject constructor(
         for (port in CONFIG_PORTS) {
             val server = ConfigWebServer(port, onConfig = { serverUrl, username, password ->
                 viewModelScope.launch {
-                    _serverUrl.value = normalizeUrl(serverUrl)
+                    _serverUrl.value = serverUrl
                     _username.value = username
                     _password.value = password
                     login()
@@ -88,8 +85,10 @@ class AuthViewModel @Inject constructor(
         _configUrl.value = null
     }
 
-    private fun normalizeUrl(url: String): String =
-        if (url.startsWith("http://") || url.startsWith("https://")) url else "http://$url"
+    /** 无协议前缀时按 https → http 顺序生成候选地址，探测出可用协议 */
+    private fun candidateUrls(url: String): List<String> =
+        if (url.startsWith("http://") || url.startsWith("https://")) listOf(url)
+        else listOf("https://$url", "http://$url")
 
     override fun onCleared() {
         stopConfigServer()
@@ -141,16 +140,22 @@ class AuthViewModel @Inject constructor(
         _error.value = null
 
         viewModelScope.launch {
-            authRepository.login(url, username, password)
-                .onSuccess {
+            var lastError: Throwable? = null
+            for (candidate in candidateUrls(url)) {
+                val result = authRepository.login(candidate, username, password)
+                if (result.isSuccess) {
+                    _serverUrl.value = candidate
                     _isLoggingIn.value = false
                     _authState.value = AuthState.LoggedIn(username)
                     stopConfigServer()
+                    return@launch
                 }
-                .onFailure { e ->
-                    _isLoggingIn.value = false
-                    _error.value = e.message ?: "登录失败"
-                }
+                lastError = result.exceptionOrNull()
+                // 仅连接层失败（IOException）才换协议重试；服务器有真实响应（如账号密码错误）直接报错
+                if (lastError !is IOException) break
+            }
+            _isLoggingIn.value = false
+            _error.value = lastError?.message ?: "登录失败"
         }
     }
 

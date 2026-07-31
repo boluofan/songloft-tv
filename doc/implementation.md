@@ -159,7 +159,9 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 `AuthState`（sealed）：Loading/NotConfigured/Configured/LoggedIn/Error。启动时读 DataStore serverUrl，非空则 `tryAutoLogin`。两种配置方式并存于 `AuthSetupScreen`：
 
 1. **遥控器手动输入**：三个 InputField（服务器/账号/密码）+ 共享 TvKeyboard，按 activeField 路由按键。
-2. **手机扫码**：`startConfigServer()` 在候选端口 18899-18902 启动 `ConfigWebServer`（NanoHTTPD，`GET /` 返回移动端 HTML 表单、`POST /submit` 接收 server/username/password）；电视端 ZXing 生成 `http://<局域网IP>:<端口>` 二维码；手机提交后回调自动 `normalizeUrl`（补 http:// 前缀）并触发登录，成功后停服。
+2. **手机扫码**：`startConfigServer()` 在候选端口 18899-18902 启动 `ConfigWebServer`（NanoHTTPD，`GET /` 返回移动端 HTML 表单、`POST /submit` 接收 server/username/password）；电视端 ZXing 生成 `http://<局域网IP>:<端口>` 二维码；手机提交后回调触发登录，成功后停服。
+
+两种方式共用 `login()`：地址无协议前缀时按 `https://` → `http://` 顺序探测登录，仅连接层失败（IOException）才换协议重试，服务器有真实响应（如账号密码错误）直接报错；成功后以实际可用协议的完整 URL 持久化。
 
 ### 4.5 通用组件与主题
 
