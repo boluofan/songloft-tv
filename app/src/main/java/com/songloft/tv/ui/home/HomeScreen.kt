@@ -96,6 +96,62 @@ fun HomeScreen(
         }
     }
 
+    val retryFocus = remember { FocusRequester() }
+
+    // 数据到达前不渲染列表，避免空数据把静态标题挤在一起；
+    // 此时 DefaultFocusEffect 的帧重试已超时，加载完成后需重新请求默认焦点；
+    // 有待恢复焦点（从子界面返回）时让位给 RestoreFocusEffect，否则会抢走恢复目标
+    LaunchedEffect(uiState.isLoading, uiState.error) {
+        if (uiState.isLoading || restorer.pendingKey != null) return@LaunchedEffect
+        repeat(10) {
+            withFrameNanos { }
+            val target = if (uiState.error != null) retryFocus else topFocus
+            if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "加载中...",
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
+        return
+    }
+
+    if (uiState.error != null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "加载失败：${uiState.error}",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(Modifier.height(16.dp))
+                var retryFocused by remember { mutableStateOf(false) }
+                Text(
+                    text = "重试",
+                    fontSize = 14.sp,
+                    fontWeight = if (retryFocused) FontWeight.Bold else FontWeight.Normal,
+                    color = if (retryFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (retryFocused) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .onFocusChanged { retryFocused = it.isFocused }
+                        .clickable { viewModel.refresh() }
+                        .padding(8.dp)
+                )
+            }
+        }
+        return
+    }
+
     LazyColumn(
         state = listState,
         modifier = Modifier
