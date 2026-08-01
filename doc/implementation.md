@@ -144,7 +144,7 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 |---|---|
 | 首页 Home | 5 个 async 并发拉统计/歌手/专辑/年份/歌单；统计卡 ×4、歌单 4 列网格（≤8）、歌手/专辑两列（各 6）、年份胶囊行（8）；最下方「年份速览」动态切换：仅预取统计插件 summary（全部区间，不带参数），成功则展示「播放统计」概览（全部/今日/本周/本月 Tab，切换其他区间时按需请求该区间 summary，右上角查看全部进统计页），失败则回退年份速览；概览区「本月」Tab 与「查看全部」用 `focusProperties` 双向焦点跳转 |
 | 统计 Stats | 播放统计插件（jsplugin/stats）子界面：全部/今日/本周/本月时间 Tab、概览卡 ×4（播放次数/听歌时长/不同歌曲/不同艺术家）、艺术家排行 top4、歌曲排行 top3、听歌趋势（7/30 天柱状图）、专辑排行 top3、时段分布、来源分布 top3、歌曲类型 top3、最近播放 top3；各卡片标题栏带「刷新」按钮 |
-| 搜索 Search | 300ms 防抖搜索；自定义 `TvKeyboard`（QWERTY + URL 符号行 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10；拼音/首字母候选取 `songs/names`（title+artist 去重全量）经 `PinyinMatcher` 索引，输入 ≥2 个字母时匹配候选（旧服务器无该接口时回退 artist facet 值） |
+| 搜索 Search | 300ms 防抖搜索；自定义 `TvKeyboard`（左侧 8×4 字母方阵+功能键、右侧 4×4 数字/符号方阵可切换 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10；拼音/首字母候选取 `songs/names`（title+artist 去重全量）经 `PinyinMatcher` 索引，输入 ≥2 个字母时匹配候选（旧服务器无该接口时回退 artist facet 值） |
 | 分类 FacetList | 全部歌手/专辑/年份，3 列网格 → 点击进 SongFilter |
 | 筛选 FilteredSongs | 按 artist/album/year 拉 500 首列表 |
 | 歌单 Playlists | 全部/普通/电台 FilterChip 过滤，4 列网格；详情页有"播放全部/随机播放" |

@@ -29,31 +29,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// 参考 TV 端专业输入法（YouTube/Google TV）：6 列方阵布局，
-// 相比 10 列 QWERTY 大幅缩短 D-Pad 平均移动距离
+// 参考 TV 端专业输入法（YouTube/Google TV）：左侧 8×4 字母方阵（右侧列放功能键），
+// 右侧 4×4 数字/符号方阵，相比 10 列 QWERTY 大幅缩短 D-Pad 平均移动距离
 private val letterGrid = listOf(
-    listOf("a", "b", "c", "d", "e", "f"),
-    listOf("g", "h", "i", "j", "k", "l"),
-    listOf("m", "n", "o", "p", "q", "r"),
-    listOf("s", "t", "u", "v", "w", "x"),
-    listOf("y", "z", "1", "2", "3", "4"),
-    listOf("5", "6", "7", "8", "9", "0")
+    listOf("a", "b", "c", "d", "e", "f", "g"),
+    listOf("h", "i", "j", "k", "l", "m", "n"),
+    listOf("o", "p", "q", "r", "s", "t", "u"),
+    listOf("v", "w", "x", "y", "z")
+)
+
+// 右侧默认页：数字 + 常用符号；#+= 键切换到 symbolGrid
+private val numberGrid = listOf(
+    listOf("1", "2", "3", "4"),
+    listOf("5", "6", "7", "8"),
+    listOf("9", "0", ".", "/"),
+    listOf(":", "-", "_", "'")
 )
 
 private val symbolGrid = listOf(
-    listOf(".", ",", "'", "\"", "!", "?"),
-    listOf("@", "#", "$", "%", "&", "*"),
-    listOf("-", "_", "+", "=", "/", "\\"),
-    listOf(":", ";", "(", ")", "[", "]"),
-    listOf("{", "}", "<", ">", "|", "~"),
-    listOf("^", "`", "·", "。", "！", "？")
+    listOf("!", "?", ",", "@"),
+    listOf("\"", "(", ")", "["),
+    listOf("]", "{", "}", "<"),
+    listOf(">", "=", "+", "*")
 )
 
-private val loginTokens = listOf(".", "/", ":", "http://", "https://", "192.168.", ":58091", ".com", ".cn", ".net", ".top")
+// 登录页服务器地址快捷输入行
+private val loginTokens = listOf("http://", "https://", "192.168.", ":58091", ".com", ".cn", ".net", ".top")
 
 private val keySpacing = 8.dp
 private val gridKeyWidth = 60.dp
-private val actionKeyWidth = 108.dp
 
 enum class TvKeyboardMode { SEARCH, LOGIN }
 
@@ -87,13 +91,12 @@ fun TvKeyboard(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(keySpacing * 2)) {
-            // 字符方阵
+            // 左侧：字母方阵（8 列 × 4 行），每行右侧列放功能键，色调与右侧数字小键盘区分
             Column(verticalArrangement = Arrangement.spacedBy(keySpacing)) {
-                val grid = if (showSymbols) symbolGrid else letterGrid
-                grid.forEach { row ->
+                letterGrid.forEachIndexed { rowIndex, row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(keySpacing)) {
                         row.forEach { key ->
-                            val display = if (isShifted && !showSymbols) key.uppercase() else key
+                            val display = if (isShifted) key.uppercase() else key
                             KeyboardKey(
                                 key = display,
                                 onClick = {
@@ -101,58 +104,86 @@ fun TvKeyboard(
                                     isShifted = false
                                 },
                                 width = gridKeyWidth,
-                                // 默认焦点放在方阵中心附近的 v，到任意键的平均距离最短
-                                modifier = if (key == "v" && !showSymbols && firstKeyFocusRequester != null)
+                                // 默认焦点放在方阵中心附近的 n，到任意键的平均距离最短
+                                modifier = if (key == "n" && firstKeyFocusRequester != null)
                                     Modifier.focusRequester(firstKeyFocusRequester) else Modifier
                             )
+                        }
+                        // 功能键列：isActionKey 半透明主色，与字母键形成色调区分
+                        when (rowIndex) {
+                            0 -> KeyboardKey(
+                                "退格",
+                                icon = Icons.AutoMirrored.Rounded.Backspace,
+                                onClick = { onKeyPress("←退格") },
+                                width = gridKeyWidth,
+                                isActionKey = true
+                            )
+                            1 -> KeyboardKey(
+                                "清空",
+                                onClick = { onKeyPress("清空") },
+                                width = gridKeyWidth,
+                                isActionKey = true
+                            )
+                            2 -> KeyboardKey(
+                                "确定",
+                                onClick = { onKeyPress("确定") },
+                                width = gridKeyWidth,
+                                isActionKey = true
+                            )
+                            else -> {
+                                KeyboardKey(
+                                    "大小写",
+                                    icon = Icons.Rounded.KeyboardCapslock,
+                                    onClick = { isShifted = !isShifted },
+                                    width = gridKeyWidth,
+                                    isActionKey = true,
+                                    isHighlighted = isShifted
+                                )
+                                KeyboardKey(
+                                    if (showSymbols) "数字" else "#+=",
+                                    onClick = { showSymbols = !showSymbols },
+                                    width = gridKeyWidth,
+                                    isActionKey = true,
+                                    isHighlighted = showSymbols
+                                )
+                                KeyboardKey(
+                                    "空格",
+                                    onClick = { onKeyPress(" ") },
+                                    width = gridKeyWidth,
+                                    isActionKey = true
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // 功能键列：与方阵等高，任意行向右一步可达
+            // 右侧：数字/符号 4×4
             Column(verticalArrangement = Arrangement.spacedBy(keySpacing)) {
-                KeyboardKey(
-                    "退格",
-                    icon = Icons.AutoMirrored.Rounded.Backspace,
-                    onClick = { onKeyPress("←退格") },
-                    width = actionKeyWidth,
-                    isActionKey = true
-                )
-                KeyboardKey("清空", onClick = { onKeyPress("清空") }, width = actionKeyWidth, isActionKey = true)
-                KeyboardKey("确定", onClick = { onKeyPress("确定") }, width = actionKeyWidth, isActionKey = true)
-                KeyboardKey(
-                    "大小写",
-                    icon = Icons.Rounded.KeyboardCapslock,
-                    onClick = { isShifted = !isShifted },
-                    width = actionKeyWidth,
-                    isActionKey = true,
-                    isHighlighted = isShifted
-                )
-                KeyboardKey(
-                    if (showSymbols) "abc" else "#+=",
-                    onClick = { showSymbols = !showSymbols },
-                    width = actionKeyWidth,
-                    isActionKey = true,
-                    isHighlighted = showSymbols
-                )
-                KeyboardKey("空格", onClick = { onKeyPress(" ") }, width = actionKeyWidth, isActionKey = true)
+                val grid = if (showSymbols) symbolGrid else numberGrid
+                grid.forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(keySpacing)) {
+                        row.forEach { key ->
+                            KeyboardKey(
+                                key = key,
+                                onClick = { onKeyPress(key) },
+                                width = gridKeyWidth
+                            )
+                        }
+                    }
+                }
             }
         }
 
-        // 登录页网络快捷符号行
+        // 登录页底部服务器地址快捷符号行
         if (mode == TvKeyboardMode.LOGIN) {
             Row(horizontalArrangement = Arrangement.spacedBy(keySpacing)) {
                 loginTokens.forEach { token ->
                     KeyboardKey(
                         key = token,
                         onClick = { onKeyPress(token) },
-                        width = when {
-                            token.length == 1 -> 48.dp
-                            token.length > 5 -> 96.dp
-                            else -> 68.dp
-                        },
-                        isActionKey = true
+                        width = if (token.length > 5) 96.dp else 68.dp,
+                        isTokenKey = true
                     )
                 }
             }
@@ -168,6 +199,7 @@ private fun KeyboardKey(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     isActionKey: Boolean = false,
+    isTokenKey: Boolean = false,
     isHighlighted: Boolean = false
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -187,14 +219,21 @@ private fun KeyboardKey(
                 when {
                     isFocused -> MaterialTheme.colorScheme.primary
                     isHighlighted -> MaterialTheme.colorScheme.tertiary
+                    isTokenKey -> MaterialTheme.colorScheme.surface
                     isActionKey -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
             )
             .then(
-                if (isFocused) Modifier.border(
-                    2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(8.dp)
-                ) else Modifier
+                when {
+                    isFocused -> Modifier.border(
+                        2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(8.dp)
+                    )
+                    isTokenKey -> Modifier.border(
+                        1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), RoundedCornerShape(8.dp)
+                    )
+                    else -> Modifier
+                }
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() },
