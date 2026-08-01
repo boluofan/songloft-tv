@@ -135,6 +135,7 @@ fun SettingsScreen(
                     OptionChip("90 分钟", uiState.sleepTimerMinutes == 90) { viewModel.setSleepTimer(90) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OptionChip("播完本首", uiState.sleepAfterSongs == 1) { viewModel.setSleepAfterSongs(1) }
                     OptionChip("播完 3 首", uiState.sleepAfterSongs == 3) { viewModel.setSleepAfterSongs(3) }
                     OptionChip("播完 5 首", uiState.sleepAfterSongs == 5) { viewModel.setSleepAfterSongs(5) }
                     OptionChip("播完 10 首", uiState.sleepAfterSongs == 10) { viewModel.setSleepAfterSongs(10) }
