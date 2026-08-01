@@ -51,6 +51,7 @@ import com.songloft.tv.ui.config.AuthSetupScreen
 import com.songloft.tv.ui.config.AuthState
 import com.songloft.tv.ui.config.AuthViewModel
 import com.songloft.tv.ui.components.FloatingPlayerBar
+import com.songloft.tv.ui.components.LocalFloatingPlayerFocusRequester
 import com.songloft.tv.ui.components.tvFocusable
 import com.songloft.tv.ui.home.HomeScreen
 import com.songloft.tv.ui.library.FacetListScreen
@@ -161,6 +162,7 @@ fun TvApp(
     val currentScreen = backStack.last()
     val stateHolder = rememberSaveableStateHolder()
     val tabBarBridge = remember { TabBarBridge() }
+    val floatingPlayerFocusRequester = remember { FocusRequester() }
     var showExitDialog by remember { mutableStateOf(false) }
 
     fun push(screen: Screen) {
@@ -214,72 +216,78 @@ fun TvApp(
             val playbackState by playerController.state.collectAsStateWithLifecycle()
 
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                stateHolder.SaveableStateProvider(currentScreen.stateKey) {
-                    when (val screen = currentScreen) {
-                        Screen.Home -> HomeScreen(
-                            onPlaylistClick = { id -> push(Screen.PlaylistDetail(id)) },
-                            onArtistClick = { artist -> push(Screen.SongFilter("artist", artist)) },
-                            onAlbumClick = { album -> push(Screen.SongFilter("album", album)) },
-                            onYearClick = { year -> push(Screen.SongFilter("year", year.toString())) },
-                            onViewAll = { field -> push(Screen.FacetList(field)) },
-                            onManagePlaylists = { push(Screen.Playlists) },
-                            onStatsClick = { push(Screen.Stats) }
-                        )
-                        Screen.Search -> SearchScreen(
-                            onSongClick = { songs, index -> onPlaySongs(songs, index, null, null) }
-                        )
-                        Screen.Playlists -> PlaylistsScreen(
-                            onPlaylistClick = { id -> push(Screen.PlaylistDetail(id)) }
-                        )
-                        is Screen.PlaylistDetail -> PlaylistDetailScreen(
-                            playlistId = screen.playlistId,
-                            onSongClick = { songs, index ->
-                                onPlaySongs(songs, index, "playlist", screen.playlistId.toString())
-                            },
-                            onShufflePlay = { songs ->
-                                onShufflePlay(songs, "playlist", screen.playlistId.toString())
-                            },
-                            onBack = { goBack() }
-                        )
-                        Screen.My -> MyScreen(
-                            onSongClick = { songs, index -> onPlaySongs(songs, index, null, null) },
-                            onNavigateToSettings = { push(Screen.Settings) }
-                        )
-                        Screen.Settings -> SettingsScreen(
-                            onBack = { goBack() },
-                            onConfigureServer = { authViewModel.resetToConfig() },
-                            onLogout = { authViewModel.logout() }
-                        )
-                        is Screen.SongFilter -> FilteredSongsScreen(
-                            field = screen.field,
-                            value = screen.value,
-                            onSongClick = { songs, index ->
-                                onPlaySongs(songs, index, screen.field, screen.value)
-                            },
-                            onBack = { goBack() }
-                        )
-                        is Screen.FacetList -> FacetListScreen(
-                            field = screen.field,
-                            onItemClick = { value -> push(Screen.SongFilter(screen.field, value)) },
-                            onBack = { goBack() }
-                        )
-                        Screen.Stats -> StatsScreen(
-                            onBack = { goBack() }
+                CompositionLocalProvider(
+                    LocalFloatingPlayerFocusRequester provides
+                        floatingPlayerFocusRequester.takeIf { playbackState.currentSong != null }
+                ) {
+                    stateHolder.SaveableStateProvider(currentScreen.stateKey) {
+                        when (val screen = currentScreen) {
+                            Screen.Home -> HomeScreen(
+                                onPlaylistClick = { id -> push(Screen.PlaylistDetail(id)) },
+                                onArtistClick = { artist -> push(Screen.SongFilter("artist", artist)) },
+                                onAlbumClick = { album -> push(Screen.SongFilter("album", album)) },
+                                onYearClick = { year -> push(Screen.SongFilter("year", year.toString())) },
+                                onViewAll = { field -> push(Screen.FacetList(field)) },
+                                onManagePlaylists = { push(Screen.Playlists) },
+                                onStatsClick = { push(Screen.Stats) }
+                            )
+                            Screen.Search -> SearchScreen(
+                                onSongClick = { songs, index -> onPlaySongs(songs, index, null, null) }
+                            )
+                            Screen.Playlists -> PlaylistsScreen(
+                                onPlaylistClick = { id -> push(Screen.PlaylistDetail(id)) }
+                            )
+                            is Screen.PlaylistDetail -> PlaylistDetailScreen(
+                                playlistId = screen.playlistId,
+                                onSongClick = { songs, index ->
+                                    onPlaySongs(songs, index, "playlist", screen.playlistId.toString())
+                                },
+                                onShufflePlay = { songs ->
+                                    onShufflePlay(songs, "playlist", screen.playlistId.toString())
+                                },
+                                onBack = { goBack() }
+                            )
+                            Screen.My -> MyScreen(
+                                onSongClick = { songs, index -> onPlaySongs(songs, index, null, null) },
+                                onNavigateToSettings = { push(Screen.Settings) }
+                            )
+                            Screen.Settings -> SettingsScreen(
+                                onBack = { goBack() },
+                                onConfigureServer = { authViewModel.resetToConfig() },
+                                onLogout = { authViewModel.logout() }
+                            )
+                            is Screen.SongFilter -> FilteredSongsScreen(
+                                field = screen.field,
+                                value = screen.value,
+                                onSongClick = { songs, index ->
+                                    onPlaySongs(songs, index, screen.field, screen.value)
+                                },
+                                onBack = { goBack() }
+                            )
+                            is Screen.FacetList -> FacetListScreen(
+                                field = screen.field,
+                                onItemClick = { value -> push(Screen.SongFilter(screen.field, value)) },
+                                onBack = { goBack() }
+                            )
+                            Screen.Stats -> StatsScreen(
+                                onBack = { goBack() }
+                            )
+                        }
+                    }
+
+                    playbackState.currentSong?.let { song ->
+                        FloatingPlayerBar(
+                            title = song.title,
+                            artist = song.artist,
+                            coverUrl = song.coverUrl,
+                            isPlaying = playbackState.isPlaying,
+                            onClick = onOpenPlayer,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(24.dp)
+                                .focusRequester(floatingPlayerFocusRequester)
                         )
                     }
-                }
-
-                playbackState.currentSong?.let { song ->
-                    FloatingPlayerBar(
-                        title = song.title,
-                        artist = song.artist,
-                        coverUrl = song.coverUrl,
-                        isPlaying = playbackState.isPlaying,
-                        onClick = onOpenPlayer,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(24.dp)
-                    )
                 }
             }
         }

@@ -29,11 +29,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
@@ -42,6 +45,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.data.model.Song
+
+/** 悬浮播放器的焦点请求器；有正在播放的歌曲（悬浮播放器可见）时由 TvApp 提供，
+ *  歌曲列表的收藏按钮可向右跳到悬浮播放器，无悬浮播放器时为 null 保持原焦点逻辑 */
+val LocalFloatingPlayerFocusRequester = staticCompositionLocalOf<FocusRequester?> { null }
 
 enum class SongItemFavoriteMode {
     NONE,
@@ -168,6 +175,7 @@ fun SongListItem(
         }
         if (favoriteMode != SongItemFavoriteMode.NONE) {
             val filled = favoriteMode == SongItemFavoriteMode.REMOVE || isFavorite
+            val floatingPlayerRequester = LocalFloatingPlayerFocusRequester.current
             Box(
                 modifier = Modifier
                     .padding(end = 10.dp)
@@ -175,6 +183,13 @@ fun SongListItem(
                     .clip(CircleShape)
                     .background(
                         if (favFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                    .then(
+                        if (floatingPlayerRequester != null) {
+                            Modifier.focusProperties { right = floatingPlayerRequester }
+                        } else {
+                            Modifier
+                        }
                     )
                     .onFocusChanged { favFocused = it.isFocused }
                     .clickable(
