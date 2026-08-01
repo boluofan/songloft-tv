@@ -14,8 +14,8 @@ android {
         applicationId = "com.songloft.tv"
         minSdk = 21
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.1"
+        versionCode = 4
+        versionName = "1.1.0"
     }
 
     val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
