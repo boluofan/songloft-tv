@@ -27,6 +27,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -81,6 +83,22 @@ private fun LoginForm(viewModel: AuthViewModel) {
     val passwordFocus = remember { FocusRequester() }
     // 键盘收起后把焦点还给之前激活的输入框
     var lastActiveField by remember { mutableStateOf(ActiveField.NONE) }
+
+    val windowInfo = LocalWindowInfo.current
+    val view = LocalView.current
+
+    LaunchedEffect(Unit) {
+        // 冷启动时窗口已聚焦但 AndroidComposeView 尚无 view 焦点，
+        // 此时 Compose 的 requestOwnerFocus() 会失败导致焦点请求被静默丢弃，需先补 view 焦点
+        repeat(60) {
+            withFrameNanos { }
+            if (windowInfo.isWindowFocused) {
+                view.requestFocus()
+                serverUrlFocus.requestFocus()
+                return@LaunchedEffect
+            }
+        }
+    }
 
     LaunchedEffect(showKeyboard) {
         if (showKeyboard) {
