@@ -72,9 +72,11 @@ fun TvKeyboard(
         modifier = modifier
             .fillMaxWidth()
             // focusProperties 必须在 focusGroup() 之前，才能作用于焦点组自身的 exit
+            // 登录页禁止 ↑ 跳出键盘（防止焦点跑到二维码等区域）；搜索页允许跳出，
+            // 以便 D-Pad 上移回到搜索框/候选词区域
             .focusProperties {
                 exit = { direction ->
-                    if (direction == FocusDirection.Up) FocusRequester.Cancel
+                    if (direction == FocusDirection.Up && mode == TvKeyboardMode.LOGIN) FocusRequester.Cancel
                     else FocusRequester.Default
                 }
             }

@@ -177,6 +177,21 @@ fun SearchScreen(
 
         Spacer(Modifier.height(12.dp))
 
+        // 候选词与"热门搜索"同位，放在结果区之外：键盘弹出时结果区会被压缩，
+        // 候选词若在其内会被挤扁变形
+        if (uiState.candidates.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(uiState.candidates) { candidate ->
+                    HotTagChip(candidate) {
+                        viewModel.onQueryChanged(candidate)
+                        showKeyboard = false
+                        runCatching { searchBoxFocus.requestFocus() }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
         // 结果区占据剩余高度，键盘固定贴底，保证操作行不被挤出屏幕
         Column(Modifier.weight(1f)) {
         if (uiState.isSearching) {
@@ -246,18 +261,6 @@ fun SearchScreen(
         }
 
         if (showKeyboard) {
-            if (uiState.candidates.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.candidates) { candidate ->
-                        HotTagChip(candidate) {
-                            viewModel.onQueryChanged(candidate)
-                            showKeyboard = false
-                            runCatching { searchBoxFocus.requestFocus() }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
             TvKeyboard(
                 firstKeyFocusRequester = keyboardFocus,
                 onKeyPress = { key ->
