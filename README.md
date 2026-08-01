@@ -7,7 +7,8 @@
 ## 功能特性
 
 - **服务器配置**：手动输入地址或手机扫码配置登录（JWT 双 Token 认证）
-- **首页概览**：统计卡片、我的歌单、主要歌手/专辑、年份速览
+- **首页概览**：统计卡片、我的歌单、主要歌手/专辑、年份速览（装有[播放统计插件](https://github.com/songloft-org/songloft-plugin-stats)时自动切换为播放统计概览：全部/今日/本周/本月）
+- **播放统计**：全部/今日/本周/本月概览卡、艺术家/歌曲/专辑排行、听歌趋势（7/30 天）、时段分布、来源分布、最近播放；数据来自服务器端[播放统计插件](https://github.com/songloft-org/songloft-plugin-stats)，未安装插件时自动隐藏
 - **搜索**：6×6 方阵 TV 键盘（缩短遥控器移动距离），支持手机扫码远程输入关键字，热门搜索推荐
 - **歌单浏览**：网格歌单，分页加载，支持类型过滤
 - **我的**：收藏歌曲、收藏电台（HLS 播放）
@@ -88,6 +89,7 @@ app/src/main/java/com/songloft/tv/
 ├── domain/           # 播放控制、歌词解析
 ├── ui/
 │   ├── home/         # 首页概览
+│   ├── stats/        # 播放统计（服务器播放统计插件数据）
 │   ├── search/       # 搜索 + TV 键盘
 │   ├── library/      # 歌手/专辑/年份浏览
 │   ├── playlist/     # 歌单列表与详情
@@ -113,6 +115,7 @@ app/src/main/java/com/songloft/tv/
 | [songloft-player](https://github.com/songloft-org/songloft-player) | API 接口定义、数据模型、功能逻辑、主题与样式 |
 | [music-tv](https://github.com/boluofan/music-tv) | TV 原生 UI 布局、焦点交互、沉浸播放器模式 |
 | [songloft-library-plus](https://github.com/charce526/songloft-library-plus) | 【首页】概览功能与布局                |
+| [songloft-plugin-stats](https://github.com/songloft-org/songloft-plugin-stats) | 【播放统计】统计接口定义、数据模型与统计页签布局 |
 
 感谢以上项目的开源贡献。
 

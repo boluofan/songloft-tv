@@ -83,6 +83,26 @@ interface SongloftApi {
 
     @GET("health")
     suspend fun health(): Map<String, Any>
+
+    // ── 播放统计插件（jsplugin/stats）─────────────────────────────────────
+
+    @GET("jsplugin/stats/api/stats/summary")
+    suspend fun getStatsSummary(
+        @Query("from") from: Long? = null,
+        @Query("to") to: Long? = null
+    ): StatsSummaryResponse
+
+    @GET("jsplugin/stats/api/stats/trends")
+    suspend fun getStatsTrends(@Query("days") days: Int = 7): StatsTrendsResponse
+
+    @GET("jsplugin/stats/api/stats/hourly")
+    suspend fun getStatsHourly(): StatsHourlyResponse
+
+    @GET("jsplugin/stats/api/history/raw")
+    suspend fun getStatsHistory(
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0
+    ): StatsHistoryResponse
 }
 
 // ---- Response Models ----
@@ -134,4 +154,79 @@ data class PlaylistListResponse(
     val total: Int,
     val limit: Int,
     val offset: Int
+)
+
+// ---- 播放统计插件响应模型 ----
+
+data class StatsSummaryResponse(
+    val success: Boolean = false,
+    val data: StatsSummary? = null,
+    val error: String? = null
+)
+
+data class StatsSummary(
+    val totalPlays: Int = 0,
+    val totalDurationSec: Double = 0.0,
+    val uniqueSongs: Int = 0,
+    val uniqueArtists: Int = 0,
+    val topArtists: List<StatsRankEntry> = emptyList(),
+    val topSongs: List<StatsSongEntry> = emptyList(),
+    val topAlbums: List<StatsRankEntry> = emptyList(),
+    val bySource: Map<String, Int> = emptyMap(),
+    val byMediaType: Map<String, Int> = emptyMap()
+)
+
+data class StatsRankEntry(
+    val artist: String? = null,
+    val album: String? = null,
+    val plays: Int = 0
+)
+
+data class StatsSongEntry(
+    val songId: Long = 0,
+    val title: String? = null,
+    val artist: String? = null,
+    val plays: Int = 0
+)
+
+data class StatsTrendsResponse(
+    val success: Boolean = false,
+    val data: List<StatsTrendPoint>? = null
+)
+
+data class StatsTrendPoint(
+    val date: String = "",
+    val count: Int = 0
+)
+
+data class StatsHourlyResponse(
+    val success: Boolean = false,
+    val data: List<StatsHourlyPoint>? = null
+)
+
+data class StatsHourlyPoint(
+    val label: String = "",
+    val count: Int = 0
+)
+
+data class StatsHistoryResponse(
+    val success: Boolean = false,
+    val data: StatsHistoryPage? = null
+)
+
+data class StatsHistoryPage(
+    val total: Int = 0,
+    val records: List<StatsHistoryRecord> = emptyList(),
+    val hasMore: Boolean = false
+)
+
+data class StatsHistoryRecord(
+    val songId: Long = 0,
+    val title: String = "",
+    val artist: String = "",
+    val album: String? = null,
+    val duration: Double? = null,
+    val source: String = "",
+    val type: String? = null,
+    val timestamp: Long = 0
 )

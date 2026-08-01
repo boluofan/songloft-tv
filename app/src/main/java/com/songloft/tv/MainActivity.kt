@@ -66,6 +66,7 @@ import com.songloft.tv.ui.playlist.PlaylistDetailScreen
 import com.songloft.tv.ui.playlist.PlaylistsScreen
 import com.songloft.tv.ui.search.SearchScreen
 import com.songloft.tv.ui.settings.SettingsScreen
+import com.songloft.tv.ui.stats.StatsScreen
 import com.songloft.tv.ui.theme.TvTheme
 import com.songloft.tv.ui.update.UpdateDialog
 import com.songloft.tv.ui.update.UpdateViewModel
@@ -214,7 +215,8 @@ fun TvApp(
                             onAlbumClick = { album -> push(Screen.SongFilter("album", album)) },
                             onYearClick = { year -> push(Screen.SongFilter("year", year.toString())) },
                             onViewAll = { field -> push(Screen.FacetList(field)) },
-                            onManagePlaylists = { push(Screen.Playlists) }
+                            onManagePlaylists = { push(Screen.Playlists) },
+                            onStatsClick = { push(Screen.Stats) }
                         )
                         Screen.Search -> SearchScreen(
                             onSongClick = onPlaySongs
@@ -246,6 +248,9 @@ fun TvApp(
                         is Screen.FacetList -> FacetListScreen(
                             field = screen.field,
                             onItemClick = { value -> push(Screen.SongFilter(screen.field, value)) },
+                            onBack = { goBack() }
+                        )
+                        Screen.Stats -> StatsScreen(
                             onBack = { goBack() }
                         )
                     }

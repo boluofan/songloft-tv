@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -48,14 +50,17 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
+import com.songloft.tv.data.api.StatsSummary
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.data.model.Playlist
+import com.songloft.tv.data.repository.StatsRange
 import com.songloft.tv.ui.navigation.DefaultFocusEffect
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 import com.songloft.tv.ui.navigation.RestoreFocusEffect
 import com.songloft.tv.ui.navigation.ScreenFocusRestorer
 import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
 import com.songloft.tv.ui.navigation.restorableFocus
+import com.songloft.tv.ui.stats.formatDuration
 import kotlinx.coroutines.ensureActive
 
 @Composable
@@ -66,7 +71,8 @@ fun HomeScreen(
     onAlbumClick: (String) -> Unit = {},
     onYearClick: (Int) -> Unit = {},
     onViewAll: (String) -> Unit = {},
-    onManagePlaylists: () -> Unit = {}
+    onManagePlaylists: () -> Unit = {},
+    onStatsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -149,18 +155,31 @@ fun HomeScreen(
         }
 
         item {
-            YearSection(
-                years = uiState.topYears,
-                onYearClick = { year ->
-                    restorer.record("year:$year")
-                    onYearClick(year)
-                },
-                onViewAllYears = {
-                    restorer.record("viewall:year")
-                    onViewAll("year")
-                },
-                restorer = restorer
-            )
+            when {
+                uiState.statsLoading -> StatsOverviewPlaceholder()
+                uiState.statsAvailable -> StatsOverviewSection(
+                    summaries = uiState.statsSummaries,
+                    loadingRanges = uiState.statsLoadingRanges,
+                    onRangeSelected = { viewModel.loadStatsRange(it) },
+                    onOpenStats = {
+                        restorer.record("stats")
+                        onStatsClick()
+                    },
+                    restorer = restorer
+                )
+                else -> YearSection(
+                    years = uiState.topYears,
+                    onYearClick = { year ->
+                        restorer.record("year:$year")
+                        onYearClick(year)
+                    },
+                    onViewAllYears = {
+                        restorer.record("viewall:year")
+                        onViewAll("year")
+                    },
+                    restorer = restorer
+                )
+            }
         }
     }
 }
@@ -472,6 +491,184 @@ private fun CategoryCard(
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
+        }
+    }
+}
+
+@Composable
+private fun StatsOverviewSection(
+    summaries: Map<StatsRange, StatsSummary>,
+    loadingRanges: Set<StatsRange>,
+    onRangeSelected: (StatsRange) -> Unit,
+    onOpenStats: () -> Unit,
+    restorer: ScreenFocusRestorer
+) {
+    var selectedRangeName by rememberSaveable { mutableStateOf(StatsRange.ALL.name) }
+    val selectedRange = runCatching { StatsRange.valueOf(selectedRangeName) }.getOrDefault(StatsRange.ALL)
+    val summary = summaries[selectedRange]
+    val rangeLoading = selectedRange in loadingRanges
+    val viewAllFocus = remember { FocusRequester() }
+    val monthTabFocus = remember { FocusRequester() }
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "播放统计",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            SectionLink(
+                text = "查看全部",
+                onClick = onOpenStats,
+                focusRequester = viewAllFocus,
+                modifier = Modifier
+                    .restorableFocus(restorer, "viewall:stats")
+                    .focusProperties { left = monthTabFocus }
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatsRange.entries.forEach { range ->
+                HomeRangeTab(
+                    label = range.label,
+                    isSelected = range == selectedRange,
+                    onClick = {
+                        selectedRangeName = range.name
+                        onRangeSelected(range)
+                    },
+                    modifier = Modifier
+                        .restorableFocus(restorer, "statsrange:${range.name}")
+                        .then(
+                            if (range == StatsRange.MONTH) Modifier
+                                .focusRequester(monthTabFocus)
+                                .focusProperties { right = viewAllFocus }
+                            else Modifier
+                        )
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            StatsOverviewCard(
+                label = "播放次数",
+                value = if (rangeLoading && summary == null) "加载中" else summary?.totalPlays?.let { "$it" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+            StatsOverviewCard(
+                label = "听歌时长",
+                value = if (rangeLoading && summary == null) "加载中" else summary?.let { formatDuration(it.totalDurationSec) } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+            StatsOverviewCard(
+                label = "不同歌曲",
+                value = if (rangeLoading && summary == null) "加载中" else summary?.uniqueSongs?.let { "$it" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+            StatsOverviewCard(
+                label = "不同艺术家",
+                value = if (rangeLoading && summary == null) "加载中" else summary?.uniqueArtists?.let { "$it" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeRangeTab(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Text(
+        text = label,
+        fontSize = 15.sp,
+        fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
+        color = when {
+            isFocused -> MaterialTheme.colorScheme.onPrimary
+            isSelected -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        },
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                when {
+                    isFocused -> MaterialTheme.colorScheme.primary
+                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 22.dp, vertical = 10.dp)
+    )
+}
+
+@Composable
+private fun StatsOverviewCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+    }
+}
+
+@Composable
+private fun StatsOverviewPlaceholder() {
+    Column {
+        Text(
+            text = "播放统计",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            repeat(4) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(84.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                )
+            }
         }
     }
 }

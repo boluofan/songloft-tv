@@ -2,10 +2,13 @@ package com.songloft.tv.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.songloft.tv.data.api.StatsSummary
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.data.repository.PlaylistRepository
 import com.songloft.tv.data.repository.SongRepository
+import com.songloft.tv.data.repository.StatsRange
+import com.songloft.tv.data.repository.StatsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +26,10 @@ data class HomeUiState(
     val topAlbums: List<FacetItem> = emptyList(),
     val topYears: List<FacetItem> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
+    val statsSummaries: Map<StatsRange, StatsSummary> = emptyMap(),
+    val statsAvailable: Boolean = false,
+    val statsLoading: Boolean = true,
+    val statsLoadingRanges: Set<StatsRange> = emptySet(),
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -30,7 +37,8 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val songRepository: SongRepository,
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val statsRepository: StatsRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -46,13 +54,15 @@ class HomeViewModel @Inject constructor(
 
     private fun loadDashboard() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, statsLoading = true)
 
             val artistsDeferred = async { songRepository.getFacets("artist") }
             val albumsDeferred = async { songRepository.getFacets("album") }
             val yearsDeferred = async { songRepository.getFacets("year") }
             val statsDeferred = async { songRepository.getLibraryStats() }
             val playlistsDeferred = async { playlistRepository.getPlaylists() }
+            // 首页只查概览汇总（全部区间，不带参数），其他区间在切换 Tab 时按需请求
+            val statsSummaryDeferred = async { statsRepository.getSummary(StatsRange.ALL) }
 
             val artists = artistsDeferred.await().getOrDefault(emptyList())
             val albums = albumsDeferred.await().getOrDefault(emptyList())
@@ -63,12 +73,14 @@ class HomeViewModel @Inject constructor(
             if (artists.isEmpty() && albums.isEmpty() && statsResult.isFailure) {
                 _uiState.value = HomeUiState(
                     isLoading = false,
+                    statsLoading = false,
                     error = statsResult.exceptionOrNull()?.message ?: "无法连接到服务器"
                 )
                 return@launch
             }
 
             val stats = statsResult.getOrNull()
+            val statsSummaryResult = statsSummaryDeferred.await()
 
             _uiState.value = HomeUiState(
                 totalSongs = stats?.totalSongs ?: 0,
@@ -79,7 +91,26 @@ class HomeViewModel @Inject constructor(
                 topAlbums = albums.take(6),
                 topYears = years.take(8),
                 playlists = playlists.take(8),
+                statsSummaries = statsSummaryResult.getOrNull()?.let { mapOf(StatsRange.ALL to it) } ?: emptyMap(),
+                statsAvailable = statsSummaryResult.isSuccess,
+                statsLoading = false,
                 isLoading = false
+            )
+        }
+    }
+
+    /** 切换时间区间时按需拉取该区间概览（已加载过或加载中则跳过） */
+    fun loadStatsRange(range: StatsRange) {
+        val state = _uiState.value
+        if (range == StatsRange.ALL || state.statsSummaries.containsKey(range)) return
+        if (range in state.statsLoadingRanges) return
+        _uiState.value = state.copy(statsLoadingRanges = state.statsLoadingRanges + range)
+        viewModelScope.launch {
+            val summary = statsRepository.getSummary(range).getOrNull()
+            _uiState.value = _uiState.value.copy(
+                statsLoadingRanges = _uiState.value.statsLoadingRanges - range,
+                statsSummaries = summary?.let { _uiState.value.statsSummaries + (range to it) }
+                    ?: _uiState.value.statsSummaries
             )
         }
     }
