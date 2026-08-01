@@ -178,13 +178,16 @@ fun ControlBar(
                 focusRequester = playPauseFocusRequester
             )
             TransportButton(Icons.Rounded.SkipNext, "下一曲", onNext)
-            val modeIcon = when (uiState.playMode) {
-                PlayMode.ORDER -> Icons.AutoMirrored.Rounded.PlaylistPlay
-                PlayMode.LOOP -> Icons.Rounded.Repeat
-                PlayMode.SINGLE -> Icons.Rounded.RepeatOne
-                PlayMode.RANDOM -> Icons.Rounded.Shuffle
+            // 电台是持续流媒体，没有队列顺序/循环概念，隐藏播放模式键
+            if (uiState.currentSong?.type != "radio") {
+                val modeIcon = when (uiState.playMode) {
+                    PlayMode.ORDER -> Icons.AutoMirrored.Rounded.PlaylistPlay
+                    PlayMode.LOOP -> Icons.Rounded.Repeat
+                    PlayMode.SINGLE -> Icons.Rounded.RepeatOne
+                    PlayMode.RANDOM -> Icons.Rounded.Shuffle
+                }
+                TransportButton(modeIcon, "播放模式", onCyclePlayMode)
             }
-            TransportButton(modeIcon, "播放模式", onCyclePlayMode)
             TransportButton(
                 if (uiState.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 "收藏",
