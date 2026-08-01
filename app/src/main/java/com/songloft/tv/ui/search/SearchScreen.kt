@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.QrCode
@@ -26,8 +28,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +51,7 @@ fun SearchScreen(
     onSongClick: (List<Song>, Int) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val useCustomKeyboard by viewModel.useCustomKeyboard.collectAsStateWithLifecycle()
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val remoteUrl by viewModel.remoteUrl.collectAsStateWithLifecycle()
     var showKeyboard by remember { mutableStateOf(false) }
@@ -122,17 +128,36 @@ fun SearchScreen(
                     )
                     .focusRequester(searchBoxFocus)
                     .onFocusChanged { searchFocused = it.isFocused }
-                    .clickable { showKeyboard = !showKeyboard }
+                    .then(
+                        if (useCustomKeyboard) Modifier.clickable { showKeyboard = !showKeyboard }
+                        else Modifier
+                    )
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (uiState.query.isEmpty()) "点击搜索歌曲..." else uiState.query,
-                    fontSize = 20.sp,
-                    color = if (uiState.query.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                            else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
+                if (useCustomKeyboard) {
+                    Text(
+                        text = if (uiState.query.isEmpty()) "点击搜索歌曲..." else uiState.query,
+                        fontSize = 20.sp,
+                        color = if (uiState.query.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    // 系统键盘模式：搜索框为真实输入框，聚焦即弹出系统键盘，也可直接接收硬件键盘
+                    BasicTextField(
+                        value = uiState.query,
+                        onValueChange = viewModel::onQueryChanged,
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            fontSize = 20.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
             if (uiState.query.isNotEmpty()) {
                 var clearFocused by remember { mutableStateOf(false) }
@@ -260,7 +285,7 @@ fun SearchScreen(
         }
         }
 
-        if (showKeyboard) {
+        if (useCustomKeyboard && showKeyboard) {
             TvKeyboard(
                 firstKeyFocusRequester = keyboardFocus,
                 onKeyPress = { key ->

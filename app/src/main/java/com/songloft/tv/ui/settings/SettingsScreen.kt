@@ -121,6 +121,15 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        SettingsSection("使用自定义键盘（关闭后使用系统键盘输入）") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OptionChip("是", uiState.useCustomKeyboard) { viewModel.setUseCustomKeyboard(true) }
+                OptionChip("否", !uiState.useCustomKeyboard) { viewModel.setUseCustomKeyboard(false) }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         val sleepSuffix = when {
             uiState.sleepTimerRemaining > 0 -> "（剩余 ${uiState.sleepTimerRemaining} 分钟）"
             uiState.sleepAfterSongsRemaining > 0 -> "（剩余 ${uiState.sleepAfterSongsRemaining} 首）"

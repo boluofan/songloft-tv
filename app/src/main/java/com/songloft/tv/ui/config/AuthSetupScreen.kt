@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Visibility
@@ -24,7 +26,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,6 +68,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
     val isLoading by viewModel.isLoggingIn.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val configUrl by viewModel.configUrl.collectAsStateWithLifecycle()
+    val useCustomKeyboard by viewModel.useCustomKeyboard.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { viewModel.startConfigServer() }
 
@@ -115,6 +124,9 @@ private fun LoginForm(viewModel: AuthViewModel) {
                 placeholder = "http://192.168.1.100:58091",
                 focusRequester = serverUrlFocus,
                 isActive = activeField == ActiveField.SERVER_URL,
+                useSystemKeyboard = !useCustomKeyboard,
+                keyboardType = KeyboardType.Uri,
+                onTextChange = viewModel::onServerUrlChanged,
                 onActivate = { activeField = ActiveField.SERVER_URL }
             )
 
@@ -126,6 +138,8 @@ private fun LoginForm(viewModel: AuthViewModel) {
                 placeholder = "admin",
                 focusRequester = usernameFocus,
                 isActive = activeField == ActiveField.USERNAME,
+                useSystemKeyboard = !useCustomKeyboard,
+                onTextChange = viewModel::onUsernameChanged,
                 onActivate = { activeField = ActiveField.USERNAME }
             )
 
@@ -141,6 +155,8 @@ private fun LoginForm(viewModel: AuthViewModel) {
                         isPassword = true,
                         passwordVisible = passwordVisible,
                         isActive = activeField == ActiveField.PASSWORD,
+                        useSystemKeyboard = !useCustomKeyboard,
+                        onTextChange = viewModel::onPasswordChanged,
                         onActivate = { activeField = ActiveField.PASSWORD }
                     )
                 }
@@ -214,8 +230,8 @@ private fun LoginForm(viewModel: AuthViewModel) {
         }
         }
 
-        // 键盘区域（始终显示在底部，仅当有激活字段时响应输入）
-        if (showKeyboard) {
+        // 键盘区域（仅自定义键盘模式；系统键盘模式由输入框直接弹出 IME）
+        if (useCustomKeyboard && showKeyboard) {
             // 回显栏：键盘可能遮挡表单，这里实时显示当前字段内容（始终明文，便于核对输入）
             val echoLabel = when (activeField) {
                 ActiveField.SERVER_URL -> "服务器地址"
@@ -334,6 +350,9 @@ private fun InputField(
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
     isActive: Boolean = false,
+    useSystemKeyboard: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    onTextChange: (String) -> Unit = {},
     onActivate: () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -359,22 +378,55 @@ private fun InputField(
                     2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
                 ) else Modifier
             )
-            // 仅确认键（点击）激活键盘，焦点经过不弹出
-            .focusRequester(focusRequester)
+            // 仅确认键（点击）激活自定义键盘，焦点经过不弹出
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onActivate() }
-            .padding(16.dp),
+            .clickable {
+                if (useSystemKeyboard) runCatching { focusRequester.requestFocus() }
+                else onActivate()
+            }
+            // 自定义键盘模式的焦点落在外层框上，系统键盘模式落在内部输入框上
+            .then(
+                if (!useSystemKeyboard) Modifier.focusRequester(focusRequester) else Modifier
+            )
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = when {
-                value.isNotEmpty() && isPassword && !passwordVisible -> "●".repeat(value.length)
-                value.isNotEmpty() -> value
-                else -> placeholder
-            },
-            fontSize = 16.sp,
-            color = if (value.isNotEmpty()) MaterialTheme.colorScheme.onBackground
-                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-        )
+        if (useSystemKeyboard) {
+            BasicTextField(
+                value = value,
+                onValueChange = onTextChange,
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (isPassword) KeyboardType.Password else keyboardType,
+                    imeAction = ImeAction.Done
+                ),
+                visualTransformation = if (isPassword && !passwordVisible)
+                    PasswordVisualTransformation() else VisualTransformation.None,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focused = it.isFocused }
+            )
+            if (value.isEmpty()) {
+                Text(
+                    text = placeholder,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
+            }
+        } else {
+            Text(
+                text = when {
+                    value.isNotEmpty() && isPassword && !passwordVisible -> "●".repeat(value.length)
+                    value.isNotEmpty() -> value
+                    else -> placeholder
+                },
+                fontSize = 16.sp,
+                color = if (value.isNotEmpty()) MaterialTheme.colorScheme.onBackground
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
+        }
     }
 }

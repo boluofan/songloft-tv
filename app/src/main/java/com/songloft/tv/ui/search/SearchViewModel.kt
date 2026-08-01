@@ -8,6 +8,7 @@ import com.songloft.tv.data.config.ConfigWebServer
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.SongRepository
+import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.util.LogStore
 import com.songloft.tv.util.PinyinEntry
 import com.songloft.tv.util.PinyinMatcher
@@ -44,11 +45,15 @@ data class SearchUiState(
 class SearchViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val songRepository: SongRepository,
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    private val dataStore: PreferencesDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+
+    val useCustomKeyboard: StateFlow<Boolean> = dataStore.useCustomKeyboard
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     val favoriteIds: StateFlow<Set<Long>> = favoriteRepository.favoriteIds
         .map { it ?: emptySet() }
