@@ -1,9 +1,6 @@
 package com.songloft.tv.ui.stats
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,7 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -129,19 +126,19 @@ fun StatsScreen(
                     PanelRow {
                         RankCard(
                             title = "艺术家排行",
-                            entries = uiState.summary?.topArtists.orEmpty(),
+                            entries = uiState.summary?.topArtists.orEmpty().take(4),
                             restorer = restorer,
                             keyPrefix = "artist",
                             onRefresh = viewModel::refreshSummary,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                         SongRankCard(
                             title = "歌曲排行",
-                            entries = uiState.summary?.topSongs.orEmpty(),
+                            entries = uiState.summary?.topSongs.orEmpty().take(3),
                             restorer = restorer,
                             keyPrefix = "song",
                             onRefresh = viewModel::refreshSummary,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
                 }
@@ -178,13 +175,13 @@ fun StatsScreen(
                     PanelRow {
                         RankCard(
                             title = "专辑排行",
-                            entries = uiState.summary?.topAlbums.orEmpty(),
+                            entries = uiState.summary?.topAlbums.orEmpty().take(3),
                             restorer = restorer,
                             keyPrefix = "album",
                             onRefresh = viewModel::refreshSummary,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         )
-                        ColumnCard(modifier = Modifier.weight(1f)) {
+                        ColumnCard(modifier = Modifier.weight(1f).fillMaxHeight()) {
                             CardHeader("时段分布", onRefresh = viewModel::refreshHourly)
                             Spacer(Modifier.height(12.dp))
                             HourlyDistribution(points = uiState.hourly)
@@ -200,11 +197,11 @@ fun StatsScreen(
                             KeyCountList(
                                 entries = uiState.summary?.bySource.orEmpty().mapNotNull { (k, v) ->
                                     sourceLabel(k) to v
-                                }.sortedByDescending { it.second }
+                                }.sortedByDescending { it.second }.take(3)
                             )
                         }
                         ColumnCard(modifier = Modifier.weight(1f)) {
-                            CardHeader("本地与网络", onRefresh = viewModel::refreshSummary)
+                            CardHeader("歌曲类型", onRefresh = viewModel::refreshSummary)
                             Spacer(Modifier.height(12.dp))
                             KeyCountList(
                                 entries = uiState.summary?.byMediaType.orEmpty().let { raw ->
@@ -213,7 +210,7 @@ fun StatsScreen(
                                         raw["remote"]?.let { "网络" to it },
                                         raw["radio"]?.let { "电台" to it },
                                         raw["unknown"]?.let { "未知" to it }
-                                    ).sortedByDescending { it.second }
+                                    ).sortedByDescending { it.second }.take(3)
                                 }
                             )
                         }
@@ -223,11 +220,7 @@ fun StatsScreen(
                 item {
                     HistoryCard(
                         records = uiState.history,
-                        hasMore = uiState.historyHasMore,
-                        loadingMore = uiState.historyLoadingMore,
-                        onLoadMore = { viewModel.loadMoreHistory() },
-                        onRefresh = viewModel::refreshHistory,
-                        restorer = restorer
+                        onRefresh = viewModel::refreshHistory
                     )
                 }
             }
@@ -344,7 +337,9 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier = Modif
 @Composable
 private fun PanelRow(content: @Composable RowScope.() -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         content()
@@ -719,11 +714,7 @@ private fun KeyCountList(entries: List<Pair<String, Int>>) {
 @Composable
 private fun HistoryCard(
     records: List<StatsHistoryRecord>,
-    hasMore: Boolean,
-    loadingMore: Boolean,
-    onLoadMore: () -> Unit,
-    onRefresh: () -> Unit,
-    restorer: com.songloft.tv.ui.navigation.ScreenFocusRestorer
+    onRefresh: () -> Unit
 ) {
     ColumnCard {
         CardHeader("最近播放", onRefresh = onRefresh)
@@ -757,47 +748,6 @@ private fun HistoryCard(
                 }
             }
         }
-        if (hasMore) {
-            Spacer(Modifier.height(12.dp))
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                LoadMoreButton(
-                    loading = loadingMore,
-                    onClick = onLoadMore,
-                    modifier = Modifier.restorableFocus(restorer, "loadmore")
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun LoadMoreButton(loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.04f else 1.0f,
-        animationSpec = tween(150),
-        label = "loadMoreScale"
-    )
-
-    Box(
-        modifier = modifier
-            .scale(scale)
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (isFocused) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() }
-            .padding(horizontal = 32.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = if (loading) "加载中..." else "加载更多",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
-        )
     }
 }
 
@@ -885,6 +835,7 @@ fun formatTime(timestamp: Long): String {
 
 private fun sourceLabel(source: String): String = when (source) {
     "songloft-player" -> "客户端"
+    "tv" -> "TV 端"
     "miot" -> "智能音箱"
     "web" -> "网页端"
     "mobile" -> "手机端"

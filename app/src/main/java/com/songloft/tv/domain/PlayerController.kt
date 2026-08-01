@@ -47,6 +47,9 @@ data class PlaybackState(
     val isBuffering: Boolean = false,
     val duration: Long = 0L,
     val playMode: PlayMode = PlayMode.ORDER,
+    // 播放上下文（服务端播放历史）：playlist 传歌单 ID，分面传 artist/album/year 等
+    val contextType: String? = null,
+    val contextKey: String? = null,
     val sleepTimerMinutes: Int = 0,
     val sleepTimerRemaining: Int = 0,
     val sleepAfterSongs: Int = 0,
@@ -159,7 +162,12 @@ class PlayerController @Inject constructor(
         }, ContextCompat.getMainExecutor(context))
     }
 
-    fun play(queue: List<Song>, index: Int) {
+    fun play(
+        queue: List<Song>,
+        index: Int,
+        contextType: String? = null,
+        contextKey: String? = null
+    ) {
         val song = queue.getOrNull(index) ?: return
         _state.update {
             it.copy(
@@ -167,7 +175,9 @@ class PlayerController @Inject constructor(
                 currentIndex = index,
                 currentSong = song,
                 currentTrack = song.tracks?.firstOrNull(),
-                duration = (song.duration * 1000).toLong()
+                duration = (song.duration * 1000).toLong(),
+                contextType = contextType,
+                contextKey = contextKey
             )
         }
         withController { c ->
@@ -314,7 +324,14 @@ class PlayerController @Inject constructor(
                     else -> Result.success(Unit)
                 }
             }
-            song?.let { songRepository.reportPlayed(it.id, "play") }
+            song?.let {
+                songRepository.reportPlayed(
+                    it.id,
+                    "play",
+                    contextType = _state.value.contextType,
+                    contextKey = _state.value.contextKey
+                )
+            }
         }
     }
 

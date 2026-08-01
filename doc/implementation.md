@@ -38,7 +38,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 | `getSongLyric` | GET | `songs/{id}/lyric` | lyric/tlyric/rlyric/lxlyric |
 | `getFacets` | GET | `songs/facets` | field=artist/album/year |
 | `getSongNames` | GET | `songs/names` | field=title/artist，去重全量名字，供拼音检索 |
-| `reportPlayed` | POST | `songs/{id}/played` | type=play/finish/skip |
+| `reportPlayed` | POST | `songs/{id}/played` | type=play/finish/skip；source 固定 `tv`；play 时带 context_type/context_key（歌单或分面，写入服务端播放历史） |
 | `getPlaylists` | GET | `playlists` | 可选 type |
 | `getPlaylistDetail` | GET | `playlists/{id}` | |
 | `getPlaylistSongs` | GET | `playlists/{id}/songs` | limit/offset |
@@ -103,13 +103,13 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 
 `@Singleton`，通过 `withController(action)` 懒建 `MediaController` 连接 MusicService。暴露 `state: StateFlow<PlaybackState>`（queue/currentIndex/currentSong/currentTrack/embeddedTracks/isPlaying/isBuffering/duration/playMode/睡眠定时器状态）。
 
-- **队列**：`play(queue, index)` 先同步更新 state（UI 提前展示），再 `setMediaItems` + `prepare` + `play`。
+- **队列**：`play(queue, index, contextType?, contextKey?)` 先同步更新 state（UI 提前展示），再 `setMediaItems` + `prepare` + `play`；context 随 state 保存，仅在 `play` 事件上报时携带（歌单详情页传 `playlist`+歌单 ID，分面页传 `artist/album/year`+取值，搜索/收藏等扁平列表不传）。
 - **播放模式**：`enum PlayMode { ORDER, LOOP, SINGLE, RANDOM }`，映射到 ExoPlayer 的 repeatMode + shuffleModeEnabled；`cyclePlayMode()` 轮转。
 - **双音轨切换 `switchTrack(track)`**，两种机制：
   1. 服务端多文件音轨：记录进度 → `replaceMediaItem` 重建 MediaItem → `seekTo` 续播；`onMediaItemTransition` 中同曲 id 不重置 currentTrack；
   2. 内嵌音轨（如 MKV 多音轨，`onTracksChanged` 中检出多个音频 TrackGroup）：`TrackSelectionOverride` 无缝选轨，不重建。
 - **URI 构建 `buildMediaItem`** 优先级：track.url → 电台 song.url（type=radio）→ `UrlHelper.songPlayUrl(id, quality, track)`；以 `.m3u8` 结尾时显式设 `APPLICATION_M3U8` MimeType 走 HLS。
-- **播放上报**：转场时上一首按原因报 `finish`（自然播完）/`skip`（手动切），新歌报 `play`。
+- **播放上报**：转场时上一首按原因报 `finish`（自然播完）/`skip`（手动切），新歌报 `play`；source 固定 `tv`（来源统计），`play` 事件带当前播放上下文（见上）。
 - **睡眠定时器**（两种互斥）：`setSleepTimer(minutes)` 协程每分钟递减；`setSleepAfterSongs(count)` 在自然转场时递减；归零 pause。UI 入口在设置页。
 
 ### 3.3 LyricParser（`domain/LyricParser.kt`）
@@ -143,7 +143,7 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 | 页面 | 实现要点 |
 |---|---|
 | 首页 Home | 5 个 async 并发拉统计/歌手/专辑/年份/歌单；统计卡 ×4、歌单 4 列网格（≤8）、歌手/专辑两列（各 6）、年份胶囊行（8）；最下方「年份速览」动态切换：仅预取统计插件 summary（全部区间，不带参数），成功则展示「播放统计」概览（全部/今日/本周/本月 Tab，切换其他区间时按需请求该区间 summary，右上角查看全部进统计页），失败则回退年份速览；概览区「本月」Tab 与「查看全部」用 `focusProperties` 双向焦点跳转 |
-| 统计 Stats | 播放统计插件（jsplugin/stats）子界面：全部/今日/本周/本月时间 Tab、概览卡 ×4（播放次数/听歌时长/不同歌曲/不同艺术家）、艺术家/歌曲排行、听歌趋势（7/30 天柱状图）、专辑排行、时段分布、来源分布、本地与网络、最近播放（加载更多） |
+| 统计 Stats | 播放统计插件（jsplugin/stats）子界面：全部/今日/本周/本月时间 Tab、概览卡 ×4（播放次数/听歌时长/不同歌曲/不同艺术家）、艺术家排行 top4、歌曲排行 top3、听歌趋势（7/30 天柱状图）、专辑排行 top3、时段分布、来源分布 top3、歌曲类型 top3、最近播放 top3；各卡片标题栏带「刷新」按钮 |
 | 搜索 Search | 300ms 防抖搜索；自定义 `TvKeyboard`（QWERTY + URL 符号行 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10；拼音/首字母候选取 `songs/names`（title+artist 去重全量）经 `PinyinMatcher` 索引，输入 ≥2 个字母时匹配候选（旧服务器无该接口时回退 artist facet 值） |
 | 分类 FacetList | 全部歌手/专辑/年份，3 列网格 → 点击进 SongFilter |
 | 筛选 FilteredSongs | 按 artist/album/year 拉 500 首列表 |

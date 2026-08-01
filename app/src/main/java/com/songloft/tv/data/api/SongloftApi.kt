@@ -41,7 +41,10 @@ interface SongloftApi {
     @POST("songs/{id}/played")
     suspend fun reportPlayed(
         @Path("id") id: Long,
-        @Query("type") type: String
+        @Query("type") type: String,
+        @Query("source") source: String = "tv",
+        @Query("context_type") contextType: String? = null,
+        @Query("context_key") contextKey: String? = null
     ): Unit
 
     @GET("playlists")

@@ -64,8 +64,13 @@ class SongRepository @Inject constructor() {
         }
     }
 
-    suspend fun reportPlayed(songId: Long, type: String): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching { api.reportPlayed(songId, type) }
+    suspend fun reportPlayed(
+        songId: Long,
+        type: String,
+        contextType: String? = null,
+        contextKey: String? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching { api.reportPlayed(songId, type, contextType = contextType, contextKey = contextKey) }
     }
 
     companion object {

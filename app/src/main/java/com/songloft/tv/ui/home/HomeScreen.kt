@@ -162,7 +162,7 @@ fun HomeScreen(
                     loadingRanges = uiState.statsLoadingRanges,
                     onRangeSelected = { viewModel.loadStatsRange(it) },
                     onOpenStats = {
-                        restorer.record("stats")
+                        restorer.record("viewall:stats")
                         onStatsClick()
                     },
                     restorer = restorer

@@ -23,8 +23,6 @@ data class StatsUiState(
     val trends: List<StatsTrendPoint> = emptyList(),
     val hourly: List<StatsHourlyPoint> = emptyList(),
     val history: List<StatsHistoryRecord> = emptyList(),
-    val historyHasMore: Boolean = false,
-    val historyLoadingMore: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -66,21 +64,6 @@ class StatsViewModel @Inject constructor(
         }
     }
 
-    fun loadMoreHistory() {
-        val state = _uiState.value
-        if (state.historyLoadingMore || !state.historyHasMore) return
-        _uiState.value = state.copy(historyLoadingMore = true)
-        viewModelScope.launch {
-            val offset = state.history.size
-            val result = statsRepository.getHistory(HISTORY_PAGE_SIZE, offset)
-            _uiState.value = _uiState.value.copy(
-                historyLoadingMore = false,
-                history = _uiState.value.history + (result.getOrNull()?.records ?: emptyList()),
-                historyHasMore = result.getOrNull()?.hasMore ?: false
-            )
-        }
-    }
-
     fun refreshSummary() {
         val range = _uiState.value.range
         viewModelScope.launch {
@@ -102,13 +85,9 @@ class StatsViewModel @Inject constructor(
 
     fun refreshHistory() {
         viewModelScope.launch {
-            val result = statsRepository.getHistory(HISTORY_PAGE_SIZE, 0)
+            val result = statsRepository.getHistory(HISTORY_LIMIT, 0)
             if (result.isSuccess) {
-                _uiState.value = _uiState.value.copy(
-                    history = result.getOrNull()?.records ?: emptyList(),
-                    historyHasMore = result.getOrNull()?.hasMore ?: false,
-                    historyLoadingMore = false
-                )
+                _uiState.value = _uiState.value.copy(history = result.getOrNull()?.records ?: emptyList())
             }
         }
     }
@@ -120,7 +99,7 @@ class StatsViewModel @Inject constructor(
             val summaryDeferred = async { statsRepository.getSummary(StatsRange.ALL) }
             val trendsDeferred = async { statsRepository.getTrends(7) }
             val hourlyDeferred = async { statsRepository.getHourly() }
-            val historyDeferred = async { statsRepository.getHistory(HISTORY_PAGE_SIZE, 0) }
+            val historyDeferred = async { statsRepository.getHistory(HISTORY_LIMIT, 0) }
 
             val summary = summaryDeferred.await()
             val trends = trendsDeferred.await().getOrNull() ?: emptyList()
@@ -133,7 +112,6 @@ class StatsViewModel @Inject constructor(
                 trends = trends,
                 hourly = hourly,
                 history = history?.records ?: emptyList(),
-                historyHasMore = history?.hasMore ?: false,
                 isLoading = false,
                 error = summary.exceptionOrNull()?.message
             )
@@ -141,6 +119,6 @@ class StatsViewModel @Inject constructor(
     }
 
     companion object {
-        const val HISTORY_PAGE_SIZE = 20
+        const val HISTORY_LIMIT = 3
     }
 }

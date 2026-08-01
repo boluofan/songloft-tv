@@ -90,10 +90,12 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MainApp(
                         playerController = playerController,
-                        onPlaySongs = { songs, index -> openPlayer(songs, index) },
-                        onShufflePlay = { songs ->
+                        onPlaySongs = { songs, index, contextType, contextKey ->
+                            openPlayer(songs, index, contextType, contextKey)
+                        },
+                        onShufflePlay = { songs, contextType, contextKey ->
                             playerController.setPlayMode(PlayMode.RANDOM)
-                            openPlayer(songs, Random.nextInt(songs.size))
+                            openPlayer(songs, Random.nextInt(songs.size), contextType, contextKey)
                         },
                         onOpenPlayer = {
                             startActivity(Intent(this@MainActivity, PlayerActivity::class.java))
@@ -105,8 +107,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun openPlayer(songs: List<Song>, index: Int) {
-        playerController.play(songs, index)
+    private fun openPlayer(
+        songs: List<Song>,
+        index: Int,
+        contextType: String? = null,
+        contextKey: String? = null
+    ) {
+        playerController.play(songs, index, contextType, contextKey)
         startActivity(Intent(this, PlayerActivity::class.java))
     }
 
@@ -127,8 +134,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp(
     playerController: PlayerController,
-    onPlaySongs: (List<Song>, Int) -> Unit,
-    onShufflePlay: (List<Song>) -> Unit,
+    onPlaySongs: (List<Song>, Int, String?, String?) -> Unit,
+    onShufflePlay: (List<Song>, String?, String?) -> Unit,
     onOpenPlayer: () -> Unit,
     onExit: () -> Unit
 ) {
@@ -145,8 +152,8 @@ fun MainApp(
 fun TvApp(
     authViewModel: AuthViewModel,
     playerController: PlayerController,
-    onPlaySongs: (List<Song>, Int) -> Unit,
-    onShufflePlay: (List<Song>) -> Unit,
+    onPlaySongs: (List<Song>, Int, String?, String?) -> Unit,
+    onShufflePlay: (List<Song>, String?, String?) -> Unit,
     onOpenPlayer: () -> Unit,
     onExit: () -> Unit
 ) {
@@ -219,19 +226,23 @@ fun TvApp(
                             onStatsClick = { push(Screen.Stats) }
                         )
                         Screen.Search -> SearchScreen(
-                            onSongClick = onPlaySongs
+                            onSongClick = { songs, index -> onPlaySongs(songs, index, null, null) }
                         )
                         Screen.Playlists -> PlaylistsScreen(
                             onPlaylistClick = { id -> push(Screen.PlaylistDetail(id)) }
                         )
                         is Screen.PlaylistDetail -> PlaylistDetailScreen(
                             playlistId = screen.playlistId,
-                            onSongClick = onPlaySongs,
-                            onShufflePlay = onShufflePlay,
+                            onSongClick = { songs, index ->
+                                onPlaySongs(songs, index, "playlist", screen.playlistId.toString())
+                            },
+                            onShufflePlay = { songs ->
+                                onShufflePlay(songs, "playlist", screen.playlistId.toString())
+                            },
                             onBack = { goBack() }
                         )
                         Screen.My -> MyScreen(
-                            onSongClick = onPlaySongs,
+                            onSongClick = { songs, index -> onPlaySongs(songs, index, null, null) },
                             onNavigateToSettings = { push(Screen.Settings) }
                         )
                         Screen.Settings -> SettingsScreen(
@@ -242,7 +253,9 @@ fun TvApp(
                         is Screen.SongFilter -> FilteredSongsScreen(
                             field = screen.field,
                             value = screen.value,
-                            onSongClick = onPlaySongs,
+                            onSongClick = { songs, index ->
+                                onPlaySongs(songs, index, screen.field, screen.value)
+                            },
                             onBack = { goBack() }
                         )
                         is Screen.FacetList -> FacetListScreen(
