@@ -5,3 +5,5 @@
 /build/
 /app/build/
 local.properties
+/CLAUDE.md
+/.claude/settings.local.json

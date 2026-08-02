@@ -1,6 +1,7 @@
 package com.songloft.tv.data.repository
 
 import com.songloft.tv.data.api.ApiClient
+import com.songloft.tv.data.api.PlaylistListResponse
 import com.songloft.tv.data.api.SongListResponse
 import com.songloft.tv.data.model.Playlist
 import kotlinx.coroutines.Dispatchers
@@ -13,9 +14,10 @@ class PlaylistRepository @Inject constructor() {
 
     private val api get() = ApiClient.getApi()
 
-    suspend fun getPlaylists(type: String? = null, limit: Int = 20): Result<List<Playlist>> = withContext(Dispatchers.IO) {
-        runCatching { api.getPlaylists(type, limit).playlists }
-    }
+    suspend fun getPlaylists(type: String? = null, limit: Int = 20, offset: Int = 0): Result<PlaylistListResponse> =
+        withContext(Dispatchers.IO) {
+            runCatching { api.getPlaylists(type, limit, offset) }
+        }
 
     suspend fun getPlaylistDetail(id: Long): Result<Playlist> = withContext(Dispatchers.IO) {
         runCatching { api.getPlaylistDetail(id) }

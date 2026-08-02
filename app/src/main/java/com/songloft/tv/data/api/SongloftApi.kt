@@ -50,7 +50,8 @@ interface SongloftApi {
     @GET("playlists")
     suspend fun getPlaylists(
         @Query("type") type: String? = null,
-        @Query("limit") limit: Int = 50
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int? = null
     ): PlaylistListResponse
 
     @GET("playlists/{id}")

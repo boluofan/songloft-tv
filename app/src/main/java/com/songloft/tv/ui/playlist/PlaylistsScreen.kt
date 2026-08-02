@@ -48,6 +48,19 @@ fun PlaylistsScreen(
     RestoreFocusEffect(restorer)
     DefaultFocusEffect(restorer, topFocus)
 
+    // 滚动接近底部时懒加载下一页；切过滤标签时重置监听
+    LaunchedEffect(uiState.selectedType) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible to info.totalItemsCount
+        }.collect { (lastVisible, totalItems) ->
+            if (totalItems > 0 && lastVisible >= totalItems - 3) {
+                viewModel.loadMorePlaylists()
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -114,6 +127,20 @@ fun PlaylistsScreen(
                             }
                             repeat(4 - rows[rowIndex].size) {
                                 Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    if (uiState.isLoadingMore) {
+                        item {
+                            Box(
+                                Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "加载中...",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
                             }
                         }
                     }

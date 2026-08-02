@@ -19,7 +19,10 @@ import javax.inject.Inject
 
 data class PlaylistListUiState(
     val playlists: List<Playlist> = emptyList(),
+    val total: Int = 0,
+    val hasMore: Boolean = false,
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
     val error: String? = null,
     val selectedType: String? = null
 )
@@ -45,6 +48,7 @@ class PlaylistViewModel @Inject constructor(
     val detailState: StateFlow<PlaylistDetailUiState> = _detailState.asStateFlow()
 
     private var detailJob: Job? = null
+    private var loadMoreJob: Job? = null
 
     val favoriteIds: StateFlow<Set<Long>> = favoriteRepository.favoriteIds
         .map { it ?: emptySet() }
@@ -60,12 +64,15 @@ class PlaylistViewModel @Inject constructor(
     }
 
     fun loadPlaylists(type: String? = null) {
-        _listState.value = _listState.value.copy(isLoading = true, error = null, selectedType = type)
+        loadMoreJob?.cancel()
+        _listState.value = PlaylistListUiState(isLoading = true, error = null, selectedType = type)
         viewModelScope.launch {
-            playlistRepository.getPlaylists(type = type).fold(
-                onSuccess = { playlists ->
+            playlistRepository.getPlaylists(type = type, limit = PLAYLIST_PAGE_SIZE).fold(
+                onSuccess = { page ->
                     _listState.value = _listState.value.copy(
-                        playlists = playlists,
+                        playlists = page.playlists,
+                        total = page.total,
+                        hasMore = page.playlists.size < page.total,
                         isLoading = false
                     )
                 },
@@ -74,6 +81,35 @@ class PlaylistViewModel @Inject constructor(
                         isLoading = false,
                         error = e.message
                     )
+                }
+            )
+        }
+    }
+
+    /** 滚动到底时追加下一页（懒加载），offset 取当前已加载数量 */
+    fun loadMorePlaylists() {
+        val state = _listState.value
+        if (state.isLoading || state.isLoadingMore || !state.hasMore) return
+        if (loadMoreJob?.isActive == true) return
+        loadMoreJob = viewModelScope.launch {
+            val offset = state.playlists.size
+            playlistRepository.getPlaylists(
+                type = state.selectedType,
+                limit = PLAYLIST_PAGE_SIZE,
+                offset = offset
+            ).fold(
+                onSuccess = { page ->
+                    val current = _listState.value
+                    val merged = (current.playlists + page.playlists).distinctBy { it.id }
+                    _listState.value = current.copy(
+                        playlists = merged,
+                        total = page.total,
+                        hasMore = offset + page.playlists.size < page.total,
+                        isLoadingMore = false
+                    )
+                },
+                onFailure = {
+                    _listState.value = _listState.value.copy(isLoadingMore = false)
                 }
             )
         }
@@ -122,5 +158,6 @@ class PlaylistViewModel @Inject constructor(
 
     private companion object {
         const val SONGS_PAGE_SIZE = 500
+        const val PLAYLIST_PAGE_SIZE = 100
     }
 }

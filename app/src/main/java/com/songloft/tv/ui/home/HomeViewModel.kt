@@ -60,7 +60,7 @@ class HomeViewModel @Inject constructor(
             val albumsDeferred = async { songRepository.getFacets("album") }
             val yearsDeferred = async { songRepository.getFacets("year") }
             val statsDeferred = async { songRepository.getLibraryStats() }
-            val playlistsDeferred = async { playlistRepository.getPlaylists() }
+            val playlistsDeferred = async { playlistRepository.getPlaylists(limit = 8) }
             // 首页只查概览汇总（全部区间，不带参数），其他区间在切换 Tab 时按需请求
             val statsSummaryDeferred = async { statsRepository.getSummary(StatsRange.ALL) }
 
@@ -68,7 +68,7 @@ class HomeViewModel @Inject constructor(
             val albums = albumsDeferred.await().getOrDefault(emptyList())
             val years = yearsDeferred.await().getOrDefault(emptyList())
             val statsResult = statsDeferred.await()
-            val playlists = playlistsDeferred.await().getOrDefault(emptyList())
+            val playlists = playlistsDeferred.await().getOrNull()?.playlists.orEmpty()
 
             if (artists.isEmpty() && albums.isEmpty() && statsResult.isFailure) {
                 _uiState.value = HomeUiState(
