@@ -23,6 +23,7 @@ data class PlaylistListUiState(
     val hasMore: Boolean = false,
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: String? = null,
     val selectedType: String? = null
 )
@@ -88,7 +89,7 @@ class PlaylistViewModel @Inject constructor(
     /** 滚动到底时追加下一页（懒加载），offset 取当前已加载数量 */
     fun loadMorePlaylists() {
         val state = _listState.value
-        if (state.isLoading || state.isLoadingMore || !state.hasMore) return
+        if (state.isLoading || state.isLoadingMore || state.isRefreshing || !state.hasMore) return
         if (loadMoreJob?.isActive == true) return
         loadMoreJob = viewModelScope.launch {
             val offset = state.playlists.size
@@ -109,6 +110,36 @@ class PlaylistViewModel @Inject constructor(
                 },
                 onFailure = {
                     _listState.value = _listState.value.copy(isLoadingMore = false)
+                }
+            )
+        }
+    }
+
+    /** 心跳/刷新按钮用：静默刷新当前筛选类型的歌单列表，数据无变化时不替换，避免打断浏览 */
+    fun refreshPlaylists() {
+        val state = _listState.value
+        if (state.isLoading || state.isLoadingMore || state.isRefreshing) return
+        val type = state.selectedType
+        _listState.value = state.copy(isRefreshing = true)
+        viewModelScope.launch {
+            playlistRepository.getPlaylists(type = type, limit = PLAYLIST_PAGE_SIZE).fold(
+                onSuccess = { page ->
+                    val current = _listState.value
+                    _listState.value = if (page.playlists.map { it.id } == current.playlists.map { it.id }) {
+                        current.copy(isRefreshing = false)
+                    } else {
+                        current.copy(
+                            playlists = page.playlists,
+                            total = page.total,
+                            hasMore = page.playlists.size < page.total,
+                            isRefreshing = false,
+                            error = null
+                        )
+                    }
+                },
+                onFailure = {
+                    // 静默刷新失败：保留现有列表，不打断用户
+                    _listState.value = _listState.value.copy(isRefreshing = false)
                 }
             )
         }

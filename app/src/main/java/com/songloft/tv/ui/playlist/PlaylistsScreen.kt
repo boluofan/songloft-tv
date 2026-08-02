@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -26,12 +30,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
+import com.songloft.tv.ui.components.tvFocusable
 import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.ui.navigation.DefaultFocusEffect
 import com.songloft.tv.ui.navigation.ListBackToTopHandler
 import com.songloft.tv.ui.navigation.RestoreFocusEffect
 import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
 import com.songloft.tv.ui.navigation.restorableFocus
+import kotlinx.coroutines.delay
 
 @Composable
 fun PlaylistsScreen(
@@ -61,6 +67,14 @@ fun PlaylistsScreen(
         }
     }
 
+    // 30s 心跳：自动刷新当前歌单列表（离开列表页自动停止，切标签重置计时）
+    LaunchedEffect(uiState.selectedType) {
+        while (true) {
+            delay(30_000)
+            viewModel.refreshPlaylists()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -81,6 +95,7 @@ fun PlaylistsScreen(
                 FilterChip("全部", uiState.selectedType == null, focusRequester = topFocus, onFocusChanged = { topFocusHasFocus = it }) { viewModel.loadPlaylists() }
                 FilterChip("普通", uiState.selectedType == "normal") { viewModel.loadPlaylists("normal") }
                 FilterChip("电台", uiState.selectedType == "radio") { viewModel.loadPlaylists("radio") }
+                RefreshButton(refreshing = uiState.isRefreshing) { viewModel.refreshPlaylists() }
             }
         }
 
@@ -188,6 +203,36 @@ private fun FilterChip(
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp)
     )
+}
+
+@Composable
+private fun RefreshButton(
+    refreshing: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .tvFocusable(cornerRadius = 18.dp, onClick = { if (!refreshing) onClick() }),
+        contentAlignment = Alignment.Center
+    ) {
+        if (refreshing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Rounded.Refresh,
+                contentDescription = "刷新",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
 }
 
 @Composable
