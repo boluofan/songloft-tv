@@ -108,7 +108,8 @@ class UpdateRepository @Inject constructor(
                     UpdateInfo(
                         versionCode = remoteCode,
                         versionName = json.version ?: remoteCode.toString(),
-                        apkUrl = APK_URL
+                        apkUrl = APK_URL,
+                        releaseNotes = json.releaseNotes
                     )
                 )
             } else {
@@ -126,7 +127,8 @@ class UpdateRepository @Inject constructor(
                     // 合成版本号，保证忽略过滤与缓存文件命名可用
                     versionCode = remote[0] * 1_000_000 + remote[1] * 1_000 + remote[2],
                     versionName = remoteName,
-                    apkUrl = APK_URL
+                    apkUrl = APK_URL,
+                    releaseNotes = json.releaseNotes
                 )
             )
         } else {

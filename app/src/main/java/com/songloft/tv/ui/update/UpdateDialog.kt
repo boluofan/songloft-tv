@@ -2,13 +2,16 @@ package com.songloft.tv.ui.update
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -116,6 +119,34 @@ private fun AvailablePanel(
     DialogTitle("发现新版本 v${state.info.versionName}")
     Spacer(Modifier.height(12.dp))
     DialogBody("当前版本 v${BuildConfig.VERSION_NAME} → 新版本 v${state.info.versionName}")
+
+    val notes = state.info.releaseNotes?.trim().orEmpty()
+    if (notes.isNotEmpty()) {
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "更新内容",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(8.dp))
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 260.dp)
+                .focusable()
+        ) {
+            item {
+                Text(
+                    text = notes,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+
     Spacer(Modifier.height(24.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         DialogButton("立即更新", onClick = onStartDownload, modifier = Modifier.focusRequester(focus))
