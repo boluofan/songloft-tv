@@ -56,7 +56,6 @@ class PlaylistViewModel @Inject constructor(
 
     init {
         loadPlaylists()
-        viewModelScope.launch { favoriteRepository.ensureFavoriteIdsLoaded() }
     }
 
     fun toggleFavorite(song: Song) {
@@ -118,6 +117,8 @@ class PlaylistViewModel @Inject constructor(
     fun loadPlaylistDetail(id: Long) {
         detailJob?.cancel()
         _detailState.value = PlaylistDetailUiState(isLoading = true)
+        // 详情页歌曲需显示收藏状态，懒加载收藏 id（首次请求，之后走缓存），与歌曲列表并发加载
+        viewModelScope.launch { favoriteRepository.ensureFavoriteIdsLoaded() }
         detailJob = viewModelScope.launch {
             playlistRepository.getPlaylistDetail(id).fold(
                 onSuccess = { playlist ->
