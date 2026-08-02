@@ -1,7 +1,9 @@
 package com.songloft.tv.data.repository
 
+import com.google.gson.Gson
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.storage.PreferencesDataStore
+import retrofit2.HttpException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,8 +38,30 @@ class AuthRepository @Inject constructor(
                 dataStore.setServerUrl(serverUrl)
                 dataStore.setTokens(response.accessToken, response.refreshToken)
                 true
-            }
+            }.mapLoginFailure()
         }
+
+    /**
+     * 服务器返回 401 时 Retrofit 抛出的 HttpException.message 只是 "HTTP 401"，
+     * 真实原因在响应体 JSON（如 {"error":"用户名或密码错误"}）里，这里解析出来替换。
+     */
+    private fun <T> Result<T>.mapLoginFailure(): Result<T> {
+        val e = exceptionOrNull() ?: return this
+        // 仅转换 HttpException；IOException 保持原样，让 ViewModel 继续换协议重试
+        if (e !is HttpException) return this
+        val body = e.response()?.errorBody()?.string().orEmpty()
+        val parsed = runCatching { Gson().fromJson(body, LoginErrorBody::class.java) }.getOrNull()
+        val message = parsed?.error
+            ?: parsed?.detail
+            ?: e.message()
+            ?: "HTTP ${e.code()}"
+        return Result.failure(IllegalStateException(message))
+    }
+
+    private data class LoginErrorBody(
+        val error: String? = null,
+        val detail: String? = null
+    )
 
     suspend fun tryAutoLogin(): Boolean {
         return withContext(Dispatchers.IO) {
