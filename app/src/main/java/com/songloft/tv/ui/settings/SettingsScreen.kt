@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -187,12 +188,40 @@ fun SettingsScreen(
                 }.getOrNull() ?: "未知"
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingsItem(label = "版本", value = versionName)
-                SettingsItem(
-                    label = "检查更新",
-                    value = "获取最新版本",
-                    onClick = { updateViewModel.manualCheck() }
-                )
+                var checkUpdateFocused by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (checkUpdateFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("版本", fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
+                        Spacer(Modifier.width(12.dp))
+                        Text(versionName, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+                    Text(
+                        text = "检查更新",
+                        fontSize = 14.sp,
+                        fontWeight = if (checkUpdateFocused) FontWeight.Bold else FontWeight.Normal,
+                        color = if (checkUpdateFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (checkUpdateFocused) MaterialTheme.colorScheme.primary
+                                else Color.Transparent
+                            )
+                            .onFocusChanged { checkUpdateFocused = it.isFocused }
+                            .clickable { updateViewModel.manualCheck() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
                 SettingsItem(label = "项目地址", value = "github.com/boluofan/songloft-tv")
                 SettingsItem(
                     label = "开源组件",
