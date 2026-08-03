@@ -13,9 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -25,14 +22,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.data.model.LyricLine
-
-private val ActiveColor = Color.White
-private val InactiveColor = Color.White.copy(alpha = 0.75f)
-private val LyricShadow = Shadow(
-    color = Color.Black.copy(alpha = 0.8f),
-    offset = Offset(0f, 2f),
-    blurRadius = 8f
-)
+import com.songloft.tv.ui.theme.PlayerColors
 
 @Composable
 fun LyricsPanel(
@@ -57,7 +47,7 @@ fun LyricsPanel(
             Text(
                 text = "暂无歌词",
                 fontSize = 18.sp,
-                color = InactiveColor
+                color = PlayerColors.LyricsInactive
             )
         }
     } else {
@@ -80,8 +70,8 @@ fun LyricsPanel(
                         fontSize = if (isActive) 30.sp else 22.sp,
                         lineHeight = if (isActive) 42.sp else 30.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isActive) ActiveColor else Color.White.copy(alpha = alpha),
-                        style = TextStyle(shadow = LyricShadow),
+                        color = if (isActive) PlayerColors.TextPrimary else PlayerColors.TextPrimary.copy(alpha = alpha),
+                        style = TextStyle(shadow = PlayerColors.LyricShadow),
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -93,8 +83,8 @@ fun LyricsPanel(
                     Text(
                         text = line.translation,
                         fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.85f),
-                        style = TextStyle(shadow = LyricShadow),
+                        color = PlayerColors.LyricsWord,
+                        style = TextStyle(shadow = PlayerColors.LyricShadow),
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -133,7 +123,7 @@ private fun KaraokeLine(line: LyricLine, position: Long) {
         fontSize = 30.sp,
         lineHeight = 42.sp,
         fontWeight = FontWeight.Bold,
-        style = TextStyle(shadow = LyricShadow),
+        style = TextStyle(shadow = PlayerColors.LyricShadow),
         textAlign = TextAlign.Center,
         modifier = Modifier
             .fillMaxWidth()
@@ -141,5 +131,5 @@ private fun KaraokeLine(line: LyricLine, position: Long) {
     )
 }
 
-private val SpanActive = SpanStyle(color = ActiveColor)
-private val SpanInactive = SpanStyle(color = InactiveColor)
+private val SpanActive = SpanStyle(color = PlayerColors.TextPrimary)
+private val SpanInactive = SpanStyle(color = PlayerColors.LyricsInactive)

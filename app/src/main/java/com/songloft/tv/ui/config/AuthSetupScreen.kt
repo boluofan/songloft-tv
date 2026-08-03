@@ -231,7 +231,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
             ) {
                 Text(
                     if (isLoading) "连接并登录中..." else "连接并登录",
-                    fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White
+                    fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary
                 )
             }
             Spacer(Modifier.height(16.dp))

@@ -54,6 +54,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.domain.PlayMode
+import com.songloft.tv.ui.theme.PlayerColors
 
 private const val SEEK_STEP_MS = 10_000L
 
@@ -86,7 +87,7 @@ private fun SeekBar(
                 .fillMaxWidth()
                 .height(if (isFocused) 6.dp else 4.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(Color.White.copy(alpha = if (isFocused) 0.35f else 0.2f))
+                .background(if (isFocused) PlayerColors.TrackBgFocused else PlayerColors.TrackBg)
         ) {
             Box(
                 modifier = Modifier
@@ -106,7 +107,7 @@ private fun SeekBar(
                     modifier = Modifier
                         .size(12.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(Color.White)
+                        .background(PlayerColors.TextPrimary)
                 )
             }
         }
@@ -131,7 +132,7 @@ fun ControlBar(
 ) {
     Column(
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.8f))
+            .background(PlayerColors.BarBackground)
             .padding(horizontal = 48.dp, vertical = 16.dp)
     ) {
         val progress = if (uiState.duration > 0) {
@@ -145,7 +146,7 @@ fun ControlBar(
             Text(
                 text = formatTime(uiState.currentPosition),
                 fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.7f)
+                color = PlayerColors.TextTertiary
             )
 
             SeekBar(
@@ -161,7 +162,7 @@ fun ControlBar(
             Text(
                 text = formatTime(uiState.duration),
                 fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.7f)
+                color = PlayerColors.TextTertiary
             )
         }
 
@@ -244,11 +245,11 @@ private fun TransportButton(
             .size(size)
             .clip(RoundedCornerShape(50))
             .background(
-                if (isFocused) Color.White.copy(alpha = 0.2f)
-                else Color.White.copy(alpha = 0.1f)
+                if (isFocused) PlayerColors.ControlBgFocused
+                else PlayerColors.ControlBg
             )
             .then(
-                if (isFocused) Modifier.border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(50))
+                if (isFocused) Modifier.border(2.dp, PlayerColors.ControlBorder, RoundedCornerShape(50))
                 else Modifier
             )
             .then(
@@ -262,13 +263,13 @@ private fun TransportButton(
             CircularProgressIndicator(
                 modifier = Modifier.size(iconSize),
                 strokeWidth = 2.dp,
-                color = Color.White
+                color = PlayerColors.TextPrimary
             )
         } else {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = Color.White,
+                tint = PlayerColors.TextPrimary,
                 modifier = Modifier.size(iconSize)
             )
         }

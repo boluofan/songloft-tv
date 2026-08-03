@@ -61,6 +61,7 @@ import com.songloft.tv.ui.navigation.ScreenFocusRestorer
 import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
 import com.songloft.tv.ui.navigation.restorableFocus
 import com.songloft.tv.ui.stats.formatDuration
+import com.songloft.tv.ui.theme.SelectedFocusBorder
 import kotlinx.coroutines.ensureActive
 
 @Composable
@@ -675,7 +676,7 @@ private fun HomeRangeTab(
             .then(
                 if (isFocused) Modifier.border(
                     3.dp,
-                    if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    if (isSelected) SelectedFocusBorder else MaterialTheme.colorScheme.primary,
                     RoundedCornerShape(16.dp)
                 ) else Modifier
             )

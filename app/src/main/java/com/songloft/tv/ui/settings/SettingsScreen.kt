@@ -33,6 +33,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
+import com.songloft.tv.ui.theme.SelectedFocusBorder
+import com.songloft.tv.ui.theme.seedColorFor
 import com.songloft.tv.ui.update.UpdateViewModel
 import kotlinx.coroutines.launch
 
@@ -92,6 +94,17 @@ fun SettingsScreen(
                 ThemeOption("跟随系统", 0, uiState.themeMode) { viewModel.setThemeMode(0) }
                 ThemeOption("浅色", 1, uiState.themeMode) { viewModel.setThemeMode(1) }
                 ThemeOption("深色", 2, uiState.themeMode) { viewModel.setThemeMode(2) }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        SettingsSection("主题色调") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ThemeColorOption("黛青蓝", "indigo", uiState.themeColor) { viewModel.setThemeColor("indigo") }
+                ThemeColorOption("薄荷绿", "emerald", uiState.themeColor) { viewModel.setThemeColor("emerald") }
+                ThemeColorOption("珊瑚粉", "sakura", uiState.themeColor) { viewModel.setThemeColor("sakura") }
+                ThemeColorOption("蜜橘橙", "honey", uiState.themeColor) { viewModel.setThemeColor("honey") }
             }
         }
 
@@ -243,9 +256,9 @@ fun SettingsScreen(
 
         var clearFocused by remember { mutableStateOf(false) }
         Text(
-            text = "清除服务器配置",
+            text = "清除配置",
             fontSize = 14.sp,
-            fontWeight = if (clearFocused) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
@@ -500,6 +513,60 @@ private fun ThemeOption(label: String, mode: Int, currentMode: Int, modifier: Mo
 }
 
 @Composable
+private fun ThemeColorOption(label: String, name: String, currentName: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val isSelected = name == currentName
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = tween(120),
+        label = "themeColorScale"
+    )
+
+    Row(
+        modifier = modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                when {
+                    isSelected -> MaterialTheme.colorScheme.primary
+                    isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp,
+                    if (isSelected) SelectedFocusBorder else MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(16.dp)
+                ) else Modifier
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(RoundedCornerShape(50))
+                .background(seedColorFor(name))
+                .border(1.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(50))
+        )
+        Text(
+            text = if (isSelected) "✓ $label" else label,
+            fontSize = 14.sp,
+            fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
+            color = when {
+                isSelected -> MaterialTheme.colorScheme.onPrimary
+                isFocused -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+            }
+        )
+    }
+}
+
+@Composable
 private fun QualityOption(label: String, value: String, currentValue: String, onClick: () -> Unit) {
     OptionChip(label, value == currentValue, Modifier, onClick)
 }
@@ -533,7 +600,7 @@ private fun OptionChip(label: String, isSelected: Boolean, modifier: Modifier = 
                 if (isFocused) Modifier.border(
                     // 选中项聚焦：白色粗描边与 ✓ 同色但更粗更亮，配合缩放一眼可辨
                     3.dp,
-                    if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    if (isSelected) SelectedFocusBorder else MaterialTheme.colorScheme.primary,
                     RoundedCornerShape(16.dp)
                 ) else Modifier
             )

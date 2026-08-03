@@ -21,6 +21,7 @@ class PreferencesDataStore @Inject constructor(
     companion object {
         private val SERVER_URL = stringPreferencesKey("server_url")
         val THEME_MODE = intPreferencesKey("theme_mode")
+        val THEME_COLOR = stringPreferencesKey("theme_color")
         private val AUDIO_QUALITY = stringPreferencesKey("audio_quality")
         private val ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
@@ -31,6 +32,7 @@ class PreferencesDataStore @Inject constructor(
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
     val themeMode: Flow<Int> = context.dataStore.data.map { it[THEME_MODE] ?: 0 }
+    val themeColor: Flow<String> = context.dataStore.data.map { it[THEME_COLOR] ?: "indigo" }
     val audioQuality: Flow<String?> = context.dataStore.data.map { it[AUDIO_QUALITY] }
     val accessToken: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN] }
@@ -44,6 +46,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setThemeMode(mode: Int) {
         context.dataStore.edit { it[THEME_MODE] = mode }
+    }
+
+    suspend fun setThemeColor(name: String) {
+        context.dataStore.edit { it[THEME_COLOR] = name }
     }
 
     suspend fun setAudioQuality(quality: String) {

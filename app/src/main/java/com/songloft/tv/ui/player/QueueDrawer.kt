@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.data.model.Song
+import com.songloft.tv.ui.theme.PlayerColors
 
 @Composable
 fun QueueDrawer(
@@ -48,7 +49,7 @@ fun QueueDrawer(
     )
     Column(
         modifier = modifier
-            .background(Color(0xE6111827))
+            .background(PlayerColors.QueueBackground)
             .padding(16.dp)
     ) {
         Row(
@@ -60,13 +61,13 @@ fun QueueDrawer(
                 text = "播放列表",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = PlayerColors.TextPrimary
             )
             var closeFocused by remember { mutableStateOf(false) }
             Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = "关闭",
-                tint = if (closeFocused) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.7f),
+                tint = if (closeFocused) MaterialTheme.colorScheme.onPrimary else PlayerColors.TextTertiary,
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(
@@ -82,7 +83,7 @@ fun QueueDrawer(
         Text(
             text = "共 ${queue.size} 首",
             fontSize = 13.sp,
-            color = Color.White.copy(alpha = 0.5f)
+            color = PlayerColors.TextMuted
         )
 
         Spacer(Modifier.height(12.dp))
@@ -98,8 +99,8 @@ fun QueueDrawer(
                         .clip(RoundedCornerShape(8.dp))
                         .background(
                             when {
-                                isCurrent -> Color.White.copy(alpha = 0.15f)
-                                isFocused -> Color.White.copy(alpha = 0.08f)
+                                isCurrent -> PlayerColors.RowCurrent
+                                isFocused -> PlayerColors.RowFocused
                                 else -> Color.Transparent
                             }
                         )
@@ -125,13 +126,13 @@ fun QueueDrawer(
                         Text(
                             song.title, fontSize = 14.sp,
                             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.8f),
+                            color = if (isCurrent) PlayerColors.TextPrimary else PlayerColors.TextSecondary,
                             maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
                         if (song.artist != null) {
                             Text(
                                 song.artist, fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.5f),
+                                color = PlayerColors.TextMuted,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis
                             )
                         }

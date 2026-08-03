@@ -38,6 +38,7 @@ import com.songloft.tv.ui.navigation.ListBackToTopHandler
 import com.songloft.tv.ui.navigation.RestoreFocusEffect
 import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
 import com.songloft.tv.ui.navigation.restorableFocus
+import com.songloft.tv.ui.theme.SelectedFocusBorder
 import kotlinx.coroutines.delay
 
 @Composable
@@ -203,7 +204,7 @@ private fun FilterChip(
             .then(
                 if (isFocused) Modifier.border(
                     3.dp,
-                    if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    if (isSelected) SelectedFocusBorder else MaterialTheme.colorScheme.primary,
                     RoundedCornerShape(16.dp)
                 ) else Modifier
             )

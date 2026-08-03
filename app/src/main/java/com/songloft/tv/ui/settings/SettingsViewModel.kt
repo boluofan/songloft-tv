@@ -22,6 +22,7 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val themeMode: Int = 0,
+    val themeColor: String = "indigo",
     val serverUrl: String = "",
     val audioQuality: String = "",
     val backgroundPlayback: Boolean = true,
@@ -47,6 +48,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             dataStore.themeMode.collect { mode ->
                 _uiState.value = _uiState.value.copy(themeMode = mode)
+            }
+        }
+        viewModelScope.launch {
+            dataStore.themeColor.collect { name ->
+                _uiState.value = _uiState.value.copy(themeColor = name)
             }
         }
         viewModelScope.launch {
@@ -91,6 +97,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: Int) {
         viewModelScope.launch { dataStore.setThemeMode(mode) }
+    }
+
+    fun setThemeColor(name: String) {
+        viewModelScope.launch { dataStore.setThemeColor(name) }
     }
 
     fun setAudioQuality(quality: String) {

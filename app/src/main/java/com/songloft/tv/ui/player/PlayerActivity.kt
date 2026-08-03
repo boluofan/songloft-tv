@@ -62,6 +62,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.songloft.tv.data.api.UrlHelper
 import com.songloft.tv.ui.components.CoverImage
+import com.songloft.tv.ui.theme.PlayerColors
 import com.songloft.tv.ui.theme.TvTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -125,7 +126,7 @@ fun PlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(PlayerColors.Background)
             .onPreviewKeyEvent { event ->
                 val controlsHidden = !uiState.showControls && !uiState.showQueueDrawer
                 when (event.type) {
@@ -212,7 +213,7 @@ fun PlayerScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.6f))
+                            .background(PlayerColors.Scrim)
                     )
                 }
                 Row(modifier = Modifier.fillMaxSize()) {
@@ -245,7 +246,7 @@ fun PlayerScreen(
                             text = uiState.currentSong?.title ?: "",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = PlayerColors.TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -255,7 +256,7 @@ fun PlayerScreen(
                         Text(
                             text = uiState.currentSong?.artist ?: "",
                             fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f),
+                            color = PlayerColors.TextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -282,7 +283,7 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text("未选择歌曲", color = Color.Gray, fontSize = 20.sp)
+                Text("未选择歌曲", color = PlayerColors.TextTertiary, fontSize = 20.sp)
             }
         }
 
@@ -321,14 +322,14 @@ fun PlayerScreen(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White.copy(alpha = 0.25f))
+                    .background(PlayerColors.TouchEntryBg)
                     .pointerInput(Unit) { detectTapGestures { viewModel.showControls() } },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Rounded.KeyboardArrowUp,
                     contentDescription = "显示控制栏",
-                    tint = Color.White.copy(alpha = 0.85f),
+                    tint = PlayerColors.TouchEntryIcon,
                     modifier = Modifier.size(26.dp)
                 )
             }
