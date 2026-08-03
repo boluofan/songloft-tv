@@ -3,6 +3,7 @@ package com.songloft.tv.ui.my
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -144,24 +146,37 @@ private fun TabChip(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = tween(120),
+        label = "tabChipScale"
+    )
 
     Text(
-        text = label,
+        text = if (isSelected) "✓ $label" else label,
         fontSize = 15.sp,
         fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
         color = when {
-            isFocused -> MaterialTheme.colorScheme.onPrimary
-            isSelected -> MaterialTheme.colorScheme.primary
+            isSelected -> MaterialTheme.colorScheme.onPrimary
+            isFocused -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         },
         modifier = Modifier
+            .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(
                 when {
-                    isFocused -> MaterialTheme.colorScheme.primary
-                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    isSelected -> MaterialTheme.colorScheme.primary
+                    isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 }
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp,
+                    if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(16.dp)
+                ) else Modifier
             )
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier

@@ -117,7 +117,7 @@ fun QueueDrawer(
                         Icon(
                             imageVector = Icons.Rounded.GraphicEq,
                             contentDescription = "正在播放",
-                            tint = Color(0xFF415F91),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp).padding(end = 8.dp)
                         )
                     }

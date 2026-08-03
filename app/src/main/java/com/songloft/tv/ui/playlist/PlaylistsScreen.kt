@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -174,9 +175,14 @@ private fun FilterChip(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = tween(120),
+        label = "filterChipScale"
+    )
 
     Text(
-        text = label,
+        text = if (isSelected) "✓ $label" else label,
         fontSize = 14.sp,
         fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
         color = when {
@@ -185,6 +191,7 @@ private fun FilterChip(
             else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         },
         modifier = Modifier
+            .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(
                 when {
@@ -192,6 +199,13 @@ private fun FilterChip(
                     isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp,
+                    if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(16.dp)
+                ) else Modifier
             )
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier

@@ -647,24 +647,37 @@ private fun HomeRangeTab(
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = tween(120),
+        label = "homeRangeTabScale"
+    )
 
     Text(
-        text = label,
+        text = if (isSelected) "✓ $label" else label,
         fontSize = 15.sp,
         fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
         color = when {
-            isFocused -> MaterialTheme.colorScheme.onPrimary
-            isSelected -> MaterialTheme.colorScheme.primary
+            isSelected -> MaterialTheme.colorScheme.onPrimary
+            isFocused -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         },
         modifier = modifier
+            .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(
                 when {
-                    isFocused -> MaterialTheme.colorScheme.primary
-                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    isSelected -> MaterialTheme.colorScheme.primary
+                    isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 }
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp,
+                    if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(16.dp)
+                ) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
