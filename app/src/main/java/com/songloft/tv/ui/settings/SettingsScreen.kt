@@ -1,7 +1,10 @@
 package com.songloft.tv.ui.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -210,12 +214,17 @@ fun SettingsScreen(
                         text = "检查更新",
                         fontSize = 14.sp,
                         fontWeight = if (checkUpdateFocused) FontWeight.Bold else FontWeight.Normal,
-                        color = if (checkUpdateFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(
-                                if (checkUpdateFocused) MaterialTheme.colorScheme.primary
+                                if (checkUpdateFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                 else Color.Transparent
+                            )
+                            .then(
+                                if (checkUpdateFocused) Modifier.border(
+                                    2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)
+                                ) else Modifier
                             )
                             .onFocusChanged { checkUpdateFocused = it.isFocused }
                             .clickable { updateViewModel.manualCheck() }
@@ -237,12 +246,17 @@ fun SettingsScreen(
             text = "清除服务器配置",
             fontSize = 14.sp,
             fontWeight = if (clearFocused) FontWeight.Bold else FontWeight.Normal,
-            color = if (clearFocused) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.error,
+            color = MaterialTheme.colorScheme.error,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .background(
-                    if (clearFocused) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                    if (clearFocused) MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                    else Color.Transparent
+                )
+                .then(
+                    if (clearFocused) Modifier.border(
+                        2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp)
+                    ) else Modifier
                 )
                 .onFocusChanged { clearFocused = it.isFocused }
                 .clickable {
@@ -259,12 +273,17 @@ fun SettingsScreen(
             text = "退出登录",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = if (logoutFocused) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.error,
+            color = MaterialTheme.colorScheme.error,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .background(
-                    if (logoutFocused) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                    if (logoutFocused) MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                    else Color.Transparent
+                )
+                .then(
+                    if (logoutFocused) Modifier.border(
+                        2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp)
+                    ) else Modifier
                 )
                 .onFocusChanged { logoutFocused = it.isFocused }
                 .clickable { onLogout() }
@@ -430,6 +449,11 @@ private fun SettingsItem(
                 if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             )
+            .then(
+                if (isFocused) Modifier.border(
+                    2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
+                ) else Modifier
+            )
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -483,9 +507,14 @@ private fun QualityOption(label: String, value: String, currentValue: String, on
 @Composable
 private fun OptionChip(label: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = tween(120),
+        label = "optionChipScale"
+    )
 
     Text(
-        text = label,
+        text = if (isSelected) "✓ $label" else label,
         fontSize = 14.sp,
         fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
         color = when {
@@ -494,13 +523,19 @@ private fun OptionChip(label: String, isSelected: Boolean, modifier: Modifier = 
             else -> MaterialTheme.colorScheme.onSurface
         },
         modifier = modifier
+            .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(
-                when {
-                    isSelected -> MaterialTheme.colorScheme.primary
-                    isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                }
+                if (isSelected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    // 选中项聚焦：白色粗描边与 ✓ 同色但更粗更亮，配合缩放一眼可辨
+                    3.dp,
+                    if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(16.dp)
+                ) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
