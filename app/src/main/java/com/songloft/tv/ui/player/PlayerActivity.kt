@@ -127,6 +127,12 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(PlayerColors.Background)
+            .pointerInput(uiState.showControls) {
+                // 控制栏弹出时点击其他区域关闭；子节点消费的事件不会触发此回调
+                if (uiState.showControls) {
+                    detectTapGestures { viewModel.hideControls() }
+                }
+            }
             .onPreviewKeyEvent { event ->
                 val controlsHidden = !uiState.showControls && !uiState.showQueueDrawer
                 when (event.type) {
@@ -291,7 +297,9 @@ fun PlayerScreen(
             visible = uiState.showControls,
             enter = fadeIn() + slideInVertically { it },
             exit = fadeOut() + slideOutVertically { it },
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .pointerInput(Unit) { detectTapGestures { } } // 消费控制栏区域点击，避免触发外部关闭
         ) {
             ControlBar(
                 uiState = uiState,

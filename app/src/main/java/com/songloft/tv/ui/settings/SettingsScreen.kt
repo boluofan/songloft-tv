@@ -257,7 +257,7 @@ fun SettingsScreen(
         var clearFocused by remember { mutableStateOf(false) }
         Text(
             text = "清除配置",
-            fontSize = 14.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier
