@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +32,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,7 +42,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.songloft.tv.BuildConfig
 import com.songloft.tv.util.ApkInstaller
+import android.view.KeyEvent
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun UpdateDialog(
@@ -115,12 +123,13 @@ private fun AvailablePanel(
     onIgnore: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val focus = remember { FocusRequester() }
+    val listFocus = remember { FocusRequester() }
+    val buttonFocus = remember { FocusRequester() }
     DialogTitle("发现新版本 v${state.info.versionName}")
     Spacer(Modifier.height(12.dp))
     DialogBody("当前版本 v${BuildConfig.VERSION_NAME} → 新版本 v${state.info.versionName}")
 
-    val notes = state.info.releaseNotes?.trim().orEmpty()
+    val notes = remember(state.info.releaseNotes) { parseNotes(state.info.releaseNotes.orEmpty()) }
     if (notes.isNotEmpty()) {
         Spacer(Modifier.height(16.dp))
         Text(
@@ -130,32 +139,70 @@ private fun AvailablePanel(
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(Modifier.height(8.dp))
+        val listState = rememberLazyListState()
+        val scope = rememberCoroutineScope()
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 260.dp)
                 .focusable()
+                .focusRequester(listFocus)
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (event.nativeKeyEvent.keyCode) {
+                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                if (listState.canScrollForward) {
+                                    scope.launch { listState.animateScrollToItem(listState.firstVisibleItemIndex + 1) }
+                                    true
+                                } else {
+                                    buttonFocus.requestFocus()
+                                    true
+                                }
+                            }
+                            KeyEvent.KEYCODE_DPAD_UP -> {
+                                if (listState.canScrollBackward) {
+                                    scope.launch { listState.animateScrollToItem(listState.firstVisibleItemIndex - 1) }
+                                    true
+                                } else false
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
         ) {
-            item {
-                Text(
-                    text = notes,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                )
+            items(notes) { line ->
+                when (line) {
+                    is NotesLine.Heading -> Text(
+                        text = line.text,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
+                    )
+                    is NotesLine.Item -> Text(
+                        text = "• ${line.text}",
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+                    )
+                }
             }
         }
     }
 
     Spacer(Modifier.height(24.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        DialogButton("立即更新", onClick = onStartDownload, modifier = Modifier.focusRequester(focus))
+        DialogButton("立即更新", onClick = onStartDownload, modifier = Modifier.focusRequester(buttonFocus))
         DialogButton("稍后再说", onClick = onDismiss)
         if (state.fromAutoCheck) {
             DialogButton("忽略此版本", onClick = onIgnore)
         }
     }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(Unit) {
+        runCatching { (if (notes.isEmpty()) buttonFocus else listFocus).requestFocus() }
+    }
 }
 
 @Composable
@@ -271,3 +318,30 @@ private fun DialogButton(
 
 private fun formatMb(bytes: Long): String =
     String.format(Locale.US, "%.1fMB", bytes / 1024f / 1024f)
+
+private sealed interface NotesLine {
+    val text: String
+
+    data class Heading(override val text: String) : NotesLine
+    data class Item(override val text: String) : NotesLine
+}
+
+/** 解析 release_notes 的轻量 markdown：`#` 标题行与 `-` 列表项，其余按列表项处理 */
+private fun parseNotes(notes: String): List<NotesLine> =
+    notes.lines().mapNotNull { raw ->
+        val line = raw.trim()
+        when {
+            line.startsWith("###") -> NotesLine.Heading(stripInlineMarkdown(line.removePrefix("###").trim()))
+            line.startsWith("##") -> NotesLine.Heading(stripInlineMarkdown(line.removePrefix("##").trim()))
+            line.startsWith("#") -> NotesLine.Heading(stripInlineMarkdown(line.removePrefix("#").trim()))
+            line.startsWith("-") -> NotesLine.Item(stripInlineMarkdown(line.removePrefix("-").trim()))
+            line.isBlank() -> null
+            else -> NotesLine.Item(stripInlineMarkdown(line))
+        }
+    }
+
+/** 去掉行内 `*强调*`、`` `代码` ``、`[文字](链接)` 的 markdown 符号，只留文字 */
+private fun stripInlineMarkdown(text: String): String =
+    text.replace(Regex("\\*(.+?)\\*"), "$1")
+        .replace(Regex("`(.+?)`"), "$1")
+        .replace(Regex("\\[([^\\]]+)\\]\\([^)]*\\)"), "$1")

@@ -126,12 +126,14 @@ jobs:
           BUILD_TIME: ${{ steps.version.outputs.build_time }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.changes }}
         run: |
+          # 精简 release notes：去掉 commit 链接（节点 id + 网址），保留提交信息与署名
+          SIMPLE_NOTES=$(printf '%s' "${RELEASE_NOTES}" | sed -E 's/- \[`[0-9a-f]+`\]\([^)]*\) - /- /g')
           jq -n \
             --arg version "${VERSION}" \
             --argjson version_code "${VERSION_CODE}" \
             --arg git_commit "${GIT_COMMIT}" \
             --arg build_time "${BUILD_TIME}" \
-            --arg release_notes "${RELEASE_NOTES}" \
+            --arg release_notes "${SIMPLE_NOTES}" \
             '{version: $version, version_code: $version_code, git_commit: $git_commit, build_time: $build_time, release_notes: $release_notes}' \
             > apk-output/version.json
           cat apk-output/version.json
