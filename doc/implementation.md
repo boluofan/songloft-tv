@@ -127,7 +127,7 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 - **交互**：控制栏 10s 无操作自动隐藏；控制隐藏时——左右键长按连续 ±10s seek、短按切歌、上下/OK 唤出控制栏；媒体键直达。
 - **两种模式**：视频（全屏 `VideoPlayer` = PlayerView 绑定 MediaController，多音轨时右上角 TrackChips）；音频（封面 blur(60dp) 毛玻璃背景 + 左封面/右 `LyricsPanel`）。
 - **LyricsPanel**：自动滚动居中；逐字行渲染 KaraokeLine（按 word start/end 进度逐字点亮）；附带翻译行。
-- **ControlBar**：SeekBar + 上一曲/播放暂停/下一曲/播放模式/收藏/队列按钮。
+- **ControlBar**：SeekBar + 上一曲/播放暂停/下一曲/播放模式/收藏/重新获取歌词/队列按钮（重新获取歌词走 `refresh=1` 重跑服务端歌词插件搜索，请求中按钮显示加载圈）。
 - **QueueDrawer**：左侧 400dp 抽屉，当前曲高亮，自动滚到当前位置，点击条目跳播（`PlayerController.playAt(index)`）。
 
 ## 4. UI 层

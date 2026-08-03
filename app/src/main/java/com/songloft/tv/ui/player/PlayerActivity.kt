@@ -302,6 +302,7 @@ fun PlayerScreen(
                 onToggleQueue = { viewModel.toggleQueueDrawer() },
                 onToggleFavorite = { viewModel.toggleFavorite() },
                 onCycleAudioTrack = { viewModel.cycleAudioTrack() },
+                onRefreshLyrics = { viewModel.refreshLyrics() },
                 playPauseFocusRequester = controlBarFocus,
                 modifier = Modifier.fillMaxWidth()
             )

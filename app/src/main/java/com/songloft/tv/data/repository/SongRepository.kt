@@ -56,9 +56,9 @@ class SongRepository @Inject constructor() {
         }
     }
 
-    suspend fun getSongLyric(songId: Long): Result<LyricResponse> = withContext(Dispatchers.IO) {
+    suspend fun getSongLyric(songId: Long, refresh: Boolean = false): Result<LyricResponse> = withContext(Dispatchers.IO) {
         runCatching {
-            val resp = api.getSongLyric(songId)
+            val resp = api.getSongLyric(songId, refresh)
             if (resp.lyric.isNullOrBlank() && resp.lxlyric.isNullOrBlank()) throw Exception("无歌词")
             resp
         }

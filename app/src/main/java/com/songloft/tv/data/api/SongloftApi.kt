@@ -25,7 +25,10 @@ interface SongloftApi {
     ): SongPlayInfo
 
     @GET("songs/{id}/lyric")
-    suspend fun getSongLyric(@Path("id") id: Long): LyricResponse
+    suspend fun getSongLyric(
+        @Path("id") id: Long,
+        @Query("refresh") refresh: Boolean = false
+    ): LyricResponse
 
     @GET("songs/facets")
     suspend fun getFacets(

@@ -28,9 +28,11 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -122,6 +124,8 @@ fun ControlBar(
     onToggleQueue: () -> Unit,
     onToggleFavorite: () -> Unit = {},
     onCycleAudioTrack: () -> Unit = {},
+    onRefreshLyrics: () -> Unit = {},
+    isLyricRefreshing: Boolean = false,
     playPauseFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
@@ -193,6 +197,12 @@ fun ControlBar(
                 "收藏",
                 onToggleFavorite
             )
+            TransportButton(
+                Icons.Rounded.Refresh,
+                "重新获取歌词",
+                onRefreshLyrics,
+                loading = isLyricRefreshing
+            )
             if (uiState.availableTracks.size > 1) {
                 // 第 1 条音轨视为原唱（Mic），其余视为伴唱（MicOff），与播放/暂停图标同样随状态切换
                 val trackIndex = uiState.availableTracks
@@ -215,7 +225,8 @@ private fun TransportButton(
     contentDescription: String,
     onClick: () -> Unit,
     isLarge: Boolean = false,
-    focusRequester: FocusRequester? = null
+    focusRequester: FocusRequester? = null,
+    loading: Boolean = false
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -244,15 +255,23 @@ private fun TransportButton(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() },
+            .clickable { if (!loading) onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.size(iconSize)
-        )
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(iconSize),
+                strokeWidth = 2.dp,
+                color = Color.White
+            )
+        } else {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = Color.White,
+                modifier = Modifier.size(iconSize)
+            )
+        }
     }
 }
 

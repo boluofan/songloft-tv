@@ -37,7 +37,8 @@ data class PlayerUiState(
     val showQueueDrawer: Boolean = false,
     val isVideoMode: Boolean = false,
     val isBuffering: Boolean = false,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val isLyricRefreshing: Boolean = false
 )
 
 @HiltViewModel
@@ -181,7 +182,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun loadLyrics(songId: Long) {
-        _uiState.update { it.copy(lyrics = emptyList(), currentLyricIndex = -1) }
+        _uiState.update { it.copy(lyrics = emptyList(), currentLyricIndex = -1, isLyricRefreshing = false) }
         viewModelScope.launch {
             songRepository.getSongLyric(songId).onSuccess { resp ->
                 val parsed = LyricParser.parsePayload(
@@ -192,6 +193,25 @@ class PlayerViewModel @Inject constructor(
                 )
                 _uiState.update { it.copy(lyrics = parsed) }
             }
+        }
+    }
+
+    /** 手动重新拉取歌词：refresh=1 让服务端跳过自动缓存（空/scraped/cached）重跑歌词插件搜索；权威歌词（file/embedded/manual）不被覆盖 */
+    fun refreshLyrics() {
+        val songId = lyricSongId ?: return
+        if (_uiState.value.isLyricRefreshing) return
+        _uiState.update { it.copy(isLyricRefreshing = true) }
+        viewModelScope.launch {
+            songRepository.getSongLyric(songId, refresh = true).onSuccess { resp ->
+                val parsed = LyricParser.parsePayload(
+                    lyric = resp.lyric,
+                    tlyric = resp.tlyric,
+                    rlyric = resp.rlyric,
+                    lxlyric = resp.lxlyric
+                )
+                _uiState.update { it.copy(lyrics = parsed) }
+            }
+            _uiState.update { it.copy(isLyricRefreshing = false) }
         }
     }
 }
