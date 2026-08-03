@@ -81,7 +81,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 
 ### 2.5 存储（`data/storage/PreferencesDataStore.kt`）
 
-DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(Int)、`audio_quality`、`access_token`、`refresh_token`。均以 Flow 暴露。
+DataStore 名 `songloft_tv_settings`，6 个 key：`server_url`、`theme_mode`(Int)、`theme_color`(String，默认 `"indigo"`)、`audio_quality`、`access_token`、`refresh_token`。均以 Flow 暴露。
 
 ### 2.6 UrlHelper（`data/api/UrlHelper.kt`）
 
@@ -155,6 +155,7 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 ### 4.3 设置页
 
 - **主题**：跟随系统(0)/浅色(1)/深色(2) 写 DataStore `theme_mode`；`TvTheme` 直接订阅同一 key，即时全局换肤。
+- **主题色调**：黛青蓝(`"indigo"`，默认)/薄荷绿(`"emerald"`)/珊瑚粉(`"sakura"`)/蜜橘橙(`"honey"`)，写 DataStore `theme_color`；选项带对应主题色色块预览（种子色参考 songloft-player 主题 primary 色值）；`TvTheme` 订阅同一 key 动态构造 colorScheme，切换即全局替换，播放器深色 UI 不随色调变化。
 - **音质**：原始("")/mp3/flac 写 DataStore，PlayerController 取流时读取拼入 quality 参数。
 - **睡眠定时**：直接调 PlayerController（不持久化），剩余量实时回显。
 - **日志导出**：`logcat -d` 逐行脱敏（Authorization/Cookie 头、JSON token/password 字段、URL token 参数、裸 JWT 四个正则）后写系统下载目录（API 29+ 用 MediaStore）。
@@ -175,7 +176,8 @@ DataStore 名 `songloft_tv_settings`，5 个 key：`server_url`、`theme_mode`(I
 - **CoverImage**：`UrlHelper.resolve` + Coil AsyncImage，加载中/失败/无 URL 显示音符占位；Coil 的 OkHttpClient 在 `SongloftTvApp`（ImageLoaderFactory）中挂 AuthInterceptor（封面接口需 JWT）。
 - **FloatingPlayerBar**：右下角迷你条，未聚焦为 96dp 圆形（仅封面），聚焦展开 300dp 露出标题；播放中封面 10s/圈旋转。
 - **TvFocusable / D-Pad 规范**：统一"焦点 = 缩放 1.05-1.1x + primary 边框"模式；`Modifier.tvFocusable()` 是抽象，多数页面内联实现同一模式；无自定义 FocusOrder，依赖 Compose 默认焦点搜索。
-- **主题 TvTheme**：单种子色 `0xFF415F91`，手写 Light/Dark ColorScheme；composable 内直接订阅 DataStore 的 `PreferencesDataStore.THEME_MODE` key。
+- **选中型组件规范**（设置/首页/我的/歌单/统计等页 chip 统一）：选中 = primary 实心填充 + ✓；聚焦 = 缩放 1.1x(120ms tween) + 3dp 描边（选中项用 `SelectedFocusBorder` 白边保证高对比，未选中项用 primary 边）。
+- **主题 TvTheme**：种子色由 `ThemeSeeds` + `seedColorFor(name)` 按 DataStore `theme_color` 取值（默认黛青蓝 `0xFF415F91`），动态构造 Light/Dark ColorScheme；composable 内直接订阅 `PreferencesDataStore.THEME_MODE` / `THEME_COLOR` 两个 key，切换即全局换肤。播放器深色 UI 的固定色集中定义在 `PlayerColors`（不随主题色调变化），语义白描边抽为 `SelectedFocusBorder`。
 
 ## 5. 已知问题 / 遗留
 
