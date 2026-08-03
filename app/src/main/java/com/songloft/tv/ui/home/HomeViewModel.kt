@@ -60,7 +60,8 @@ class HomeViewModel @Inject constructor(
             val albumsDeferred = async { songRepository.getFacets("album") }
             val yearsDeferred = async { songRepository.getFacets("year") }
             val statsDeferred = async { songRepository.getLibraryStats() }
-            val playlistsDeferred = async { playlistRepository.getPlaylists(limit = 8) }
+            // 多拉取以保证内置收藏歌单（收藏/电台收藏）在响应中，组合后只取前 8
+            val playlistsDeferred = async { playlistRepository.getPlaylists(limit = 100) }
             // 首页只查概览汇总（全部区间，不带参数），其他区间在切换 Tab 时按需请求
             val statsSummaryDeferred = async { statsRepository.getSummary(StatsRange.ALL) }
 
