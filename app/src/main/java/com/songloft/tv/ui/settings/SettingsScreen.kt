@@ -172,16 +172,10 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSection("均衡器") {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OptionChip("开启", uiState.eqEnabled) { viewModel.setEqEnabled(true) }
-                    OptionChip("关闭", !uiState.eqEnabled) { viewModel.setEqEnabled(false) }
-                }
-                SettingsItem(
-                    label = "开启后播放器显示均衡器按钮",
-                    value = "可在面板中调节预设与频段"
-                )
+        SettingsSection("均衡器（开启后可在播放器界面调节预设与频段）") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OptionChip("开启", uiState.eqEnabled) { viewModel.setEqEnabled(true) }
+                OptionChip("关闭", !uiState.eqEnabled) { viewModel.setEqEnabled(false) }
             }
         }
         if (uiState.eqUnsupportedNotice) {

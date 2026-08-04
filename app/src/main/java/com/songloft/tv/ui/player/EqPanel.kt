@@ -21,9 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -34,7 +31,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -61,42 +57,25 @@ fun EqPanel(
     presetNames: List<String>,
     onSetPreset: (String) -> Unit,
     onSetBand: (Int, Int) -> Unit,
-    onClose: () -> Unit,
     initialFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
+    val focusedEdges = remember { mutableStateOf<Set<EqEdge>>(emptySet()) }
     Column(
         modifier = modifier
             .background(PlayerColors.QueueBackground)
             .padding(16.dp)
+            .onKeyEvent { event ->
+                // 子项未消费的方向键若落在面板边界，在此拦截，防止焦点移出面板
+                if (event.type == KeyEventType.KeyDown && isEscapeKey(event.key, focusedEdges.value)) true else false
+            }
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "均衡器",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = PlayerColors.TextPrimary
-            )
-            var closeFocused by remember { mutableStateOf(false) }
-            Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = "关闭",
-                tint = if (closeFocused) MaterialTheme.colorScheme.onPrimary else PlayerColors.TextTertiary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(
-                        if (closeFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                        else Color.Transparent
-                    )
-                    .onFocusChanged { closeFocused = it.isFocused }
-                    .clickable { onClose() }
-                    .padding(8.dp)
-            )
-        }
+        Text(
+            text = "均衡器",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlayerColors.TextPrimary
+        )
 
         Spacer(Modifier.height(12.dp))
 
@@ -141,7 +120,12 @@ fun EqPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                presetKeys.take(6).forEachIndexed { index, key ->
+                val shownPresets = presetKeys.take(6)
+                shownPresets.forEachIndexed { index, key ->
+                    val edges = buildSet {
+                        if (index == 0) add(EqEdge.LEFT)
+                        if (index == shownPresets.lastIndex) add(EqEdge.RIGHT)
+                    }
                     EqChip(
                         label = presetNames.getOrNull(index) ?: key,
                         isSelected = preset == key,
@@ -150,6 +134,7 @@ fun EqPanel(
                         } else {
                             Modifier
                         },
+                        onFocusChange = { focused -> focusedEdges.value = if (focused) edges else emptySet() },
                         onClick = { onSetPreset(key) }
                     )
                 }
@@ -166,11 +151,16 @@ fun EqPanel(
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(bands) { index, levelDb ->
+                val edges = buildSet {
+                    if (index == 0 && presetNames.isEmpty()) add(EqEdge.TOP)
+                    if (index == bands.lastIndex) add(EqEdge.BOTTOM)
+                }
                 EqBandRow(
                     label = formatHz(bandFrequencies.getOrNull(index) ?: 0),
                     levelDb = levelDb,
                     levelMinDb = bandLevelMin / 100,
                     levelMaxDb = bandLevelMax / 100,
+                    onFocusChange = { focused -> focusedEdges.value = if (focused) edges else emptySet() },
                     onStep = { delta ->
                         val next = (levelDb + delta)
                             .coerceIn(bandLevelMin / 100, bandLevelMax / 100)
@@ -187,6 +177,7 @@ private fun EqChip(
     label: String,
     isSelected: Boolean,
     modifier: Modifier = Modifier,
+    onFocusChange: (Boolean) -> Unit = {},
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -219,7 +210,10 @@ private fun EqChip(
                     RoundedCornerShape(16.dp)
                 ) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChange(it.isFocused)
+            }
             .clickable { onClick() }
             .padding(horizontal = 20.dp, vertical = 10.dp)
     )
@@ -231,6 +225,7 @@ private fun EqBandRow(
     levelDb: Int,
     levelMinDb: Int,
     levelMaxDb: Int,
+    onFocusChange: (Boolean) -> Unit = {},
     onStep: (Int) -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -261,7 +256,10 @@ private fun EqBandRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(24.dp)
-                .onFocusChanged { isFocused = it.isFocused }
+                .onFocusChanged {
+                    isFocused = it.isFocused
+                    onFocusChange(it.isFocused)
+                }
                 .onKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                     when (event.key) {
@@ -310,4 +308,15 @@ private fun formatHz(freq: Int): String = when {
     freq >= 1000 && freq % 1000 == 0 -> "${freq / 1000} kHz"
     freq >= 1000 -> "%.1f kHz".format(freq / 1000f)
     else -> "$freq Hz"
+}
+
+/** 面板焦点边界：记录当前焦点项所在的边界，用于拦截会把焦点带出面板的方向键 */
+private enum class EqEdge { LEFT, RIGHT, TOP, BOTTOM }
+
+private fun isEscapeKey(key: Key, edges: Set<EqEdge>): Boolean = when (key) {
+    Key.DirectionLeft -> EqEdge.LEFT in edges
+    Key.DirectionRight -> EqEdge.RIGHT in edges
+    Key.DirectionUp -> EqEdge.TOP in edges
+    Key.DirectionDown -> EqEdge.BOTTOM in edges
+    else -> false
 }

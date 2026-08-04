@@ -392,7 +392,6 @@ fun PlayerScreen(
                 presetNames = uiState.eqPresetNames,
                 onSetPreset = { viewModel.setEqualizerPreset(it) },
                 onSetBand = { index, level -> viewModel.setEqualizerBand(index, level) },
-                onClose = { viewModel.closeEqPanel() },
                 initialFocusRequester = eqPanelFocus,
                 modifier = Modifier.fillMaxHeight().width(440.dp)
             )
