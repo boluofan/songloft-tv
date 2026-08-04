@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Mic
@@ -123,6 +124,7 @@ fun ControlBar(
     onSeek: (Long) -> Unit,
     onCyclePlayMode: () -> Unit,
     onToggleQueue: () -> Unit,
+    onToggleEq: (() -> Unit)? = null,
     onToggleFavorite: () -> Unit = {},
     onCycleAudioTrack: () -> Unit = {},
     onRefreshLyrics: () -> Unit = {},
@@ -214,6 +216,9 @@ fun ControlBar(
                     if (isOriginal) "原唱" else "伴唱",
                     onCycleAudioTrack
                 )
+            }
+            if (onToggleEq != null) {
+                TransportButton(Icons.Rounded.Equalizer, "均衡器", onToggleEq)
             }
             TransportButton(Icons.AutoMirrored.Rounded.QueueMusic, "播放队列", onToggleQueue)
         }

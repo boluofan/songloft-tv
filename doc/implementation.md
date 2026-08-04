@@ -81,7 +81,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 
 ### 2.5 存储（`data/storage/PreferencesDataStore.kt`）
 
-DataStore 名 `songloft_tv_settings`，6 个 key：`server_url`、`theme_mode`(Int)、`theme_color`(String，默认 `"indigo"`)、`audio_quality`、`access_token`、`refresh_token`。均以 Flow 暴露。
+DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(Int)、`theme_color`(String，默认 `"indigo"`)、`audio_quality`、`access_token`、`refresh_token`、`background_playback`、`use_custom_keyboard`、`ignored_version_code`、`eq_enabled`(Boolean)、`eq_preset`(Int，系统预设下标，-1=自定义)、`eq_bands`(String，逗号分隔 dB)。均以 Flow 暴露。
 
 ### 2.6 UrlHelper（`data/api/UrlHelper.kt`）
 
@@ -98,6 +98,7 @@ DataStore 名 `songloft_tv_settings`，6 个 key：`server_url`、`theme_mode`(I
 - MediaSession 的 sessionActivity 指向 `PlayerActivity`（点通知回播放器）。
 - `onTaskRemoved`：仅在未播放或队列为空时 `stopSelf()` —— 播放中移除任务不停止，天然后台播放（**没有**用户可见的后台播放开关）。
 - 通知使用 MediaSessionService 默认 MediaNotification，元数据来自 MediaItem 的 MediaMetadata。
+- **均衡器**：ExoPlayer 的 audio session 在首次播放时才生成，`playerListener.onAudioSessionId` 回调中懒创建 `android.media.audiofx.Equalizer`（设备不支持 audiofx 时静默降级为 null）。MediaSession `setCallback` 处理两条自定义命令：`eq/apply`（应用开关/预设/频段增益）与 `eq/info`（回传支持性/频段数/中心频率/增益范围/预设名/当前状态，经 SessionResult.extras）；`onCustomCommand` 返回 `ListenableFuture<SessionResult>`（`Futures.immediateFuture` 包装）。
 
 ### 3.2 PlayerController（`domain/PlayerController.kt`）
 
@@ -111,6 +112,7 @@ DataStore 名 `songloft_tv_settings`，6 个 key：`server_url`、`theme_mode`(I
 - **URI 构建 `buildMediaItem`** 优先级：track.url → 电台 song.url（type=radio）→ `UrlHelper.songPlayUrl(id, quality, track)`；以 `.m3u8` 结尾时显式设 `APPLICATION_M3U8` MimeType 走 HLS。
 - **播放上报**：转场时上一首按原因报 `finish`（自然播完）/`skip`（手动切），新歌报 `play`；source 固定 `tv`（来源统计），`play` 事件带当前播放上下文（见上）。
 - **睡眠定时器**（两种互斥）：`setSleepTimer(minutes)` 协程每分钟递减；`setSleepAfterSongs(count)` 在自然转场时递减；归零 pause。UI 入口在设置页。
+- **均衡器**：`PlaybackState` 暴露 eqSupported/eqEnabled/eqPreset/eqBands/eqBandFrequencies/eqBandLevelMin/Max/eqPresetNames。`init` 中 `combine(eqEnabled, eqPreset, eqBands)` 收集 DataStore flow——UI 修改只写 DataStore，闭环自动 `sendEqApply`（幂等）；连接时**先应用缓存配置再 `queryEqInfo`**（保证 info 反映应用后状态），播放就绪（STATE_READY）且仍不支持时 `retryEqSetup` 重试（音频会话晚于连接就绪的冷启动竞态）。`setEqualizerBand` 手动调频段时自动将 preset 置 -1（自定义曲线）。
 
 ### 3.3 LyricParser（`domain/LyricParser.kt`）
 
@@ -127,8 +129,9 @@ DataStore 名 `songloft_tv_settings`，6 个 key：`server_url`、`theme_mode`(I
 - **交互**：控制栏 10s 无操作自动隐藏；控制隐藏时——左右键长按连续 ±10s seek、短按切歌、上下/OK 唤出控制栏；媒体键直达。
 - **两种模式**：视频（全屏 `VideoPlayer` = PlayerView 绑定 MediaController，多音轨时右上角 TrackChips）；音频（封面 blur(60dp) 毛玻璃背景 + 左封面/右 `LyricsPanel`）。
 - **LyricsPanel**：自动滚动居中；逐字行渲染 KaraokeLine（按 word start/end 进度逐字点亮）；附带翻译行。
-- **ControlBar**：SeekBar + 上一曲/播放暂停/下一曲/播放模式/收藏/重新获取歌词/队列按钮（重新获取歌词走 `refresh=1` 重跑服务端歌词插件搜索，请求中按钮显示加载圈）。
+- **ControlBar**：SeekBar + 上一曲/播放暂停/下一曲/播放模式/收藏/重新获取歌词/均衡器/队列按钮（重新获取歌词走 `refresh=1` 重跑服务端歌词插件搜索，请求中按钮显示加载圈）。
 - **QueueDrawer**：左侧 400dp 抽屉，当前曲高亮，自动滚到当前位置，点击条目跳播（`PlayerController.playAt(index)`）。
+- **EqPanel**：右侧 440dp 抽屉（与队列抽屉对称），开关 chip（开启/关闭）+ 系统预设 chip（FlowRow 前 6 个）+ 频段增益条（聚焦时左右键 ±1dB 步进，范围 levelMin/100..levelMax/100，手绘轨道+拇指复用 ControlBar SeekBar 样式）；`eqSupported=false` 时仅显示"当前设备不支持均衡器"；Back/点击外部关闭，Back 优先级：队列抽屉 > EQ 面板 > 控制栏。
 
 ## 4. UI 层
 
@@ -157,6 +160,7 @@ DataStore 名 `songloft_tv_settings`，6 个 key：`server_url`、`theme_mode`(I
 - **主题**：跟随系统(0)/浅色(1)/深色(2) 写 DataStore `theme_mode`；`TvTheme` 直接订阅同一 key，即时全局换肤。
 - **主题色调**：黛青蓝(`"indigo"`，默认)/薄荷绿(`"emerald"`)/珊瑚粉(`"sakura"`)/蜜橘橙(`"honey"`)，写 DataStore `theme_color`；选项带对应主题色色块预览（种子色参考 songloft-player 主题 primary 色值）；`TvTheme` 订阅同一 key 动态构造 colorScheme，切换即全局替换，播放器深色 UI 不随色调变化。
 - **音质**：原始("")/mp3/flac 写 DataStore，PlayerController 取流时读取拼入 quality 参数。
+- **均衡器**：开关直接写 DataStore `eq_enabled`（PlayerController 闭环推送到服务端生效），与播放器面板状态双向同步；说明行指向播放器内微调。
 - **睡眠定时**：直接调 PlayerController（不持久化），剩余量实时回显。
 - **日志导出**：`logcat -d` 逐行脱敏（Authorization/Cookie 头、JSON token/password 字段、URL token 参数、裸 JWT 四个正则）后写系统下载目录（API 29+ 用 MediaStore）。
 - **关于**：运行时读 versionName、项目地址、开源组件列表。

@@ -35,10 +35,21 @@ data class PlayerUiState(
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = -1,
     val showQueueDrawer: Boolean = false,
+    val showEqPanel: Boolean = false,
     val isVideoMode: Boolean = false,
     val isBuffering: Boolean = false,
     val isFavorite: Boolean = false,
-    val isLyricRefreshing: Boolean = false
+    val isLyricRefreshing: Boolean = false,
+    // 均衡器（来自 playerController.state，频段增益单位 dB）
+    val eqSupported: Boolean = false,
+    val eqEnabled: Boolean = false,
+    val eqPreset: String = "flat",
+    val eqPresetKeys: List<String> = emptyList(),
+    val eqPresetNames: List<String> = emptyList(),
+    val eqBands: List<Int> = emptyList(),
+    val eqBandFrequencies: List<Int> = emptyList(),
+    val eqBandLevelMin: Int = -1500,
+    val eqBandLevelMax: Int = 1500
 )
 
 @HiltViewModel
@@ -77,7 +88,16 @@ class PlayerViewModel @Inject constructor(
                         playMode = s.playMode,
                         queue = s.queue,
                         currentIndex = s.currentIndex,
-                        isVideoMode = s.currentSong?.isVideo == true
+                        isVideoMode = s.currentSong?.isVideo == true,
+                        eqSupported = s.eqSupported,
+                        eqEnabled = s.eqEnabled,
+                        eqPreset = s.eqPreset,
+                        eqPresetKeys = s.eqPresetKeys,
+                        eqPresetNames = s.eqPresetNames,
+                        eqBands = s.eqBands,
+                        eqBandFrequencies = s.eqBandFrequencies,
+                        eqBandLevelMin = s.eqBandLevelMin,
+                        eqBandLevelMax = s.eqBandLevelMax
                     )
                 }
                 val songId = s.currentSong?.id
@@ -160,6 +180,19 @@ class PlayerViewModel @Inject constructor(
     fun closeQueueDrawer() {
         _uiState.update { it.copy(showQueueDrawer = false) }
     }
+
+    fun toggleEqPanel() {
+        _uiState.update { it.copy(showEqPanel = !it.showEqPanel) }
+        if (_uiState.value.showEqPanel) playerController.refreshEqInfo()
+    }
+
+    fun closeEqPanel() {
+        _uiState.update { it.copy(showEqPanel = false) }
+    }
+
+    fun setEqualizerPreset(preset: String) = playerController.setEqualizerPreset(preset)
+
+    fun setEqualizerBand(bandIndex: Int, levelDb: Int) = playerController.setEqualizerBand(bandIndex, levelDb)
 
     fun toggleControls() {
         _uiState.update { it.copy(showControls = !it.showControls) }

@@ -28,6 +28,9 @@ class PreferencesDataStore @Inject constructor(
         private val BACKGROUND_PLAYBACK = booleanPreferencesKey("background_playback")
         private val USE_CUSTOM_KEYBOARD = booleanPreferencesKey("use_custom_keyboard")
         private val IGNORED_VERSION_CODE = intPreferencesKey("ignored_version_code")
+        private val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
+        private val EQ_PRESET = stringPreferencesKey("eq_preset")
+        private val EQ_BANDS = stringPreferencesKey("eq_bands")
     }
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
@@ -39,6 +42,10 @@ class PreferencesDataStore @Inject constructor(
     val backgroundPlayback: Flow<Boolean> = context.dataStore.data.map { it[BACKGROUND_PLAYBACK] ?: true }
     val useCustomKeyboard: Flow<Boolean> = context.dataStore.data.map { it[USE_CUSTOM_KEYBOARD] ?: true }
     val ignoredVersionCode: Flow<Int> = context.dataStore.data.map { it[IGNORED_VERSION_CODE] ?: 0 }
+    // 均衡器配置：开关 / 预设 key（"flat"/"rock"/...，"custom" = 自定义曲线）/ 频段增益 dB（逗号分隔）
+    val eqEnabled: Flow<Boolean> = context.dataStore.data.map { it[EQ_ENABLED] ?: false }
+    val eqPreset: Flow<String> = context.dataStore.data.map { it[EQ_PRESET] ?: "flat" }
+    val eqBands: Flow<String> = context.dataStore.data.map { it[EQ_BANDS] ?: "" }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url }
@@ -66,6 +73,18 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setIgnoredVersionCode(code: Int) {
         context.dataStore.edit { it[IGNORED_VERSION_CODE] = code }
+    }
+
+    suspend fun setEqEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[EQ_ENABLED] = enabled }
+    }
+
+    suspend fun setEqPreset(preset: String) {
+        context.dataStore.edit { it[EQ_PRESET] = preset }
+    }
+
+    suspend fun setEqBands(bands: String) {
+        context.dataStore.edit { it[EQ_BANDS] = bands }
     }
 
     suspend fun setTokens(access: String, refresh: String) {

@@ -172,6 +172,24 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        SettingsSection("均衡器") {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OptionChip("开启", uiState.eqEnabled) { viewModel.setEqEnabled(true) }
+                    OptionChip("关闭", !uiState.eqEnabled) { viewModel.setEqEnabled(false) }
+                }
+                SettingsItem(
+                    label = "开启后播放器显示均衡器按钮",
+                    value = "可在面板中调节预设与频段"
+                )
+            }
+        }
+        if (uiState.eqUnsupportedNotice) {
+            EqUnsupportedDialog(onDismiss = { viewModel.dismissEqUnsupportedNotice() })
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         SettingsSection("日志") {
             SettingsItem(
                 label = "导出日志",
@@ -303,6 +321,58 @@ fun SettingsScreen(
                 .padding(12.dp)
         )
     }
+}
+
+@Composable
+private fun EqUnsupportedDialog(onDismiss: () -> Unit) {
+    val closeFocus = remember { FocusRequester() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 36.dp, vertical = 28.dp)
+        ) {
+            Text(
+                text = "当前设备不支持均衡器",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "均衡器功能未开启，播放器不会显示均衡器按钮。",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+            )
+            Spacer(Modifier.height(24.dp))
+            var closeFocused by remember { mutableStateOf(false) }
+            Text(
+                text = "我知道了",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (closeFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (closeFocused) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    )
+                    .focusRequester(closeFocus)
+                    .onFocusChanged { closeFocused = it.isFocused }
+                    .clickable { onDismiss() }
+                    .padding(horizontal = 28.dp, vertical = 10.dp)
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) { runCatching { closeFocus.requestFocus() } }
 }
 
 @Composable

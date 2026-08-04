@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -31,6 +32,8 @@ data class SettingsUiState(
     val sleepTimerRemaining: Int = 0,
     val sleepAfterSongs: Int = 0,
     val sleepAfterSongsRemaining: Int = 0,
+    val eqEnabled: Boolean = false,
+    val eqUnsupportedNotice: Boolean = false,
     val logExportStatus: String = ""
 )
 
@@ -81,7 +84,8 @@ class SettingsViewModel @Inject constructor(
                     sleepTimerMinutes = s.sleepTimerMinutes,
                     sleepTimerRemaining = s.sleepTimerRemaining,
                     sleepAfterSongs = s.sleepAfterSongs,
-                    sleepAfterSongsRemaining = s.sleepAfterSongsRemaining
+                    sleepAfterSongsRemaining = s.sleepAfterSongsRemaining,
+                    eqEnabled = s.eqEnabled
                 )
             }
         }
@@ -93,6 +97,17 @@ class SettingsViewModel @Inject constructor(
 
     fun setSleepAfterSongs(count: Int) {
         playerController.setSleepAfterSongs(count)
+    }
+
+    fun setEqEnabled(enabled: Boolean) {
+        // 开启前由 PlayerController 校验设备支持，不支持时保持关闭并弹提示
+        playerController.setEqualizerEnabled(enabled) { ok ->
+            if (!ok) _uiState.update { it.copy(eqUnsupportedNotice = true) }
+        }
+    }
+
+    fun dismissEqUnsupportedNotice() {
+        _uiState.update { it.copy(eqUnsupportedNotice = false) }
     }
 
     fun setThemeMode(mode: Int) {
