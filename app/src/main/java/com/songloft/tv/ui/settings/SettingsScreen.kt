@@ -94,6 +94,7 @@ fun SettingsScreen(
                 ThemeOption("跟随系统", 0, uiState.themeMode) { viewModel.setThemeMode(0) }
                 ThemeOption("浅色", 1, uiState.themeMode) { viewModel.setThemeMode(1) }
                 ThemeOption("深色", 2, uiState.themeMode) { viewModel.setThemeMode(2) }
+                ThemeOption("暗夜", 3, uiState.themeMode) { viewModel.setThemeMode(3) }
             }
         }
 
