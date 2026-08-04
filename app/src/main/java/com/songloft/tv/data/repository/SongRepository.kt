@@ -34,7 +34,18 @@ class SongRepository @Inject constructor() {
     ): Result<SongListResponse> =
         withContext(Dispatchers.IO) { runCatching { api.getSongs(limit, offset, keyword, artist, album, year) } }
 
+    /** 优先走汇总接口；旧服务器无 /songs/stats 或请求失败时回滚到分页遍历统计 */
     suspend fun getLibraryStats(): Result<LibraryStats> = withContext(Dispatchers.IO) {
+        val fromApi = runCatching { api.getSongsStats() }
+        if (fromApi.isSuccess) {
+            val s = fromApi.getOrThrow()
+            Result.success(LibraryStats(s.totalSongs, s.localSongs, s.totalDurationSec, s.totalFileSizeBytes))
+        } else {
+            fallbackLibraryStats()
+        }
+    }
+
+    private suspend fun fallbackLibraryStats(): Result<LibraryStats> = withContext(Dispatchers.IO) {
         runCatching {
             var offset = 0
             var total = 0

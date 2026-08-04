@@ -30,6 +30,9 @@ interface SongloftApi {
         @Query("refresh") refresh: Boolean = false
     ): LyricResponse
 
+    @GET("songs/stats")
+    suspend fun getSongsStats(): LibraryStatsResponse
+
     @GET("songs/facets")
     suspend fun getFacets(
         @Query("field") field: String,
@@ -148,6 +151,28 @@ data class FacetResponse(
     val field: String? = null,
     val limit: Int = 0,
     val offset: Int = 0
+)
+
+/** GET /songs/stats 曲库汇总统计（对应主程序 database.LibraryStats，一次查询完成） */
+data class LibraryStatsResponse(
+    /** 曲库歌曲总数（含本地/远程/电台全部类型） */
+    @SerializedName("total_songs") val totalSongs: Int = 0,
+    /** 本地歌曲数（type=local） */
+    @SerializedName("local_songs") val localSongs: Int = 0,
+    /** 远程歌曲数（type=remote） */
+    @SerializedName("remote_songs") val remoteSongs: Int = 0,
+    /** 电台歌曲数（type=radio） */
+    @SerializedName("radio_songs") val radioSongs: Int = 0,
+    /** 总时长（秒，SUM(duration)） */
+    @SerializedName("total_duration") val totalDurationSec: Double = 0.0,
+    /** 总文件大小（字节，SUM(file_size)） */
+    @SerializedName("total_file_size") val totalFileSizeBytes: Long = 0L,
+    /** 去重歌手数（artist 非空） */
+    @SerializedName("artist_count") val artistCount: Int = 0,
+    /** 去重专辑数（album 非空） */
+    @SerializedName("album_count") val albumCount: Int = 0,
+    /** 去重流派数（genre 非空） */
+    @SerializedName("genre_count") val genreCount: Int = 0
 )
 
 data class SongNamesResponse(
