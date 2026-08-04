@@ -31,16 +31,20 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.ui.theme.PlayerColors
 import com.songloft.tv.ui.theme.SelectedFocusBorder
+import kotlin.math.abs
 
 private const val BAND_STEP_DB = 1
 
@@ -61,6 +65,7 @@ fun EqPanel(
     modifier: Modifier = Modifier
 ) {
     val focusedEdges = remember { mutableStateOf<Set<EqEdge>>(emptySet()) }
+    val presetBounds = remember { mutableMapOf<Int, Rect>() }
     Column(
         modifier = modifier
             .background(PlayerColors.QueueBackground)
@@ -122,19 +127,24 @@ fun EqPanel(
             ) {
                 val shownPresets = presetKeys.take(6)
                 shownPresets.forEachIndexed { index, key ->
-                    val edges = buildSet {
-                        if (index == 0) add(EqEdge.LEFT)
-                        if (index == shownPresets.lastIndex) add(EqEdge.RIGHT)
-                    }
                     EqChip(
                         label = presetNames.getOrNull(index) ?: key,
                         isSelected = preset == key,
-                        modifier = if (index == 0 && initialFocusRequester != null) {
-                            Modifier.focusRequester(initialFocusRequester)
-                        } else {
-                            Modifier
+                        modifier = Modifier
+                            .then(
+                                if (index == 0 && initialFocusRequester != null) {
+                                    Modifier.focusRequester(initialFocusRequester)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .onGloballyPositioned { coords ->
+                                presetBounds[index] = coords.boundsInParent()
+                            },
+                        onFocusChange = { focused ->
+                            // 换行后每行起点也在面板左边界，按实测位置判断，任何换行方式都正确拦截
+                            focusedEdges.value = if (focused) presetEdgesFor(index, presetBounds) else emptySet()
                         },
-                        onFocusChange = { focused -> focusedEdges.value = if (focused) edges else emptySet() },
                         onClick = { onSetPreset(key) }
                     )
                 }
@@ -312,6 +322,17 @@ private fun formatHz(freq: Int): String = when {
 
 /** 面板焦点边界：记录当前焦点项所在的边界，用于拦截会把焦点带出面板的方向键 */
 private enum class EqEdge { LEFT, RIGHT, TOP, BOTTOM }
+
+/** 按实测位置判断预设 chip 是否处于所在行的最左/最右或整个预设区的最顶行 */
+private fun presetEdgesFor(index: Int, bounds: Map<Int, Rect>): Set<EqEdge> {
+    val self = bounds[index] ?: return emptySet()
+    val sameRow = bounds.filterValues { abs(it.top - self.top) <= 2f }
+    return buildSet {
+        if (sameRow.all { it.value.left >= self.left }) add(EqEdge.LEFT)
+        if (sameRow.all { it.value.right <= self.right }) add(EqEdge.RIGHT)
+        if (bounds.all { it.value.top >= self.top }) add(EqEdge.TOP)
+    }
+}
 
 private fun isEscapeKey(key: Key, edges: Set<EqEdge>): Boolean = when (key) {
     Key.DirectionLeft -> EqEdge.LEFT in edges
