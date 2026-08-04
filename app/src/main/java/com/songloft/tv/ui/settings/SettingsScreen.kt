@@ -190,6 +190,15 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        SettingsSection("歌词高亮颜色") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OptionChip("默认（白色）", uiState.lyricHighlightColor == 1) { viewModel.setLyricHighlightColor(1) }
+                OptionChip("跟随主题色", uiState.lyricHighlightColor == 2) { viewModel.setLyricHighlightColor(2) }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         SettingsSection("日志") {
             SettingsItem(
                 label = "导出日志",

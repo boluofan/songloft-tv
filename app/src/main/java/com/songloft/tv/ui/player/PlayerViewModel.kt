@@ -8,6 +8,7 @@ import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.model.Track
 import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.SongRepository
+import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.domain.LyricParser
 import com.songloft.tv.domain.PlayMode
 import com.songloft.tv.domain.PlayerController
@@ -49,14 +50,16 @@ data class PlayerUiState(
     val eqBands: List<Int> = emptyList(),
     val eqBandFrequencies: List<Int> = emptyList(),
     val eqBandLevelMin: Int = -1500,
-    val eqBandLevelMax: Int = 1500
+    val eqBandLevelMax: Int = 1500,
+    val lyricHighlightColor: Int = 1
 )
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val playerController: PlayerController,
     private val songRepository: SongRepository,
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    private val dataStore: PreferencesDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -73,6 +76,11 @@ class PlayerViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(isFavorite = it.currentSong?.id?.let { id -> ids?.contains(id) } == true)
                 }
+            }
+        }
+        viewModelScope.launch {
+            dataStore.lyricHighlightColor.collect { mode ->
+                _uiState.update { it.copy(lyricHighlightColor = mode) }
             }
         }
         viewModelScope.launch {

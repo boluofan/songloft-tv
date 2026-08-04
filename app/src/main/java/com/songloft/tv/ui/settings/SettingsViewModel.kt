@@ -34,7 +34,8 @@ data class SettingsUiState(
     val sleepAfterSongsRemaining: Int = 0,
     val eqEnabled: Boolean = false,
     val eqUnsupportedNotice: Boolean = false,
-    val logExportStatus: String = ""
+    val logExportStatus: String = "",
+    val lyricHighlightColor: Int = 1
 )
 
 @HiltViewModel
@@ -76,6 +77,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             dataStore.useCustomKeyboard.collect { enabled ->
                 _uiState.value = _uiState.value.copy(useCustomKeyboard = enabled)
+            }
+        }
+        viewModelScope.launch {
+            dataStore.lyricHighlightColor.collect { mode ->
+                _uiState.value = _uiState.value.copy(lyricHighlightColor = mode)
             }
         }
         viewModelScope.launch {
@@ -128,6 +134,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setUseCustomKeyboard(enabled: Boolean) {
         viewModelScope.launch { dataStore.setUseCustomKeyboard(enabled) }
+    }
+
+    fun setLyricHighlightColor(mode: Int) {
+        viewModelScope.launch { dataStore.setLyricHighlightColor(mode) }
     }
 
     fun clearServerConfig() {

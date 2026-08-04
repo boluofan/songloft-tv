@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -29,7 +30,8 @@ fun LyricsPanel(
     lyrics: List<LyricLine>,
     currentIndex: Int,
     currentPosition: Long,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    highlightColor: Color = PlayerColors.TextPrimary
 ) {
     val listState = rememberLazyListState()
 
@@ -63,14 +65,14 @@ fun LyricsPanel(
                 val alpha = if (isActive) 1f else (0.85f - 0.08f * distance).coerceIn(0.45f, 0.85f)
 
                 if (isActive && line.hasWords) {
-                    KaraokeLine(line = line, position = currentPosition)
+                    KaraokeLine(line = line, position = currentPosition, highlightColor = highlightColor)
                 } else {
                     Text(
                         text = line.text.ifEmpty { "···" },
                         fontSize = if (isActive) 30.sp else 22.sp,
                         lineHeight = if (isActive) 42.sp else 30.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isActive) PlayerColors.TextPrimary else PlayerColors.TextPrimary.copy(alpha = alpha),
+                        color = if (isActive) highlightColor else PlayerColors.TextPrimary.copy(alpha = alpha),
                         style = TextStyle(shadow = PlayerColors.LyricShadow),
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -98,8 +100,10 @@ fun LyricsPanel(
 
 /** 当前行逐字渐进高亮：已唱过的字为高亮色，正在唱的字按进度部分点亮。 */
 @Composable
-private fun KaraokeLine(line: LyricLine, position: Long) {
+private fun KaraokeLine(line: LyricLine, position: Long, highlightColor: Color) {
     val words = line.words ?: return
+    val spanActive = SpanStyle(color = highlightColor)
+    val spanInactive = SpanInactive
     val annotated = buildAnnotatedString {
         for (word in words) {
             val lit = when {
@@ -111,10 +115,10 @@ private fun KaraokeLine(line: LyricLine, position: Long) {
             }
             val litChars = (word.text.length * lit).toInt().coerceIn(0, word.text.length)
             if (litChars > 0) {
-                withStyle(SpanActive) { append(word.text.substring(0, litChars)) }
+                withStyle(spanActive) { append(word.text.substring(0, litChars)) }
             }
             if (litChars < word.text.length) {
-                withStyle(SpanInactive) { append(word.text.substring(litChars)) }
+                withStyle(spanInactive) { append(word.text.substring(litChars)) }
             }
         }
     }
@@ -131,5 +135,4 @@ private fun KaraokeLine(line: LyricLine, position: Long) {
     )
 }
 
-private val SpanActive = SpanStyle(color = PlayerColors.TextPrimary)
 private val SpanInactive = SpanStyle(color = PlayerColors.LyricsInactive)

@@ -31,6 +31,7 @@ class PreferencesDataStore @Inject constructor(
         private val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         private val EQ_PRESET = stringPreferencesKey("eq_preset")
         private val EQ_BANDS = stringPreferencesKey("eq_bands")
+        val LYRIC_HIGHLIGHT_COLOR = intPreferencesKey("lyric_highlight_color")
     }
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
@@ -46,6 +47,8 @@ class PreferencesDataStore @Inject constructor(
     val eqEnabled: Flow<Boolean> = context.dataStore.data.map { it[EQ_ENABLED] ?: false }
     val eqPreset: Flow<String> = context.dataStore.data.map { it[EQ_PRESET] ?: "flat" }
     val eqBands: Flow<String> = context.dataStore.data.map { it[EQ_BANDS] ?: "" }
+    // 歌词高亮颜色：1=默认白色，2=跟随主题色
+    val lyricHighlightColor: Flow<Int> = context.dataStore.data.map { it[LYRIC_HIGHLIGHT_COLOR] ?: 1 }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url }
@@ -85,6 +88,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setEqBands(bands: String) {
         context.dataStore.edit { it[EQ_BANDS] = bands }
+    }
+
+    suspend fun setLyricHighlightColor(mode: Int) {
+        context.dataStore.edit { it[LYRIC_HIGHLIGHT_COLOR] = mode }
     }
 
     suspend fun setTokens(access: String, refresh: String) {

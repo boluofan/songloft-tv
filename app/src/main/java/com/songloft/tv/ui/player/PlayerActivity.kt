@@ -285,10 +285,15 @@ fun PlayerScreen(
                         .padding(48.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    val highlightColor = when (uiState.lyricHighlightColor) {
+                        2 -> MaterialTheme.colorScheme.primary
+                        else -> PlayerColors.TextPrimary
+                    }
                     LyricsPanel(
                         lyrics = uiState.lyrics,
                         currentIndex = uiState.currentLyricIndex,
-                        currentPosition = uiState.currentPosition
+                        currentPosition = uiState.currentPosition,
+                        highlightColor = highlightColor
                     )
                 }
                 }
