@@ -200,13 +200,17 @@ fun ControlBar(
                 "收藏",
                 onToggleFavorite
             )
-            TransportButton(
-                Icons.Rounded.Refresh,
-                "重新获取歌词",
-                onRefreshLyrics,
-                loading = isLyricRefreshing
-            )
-            if (uiState.availableTracks.size > 1) {
+            // 电台是持续流媒体，无歌词概念，隐藏重新获取歌词键
+            if (uiState.currentSong?.type != "radio") {
+                TransportButton(
+                    Icons.Rounded.Refresh,
+                    "重新获取歌词",
+                    onRefreshLyrics,
+                    loading = isLyricRefreshing
+                )
+            }
+            // 电台是持续流媒体，无多音轨概念，隐藏原唱/伴唱键
+            if (uiState.availableTracks.size > 1 && uiState.currentSong?.type != "radio") {
                 // 第 1 条音轨视为原唱（Mic），其余视为伴唱（MicOff），与播放/暂停图标同样随状态切换
                 val trackIndex = uiState.availableTracks
                     .indexOfFirst { it.id == uiState.currentTrack?.id }
@@ -217,7 +221,8 @@ fun ControlBar(
                     onCycleAudioTrack
                 )
             }
-            if (onToggleEq != null) {
+            // 电台是持续流媒体，均衡器无意义，隐藏均衡器键
+            if (onToggleEq != null && uiState.currentSong?.type != "radio") {
                 TransportButton(Icons.Rounded.Equalizer, "均衡器", onToggleEq)
             }
             TransportButton(Icons.AutoMirrored.Rounded.QueueMusic, "播放队列", onToggleQueue)

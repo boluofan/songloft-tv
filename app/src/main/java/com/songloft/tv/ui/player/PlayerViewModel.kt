@@ -103,7 +103,14 @@ class PlayerViewModel @Inject constructor(
                 val songId = s.currentSong?.id
                 if (songId != null && songId != lyricSongId) {
                     lyricSongId = songId
-                    loadLyrics(songId)
+                    if (s.currentSong?.type != "radio") {
+                        loadLyrics(songId)
+                    } else {
+                        // 电台是持续流媒体，无歌词，直接清空避免残留上一首歌词
+                        _uiState.update {
+                            it.copy(lyrics = emptyList(), currentLyricIndex = -1, isLyricRefreshing = false)
+                        }
+                    }
                     _uiState.update {
                         it.copy(isFavorite = favoriteRepository.favoriteIds.value?.contains(songId) == true)
                     }
