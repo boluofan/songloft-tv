@@ -33,7 +33,8 @@ data class SettingsUiState(
     val sleepAfterSongs: Int = 0,
     val sleepAfterSongsRemaining: Int = 0,
     val eqEnabled: Boolean = false,
-    val eqUnsupportedNotice: Boolean = false,
+    val sfxEnabled: Boolean = false,
+    val soundUnsupportedNotice: Boolean = false,
     val logExportStatus: String = "",
     val lyricHighlightColor: Int = 1
 )
@@ -91,7 +92,8 @@ class SettingsViewModel @Inject constructor(
                     sleepTimerRemaining = s.sleepTimerRemaining,
                     sleepAfterSongs = s.sleepAfterSongs,
                     sleepAfterSongsRemaining = s.sleepAfterSongsRemaining,
-                    eqEnabled = s.eqEnabled
+                    eqEnabled = s.eqEnabled,
+                    sfxEnabled = s.sfxEnabled
                 )
             }
         }
@@ -105,15 +107,32 @@ class SettingsViewModel @Inject constructor(
         playerController.setSleepAfterSongs(count)
     }
 
-    fun setEqEnabled(enabled: Boolean) {
-        // 开启前由 PlayerController 校验设备支持，不支持时保持关闭并弹提示
-        playerController.setEqualizerEnabled(enabled) { ok ->
-            if (!ok) _uiState.update { it.copy(eqUnsupportedNotice = true) }
+    fun setSoundEnabled(enabled: Boolean) {
+        if (!enabled) {
+            // 直接关闭均衡器与音效，无需校验
+            playerController.setEqualizerEnabled(false)
+            playerController.setSfxEnabled(false)
+            return
+        }
+        // 开启：分别校验设备能力，均衡器与音效任一支持即可
+        var pending = 2
+        var anySupported = false
+        playerController.setEqualizerEnabled(true) { ok ->
+            if (ok) anySupported = true
+            if (--pending == 0 && !anySupported) {
+                _uiState.update { it.copy(soundUnsupportedNotice = true) }
+            }
+        }
+        playerController.setSfxEnabled(true) { ok ->
+            if (ok) anySupported = true
+            if (--pending == 0 && !anySupported) {
+                _uiState.update { it.copy(soundUnsupportedNotice = true) }
+            }
         }
     }
 
-    fun dismissEqUnsupportedNotice() {
-        _uiState.update { it.copy(eqUnsupportedNotice = false) }
+    fun dismissSoundUnsupportedNotice() {
+        _uiState.update { it.copy(soundUnsupportedNotice = false) }
     }
 
     fun setThemeMode(mode: Int) {

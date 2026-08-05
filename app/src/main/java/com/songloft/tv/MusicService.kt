@@ -2,8 +2,16 @@ package com.songloft.tv
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.audiofx.AudioEffect
+import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
+import android.media.audiofx.LoudnessEnhancer
+import android.media.audiofx.PresetReverb
+import android.media.audiofx.Virtualizer
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
@@ -29,10 +37,33 @@ class MusicService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
     private var equalizer: Equalizer? = null
+    // 音效模式效果器（与均衡器独立叠加，单模式互斥）
+    private val sfxEffects = mutableMapOf<SfxType, AudioEffect>()
+
+    private enum class SfxType { VIRTUALIZER, BASS_BOOST, LOUDNESS, REVERB }
+
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            onOutputDevicesChanged()
+        }
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            onOutputDevicesChanged()
+        }
+    }
 
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
+
+        // 输出设备切换（HDMI/蓝牙/内置喇叭）后旧效果绑定可能失效，先释放，由下一次 sfx/info 重新校验
+        // AudioDeviceCallback/getDevices 为 API 23+，低版本设备跳过监听（音效能力按连接时查询为准）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            runCatching {
+                (getSystemService(AUDIO_SERVICE) as AudioManager)
+                    .registerAudioDeviceCallback(audioDeviceCallback, null)
+            }
+        }
 
         // 流媒体请求需携带 JWT，token 可能在运行期刷新，故每次创建数据源时读取
         val dataSourceFactory = DataSource.Factory {
@@ -89,6 +120,100 @@ class MusicService : MediaSessionService() {
         }
     }
 
+    private fun ensureSfx(type: SfxType): AudioEffect? {
+        sfxEffects[type]?.let { return it }
+        val sessionId = player?.audioSessionId ?: return null
+        if (sessionId <= 0) return null
+        return try {
+            val effect: AudioEffect = when (type) {
+                // LoudnessEnhancer 构造器无 priority 参数，与其余效果不同
+                SfxType.VIRTUALIZER -> Virtualizer(0, sessionId)
+                SfxType.BASS_BOOST -> BassBoost(0, sessionId)
+                SfxType.LOUDNESS -> LoudnessEnhancer(sessionId)
+                SfxType.REVERB -> PresetReverb(0, sessionId)
+            }
+            sfxEffects[type] = effect
+            Log.d(TAG, "音效效果器创建成功：$type（session=$sessionId）")
+            effect
+        } catch (e: Exception) {
+            Log.w(TAG, "创建音效效果器失败：$type，audioSession=$sessionId", e)
+            null
+        }
+    }
+
+    // 单模式互斥：先禁用全部效果，再启用选中的模式；"off" 只做禁用
+    private fun applySfx(mode: String, strength: Int): Boolean {
+        val type = when (mode) {
+            "virtualizer" -> SfxType.VIRTUALIZER
+            "bass_boost" -> SfxType.BASS_BOOST
+            "loudness" -> SfxType.LOUDNESS
+            "reverb" -> SfxType.REVERB
+            else -> null
+        }
+        if (type == null) {
+            runCatching { sfxEffects.values.forEach { it.enabled = false } }
+            Log.d(TAG, "sfx/apply：mode=off，全部效果已禁用")
+            return true
+        }
+        val ok = runCatching {
+            sfxEffects.values.forEach { it.enabled = false }
+            val effect = ensureSfx(type) ?: return@runCatching false
+            mapSfxStrength(type, effect, strength)
+            effect.enabled = true
+            true
+        }.getOrDefault(false)
+        Log.d(TAG, "sfx/apply 结果：$ok（mode=$mode, strength=$strength）")
+        return ok
+    }
+
+    // 语义强度 0-100 → audiofx 参数；BassBoost 上限 600 防破音，PresetReverb 无强度参数按段映射
+    private fun mapSfxStrength(type: SfxType, effect: AudioEffect, strength: Int) {
+        val s = strength.coerceIn(0, 100)
+        when (type) {
+            SfxType.VIRTUALIZER -> (effect as Virtualizer).setStrength((s * 10).toShort())
+            SfxType.BASS_BOOST -> (effect as BassBoost).setStrength((s * 10).coerceAtMost(600).toShort())
+            SfxType.LOUDNESS -> (effect as LoudnessEnhancer).setTargetGain(s * 20)
+            SfxType.REVERB -> (effect as PresetReverb).setPreset(
+                when {
+                    s < 34 -> PresetReverb.PRESET_MEDIUMROOM
+                    s <= 66 -> PresetReverb.PRESET_LARGEROOM
+                    else -> PresetReverb.PRESET_LARGEHALL
+                }
+            )
+        }
+    }
+
+    // 静态能力矩阵：不依赖音频会话，null 视为全不支持（与 eq/check 一致）
+    private fun querySfxMatrix(): Map<SfxType, Boolean> {
+        val effects = AudioEffect.queryEffects()
+        return SfxType.entries.associateWith { type ->
+            val typeUuid = when (type) {
+                SfxType.VIRTUALIZER -> AudioEffect.EFFECT_TYPE_VIRTUALIZER
+                SfxType.BASS_BOOST -> AudioEffect.EFFECT_TYPE_BASS_BOOST
+                SfxType.LOUDNESS -> AudioEffect.EFFECT_TYPE_LOUDNESS_ENHANCER
+                SfxType.REVERB -> AudioEffect.EFFECT_TYPE_PRESET_REVERB
+            }
+            effects?.any { it.type == typeUuid } == true
+        }
+    }
+
+    private fun releaseSfxAll() {
+        sfxEffects.values.forEach { runCatching { it.release() } }
+        sfxEffects.clear()
+    }
+
+    private fun isA2dpActive(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+        return (getSystemService(AUDIO_SERVICE) as? AudioManager)
+            ?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            ?.any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP } == true
+    }
+
+    private fun onOutputDevicesChanged() {
+        Log.d(TAG, "输出设备变化（A2DP=${isA2dpActive()}），音效效果已停用，待重新校验")
+        releaseSfxAll()
+    }
+
     // 音频会话 id 变化时旧均衡器失效，释放后按需重建（media3 中仅显式 setAudioSessionId 触发）
     private val playerListener = object : Player.Listener {
         @OptIn(UnstableApi::class)
@@ -96,7 +221,8 @@ class MusicService : MediaSessionService() {
             if (audioSessionId <= 0) return
             equalizer?.release()
             equalizer = null
-            Log.d(TAG, "音频会话变化：$audioSessionId，均衡器按需重建")
+            releaseSfxAll()
+            Log.d(TAG, "音频会话变化：$audioSessionId，均衡器/音效按需重建")
         }
     }
 
@@ -111,6 +237,9 @@ class MusicService : MediaSessionService() {
                 .add(SessionCommand(EQ_APPLY, Bundle.EMPTY))
                 .add(SessionCommand(EQ_INFO, Bundle.EMPTY))
                 .add(SessionCommand(EQ_CHECK, Bundle.EMPTY))
+                .add(SessionCommand(SFX_APPLY, Bundle.EMPTY))
+                .add(SessionCommand(SFX_INFO, Bundle.EMPTY))
+                .add(SessionCommand(SFX_CHECK, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(available)
@@ -124,6 +253,50 @@ class MusicService : MediaSessionService() {
             customCommand: SessionCommand,
             args: Bundle
         ): ListenableFuture<SessionResult> {
+            // 音效命令不依赖均衡器，先行分发
+            when (customCommand.customAction) {
+                SFX_APPLY -> {
+                    // enabled=false 时即使 mode 残留也强制关闭，避免"开关已关但效果仍生效"
+                    val mode = if (args.getBoolean(EXTRA_ENABLED, false)) {
+                        args.getString(EXTRA_MODE, "off")
+                    } else {
+                        "off"
+                    }
+                    val ok = applySfx(mode, args.getInt(EXTRA_STRENGTH, 50))
+                    return Futures.immediateFuture(
+                        if (ok) SessionResult(SessionResult.RESULT_SUCCESS)
+                        else SessionResult(SessionResult.RESULT_ERROR_UNKNOWN)
+                    )
+                }
+                SFX_INFO -> {
+                    val matrix = querySfxMatrix()
+                    // 矩阵顺序与 SfxType 声明一致：virtualizer/bass_boost/loudness/reverb
+                    val extras = Bundle().apply {
+                        putBoolean(EXTRA_SUPPORTED, matrix.values.any { it })
+                        putBooleanArray(
+                            EXTRA_SUPPORTED_MATRIX,
+                            SfxType.entries.map { matrix[it] == true }.toBooleanArray()
+                        )
+                        putBoolean(EXTRA_A2DP, isA2dpActive())
+                        putString(
+                            EXTRA_ACTIVE_MODE,
+                            sfxEffects.entries.firstOrNull { it.value.enabled }?.key?.name?.lowercase() ?: "off"
+                        )
+                    }
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, extras))
+                }
+                // 能力校验：静态查询系统 audiofx HAL，不依赖音频会话，设置页开启时使用
+                SFX_CHECK -> {
+                    val supported = querySfxMatrix().values.any { it }
+                    Log.d(TAG, "sfx/check：设备支持音效 = $supported")
+                    return Futures.immediateFuture(
+                        SessionResult(
+                            SessionResult.RESULT_SUCCESS,
+                            Bundle().apply { putBoolean(EXTRA_SUPPORTED, supported) }
+                        )
+                    )
+                }
+            }
             val eq = ensureEqualizer()
             if (eq == null) {
                 Log.w(TAG, "收到 ${customCommand.customAction} 但均衡器不可用（未创建或创建失败）")
@@ -216,6 +389,13 @@ class MusicService : MediaSessionService() {
         }
         equalizer?.release()
         equalizer = null
+        releaseSfxAll()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            runCatching {
+                (getSystemService(AUDIO_SERVICE) as AudioManager)
+                    .unregisterAudioDeviceCallback(audioDeviceCallback)
+            }
+        }
         super.onDestroy()
     }
 
@@ -226,6 +406,10 @@ class MusicService : MediaSessionService() {
         const val EQ_INFO = "eq/info"
         const val EQ_CHECK = "eq/check"
 
+        const val SFX_APPLY = "sfx/apply"
+        const val SFX_INFO = "sfx/info"
+        const val SFX_CHECK = "sfx/check"
+
         const val EXTRA_ENABLED = "enabled"
         const val EXTRA_BANDS = "bands"
         const val EXTRA_SUPPORTED = "supported"
@@ -233,5 +417,11 @@ class MusicService : MediaSessionService() {
         const val EXTRA_CENTER_FREQS = "centerFreqs"
         const val EXTRA_LEVEL_MIN = "levelMin"
         const val EXTRA_LEVEL_MAX = "levelMax"
+
+        const val EXTRA_MODE = "mode"
+        const val EXTRA_STRENGTH = "strength"
+        const val EXTRA_SUPPORTED_MATRIX = "supportedMatrix"
+        const val EXTRA_A2DP = "a2dp"
+        const val EXTRA_ACTIVE_MODE = "activeMode"
     }
 }

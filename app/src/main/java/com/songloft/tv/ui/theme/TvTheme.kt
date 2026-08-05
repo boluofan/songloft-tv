@@ -48,7 +48,7 @@ private fun nightScheme(seed: Color) = darkColorScheme(
     secondary = seed.copy(alpha = 0.7f),
     surface = Color(0xFF232D4C),
     onSurface = Color(0xFFE6E8F5),
-    background = Color(0xFF1A2340),
+background = Color(0xFF1A2340),
     onBackground = Color(0xFFE6E8F5),
     surfaceVariant = Color(0xFF323C60),
     onSurfaceVariant = Color(0xFF9AA0C0),

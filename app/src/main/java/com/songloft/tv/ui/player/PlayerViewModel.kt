@@ -36,7 +36,7 @@ data class PlayerUiState(
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = -1,
     val showQueueDrawer: Boolean = false,
-    val showEqPanel: Boolean = false,
+    val showSoundPanel: Boolean = false,
     val isVideoMode: Boolean = false,
     val isBuffering: Boolean = false,
     val isFavorite: Boolean = false,
@@ -51,6 +51,15 @@ data class PlayerUiState(
     val eqBandFrequencies: List<Int> = emptyList(),
     val eqBandLevelMin: Int = -1500,
     val eqBandLevelMax: Int = 1500,
+    // 音效模式（来自 playerController.state）
+    val sfxSupported: Boolean = false,
+    val sfxEnabled: Boolean = false,
+    val sfxMode: String = "virtualizer",
+    val sfxStrength: Int = 50,
+    val sfxModeKeys: List<String> = emptyList(),
+    val sfxModeNames: List<String> = emptyList(),
+    val sfxModeSupported: List<Boolean> = emptyList(),
+    val sfxOnA2dp: Boolean = false,
     val lyricHighlightColor: Int = 1
 )
 
@@ -105,7 +114,15 @@ class PlayerViewModel @Inject constructor(
                         eqBands = s.eqBands,
                         eqBandFrequencies = s.eqBandFrequencies,
                         eqBandLevelMin = s.eqBandLevelMin,
-                        eqBandLevelMax = s.eqBandLevelMax
+                        eqBandLevelMax = s.eqBandLevelMax,
+                        sfxSupported = s.sfxSupported,
+                        sfxEnabled = s.sfxEnabled,
+                        sfxMode = s.sfxMode,
+                        sfxStrength = s.sfxStrength,
+                        sfxModeKeys = s.sfxModeKeys,
+                        sfxModeNames = s.sfxModeNames,
+                        sfxModeSupported = s.sfxModeSupported,
+                        sfxOnA2dp = s.sfxOnA2dp
                     )
                 }
                 val songId = s.currentSong?.id
@@ -196,14 +213,25 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(showQueueDrawer = false) }
     }
 
-    fun toggleEqPanel() {
-        _uiState.update { it.copy(showEqPanel = !it.showEqPanel) }
-        if (_uiState.value.showEqPanel) playerController.refreshEqInfo()
+    fun toggleSoundPanel() {
+        val opening = !_uiState.value.showSoundPanel
+        _uiState.update { it.copy(showSoundPanel = opening) }
+        // 打开时刷新两组能力与状态（设备切换后数据可能过期）
+        if (opening) {
+            playerController.refreshEqInfo()
+            playerController.refreshSfxInfo()
+        }
     }
 
-    fun closeEqPanel() {
-        _uiState.update { it.copy(showEqPanel = false) }
+    fun closeSoundPanel() {
+        _uiState.update { it.copy(showSoundPanel = false) }
     }
+
+    fun setSfxMode(mode: String) = playerController.setSfxMode(mode)
+
+    fun setSfxStrength(strength: Int) = playerController.setSfxStrength(strength)
+
+    fun setEqualizerEnabled(enabled: Boolean) = playerController.setEqualizerEnabled(enabled)
 
     fun setEqualizerPreset(preset: String) = playerController.setEqualizerPreset(preset)
 

@@ -173,14 +173,18 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSection("均衡器（开启后可在播放器界面调节预设与频段）") {
+        SettingsSection("音效开关（音效 + 均衡器，开启后可在播放器界面调节）") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OptionChip("开启", uiState.eqEnabled) { viewModel.setEqEnabled(true) }
-                OptionChip("关闭", !uiState.eqEnabled) { viewModel.setEqEnabled(false) }
+                OptionChip("开启", uiState.eqEnabled || uiState.sfxEnabled) { viewModel.setSoundEnabled(true) }
+                OptionChip("关闭", !uiState.eqEnabled && !uiState.sfxEnabled) { viewModel.setSoundEnabled(false) }
             }
         }
-        if (uiState.eqUnsupportedNotice) {
-            EqUnsupportedDialog(onDismiss = { viewModel.dismissEqUnsupportedNotice() })
+        if (uiState.soundUnsupportedNotice) {
+            UnsupportedDialog(
+                title = "当前设备不支持音效",
+                message = "音效功能未开启，播放器不会显示音效按钮。",
+                onDismiss = { viewModel.dismissSoundUnsupportedNotice() }
+            )
         }
 
         Spacer(Modifier.height(24.dp))
@@ -328,7 +332,11 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun EqUnsupportedDialog(onDismiss: () -> Unit) {
+private fun UnsupportedDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit
+) {
     val closeFocus = remember { FocusRequester() }
 
     Dialog(
@@ -343,14 +351,14 @@ private fun EqUnsupportedDialog(onDismiss: () -> Unit) {
                 .padding(horizontal = 36.dp, vertical = 28.dp)
         ) {
             Text(
-                text = "当前设备不支持均衡器",
+                text = title,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "均衡器功能未开启，播放器不会显示均衡器按钮。",
+                text = message,
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
             )

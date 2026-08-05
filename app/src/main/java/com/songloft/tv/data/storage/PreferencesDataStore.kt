@@ -31,6 +31,9 @@ class PreferencesDataStore @Inject constructor(
         private val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         private val EQ_PRESET = stringPreferencesKey("eq_preset")
         private val EQ_BANDS = stringPreferencesKey("eq_bands")
+        private val SFX_ENABLED = booleanPreferencesKey("sfx_enabled")
+        private val SFX_MODE = stringPreferencesKey("sfx_mode")
+        private val SFX_STRENGTH = intPreferencesKey("sfx_strength")
         val LYRIC_HIGHLIGHT_COLOR = intPreferencesKey("lyric_highlight_color")
     }
 
@@ -47,6 +50,10 @@ class PreferencesDataStore @Inject constructor(
     val eqEnabled: Flow<Boolean> = context.dataStore.data.map { it[EQ_ENABLED] ?: false }
     val eqPreset: Flow<String> = context.dataStore.data.map { it[EQ_PRESET] ?: "flat" }
     val eqBands: Flow<String> = context.dataStore.data.map { it[EQ_BANDS] ?: "" }
+    // 音效模式：总开关 / 模式 key（"virtualizer"/"bass_boost"/"loudness"/"reverb"）/ 强度 0-100
+    val sfxEnabled: Flow<Boolean> = context.dataStore.data.map { it[SFX_ENABLED] ?: false }
+    val sfxMode: Flow<String> = context.dataStore.data.map { it[SFX_MODE] ?: "virtualizer" }
+    val sfxStrength: Flow<Int> = context.dataStore.data.map { it[SFX_STRENGTH] ?: 50 }
     // 歌词高亮颜色：1=默认白色，2=跟随主题色
     val lyricHighlightColor: Flow<Int> = context.dataStore.data.map { it[LYRIC_HIGHLIGHT_COLOR] ?: 1 }
 
@@ -88,6 +95,18 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setEqBands(bands: String) {
         context.dataStore.edit { it[EQ_BANDS] = bands }
+    }
+
+    suspend fun setSfxEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[SFX_ENABLED] = enabled }
+    }
+
+    suspend fun setSfxMode(mode: String) {
+        context.dataStore.edit { it[SFX_MODE] = mode }
+    }
+
+    suspend fun setSfxStrength(strength: Int) {
+        context.dataStore.edit { it[SFX_STRENGTH] = strength }
     }
 
     suspend fun setLyricHighlightColor(mode: Int) {

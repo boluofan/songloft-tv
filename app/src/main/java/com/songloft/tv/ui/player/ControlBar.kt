@@ -20,9 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Pause
@@ -124,12 +124,13 @@ fun ControlBar(
     onSeek: (Long) -> Unit,
     onCyclePlayMode: () -> Unit,
     onToggleQueue: () -> Unit,
-    onToggleEq: (() -> Unit)? = null,
+    onToggleSound: (() -> Unit)? = null,
     onToggleFavorite: () -> Unit = {},
     onCycleAudioTrack: () -> Unit = {},
     onRefreshLyrics: () -> Unit = {},
     isLyricRefreshing: Boolean = false,
     playPauseFocusRequester: FocusRequester? = null,
+    soundButtonFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -221,9 +222,14 @@ fun ControlBar(
                     onCycleAudioTrack
                 )
             }
-            // 电台是持续流媒体，均衡器无意义，隐藏均衡器键
-            if (onToggleEq != null && uiState.currentSong?.type != "radio") {
-                TransportButton(Icons.Rounded.Equalizer, "均衡器", onToggleEq)
+            // 电台是持续流媒体，音效无意义，隐藏音效键（均衡器/音效任一开启才显示入口）
+            if (onToggleSound != null && uiState.currentSong?.type != "radio") {
+                TransportButton(
+                    Icons.Rounded.GraphicEq,
+                    "音效",
+                    onToggleSound,
+                    focusRequester = soundButtonFocusRequester
+                )
             }
             TransportButton(Icons.AutoMirrored.Rounded.QueueMusic, "播放队列", onToggleQueue)
         }

@@ -93,12 +93,13 @@ fun PlayerScreen(
     var interactionCount by remember { mutableIntStateOf(0) }
     val controlBarFocus = remember { FocusRequester() }
     val queueDrawerFocus = remember { FocusRequester() }
-    val eqPanelFocus = remember { FocusRequester() }
+    val soundPanelFocus = remember { FocusRequester() }
+    val soundButtonFocus = remember { FocusRequester() }
 
     BackHandler {
         when {
             uiState.showQueueDrawer -> viewModel.closeQueueDrawer()
-            uiState.showEqPanel -> viewModel.closeEqPanel()
+            uiState.showSoundPanel -> viewModel.closeSoundPanel()
             uiState.showControls -> viewModel.hideControls()
             else -> onBack()
         }
@@ -111,16 +112,35 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(uiState.showControls, uiState.showQueueDrawer, uiState.showEqPanel) {
+    // 音效面板 10s 无操作自动关闭（与功能菜单一致，任意按键重置计时）
+    LaunchedEffect(uiState.isPlaying, uiState.showSoundPanel, interactionCount) {
+        if (uiState.isPlaying && uiState.showSoundPanel) {
+            delay(10_000)
+            viewModel.closeSoundPanel()
+        }
+    }
+
+    LaunchedEffect(uiState.showControls, uiState.showQueueDrawer, uiState.showSoundPanel) {
         // 等待 AnimatedVisibility 完成组合后再请求焦点
         delay(100)
         runCatching {
             when {
                 uiState.showQueueDrawer -> queueDrawerFocus.requestFocus()
-                uiState.showEqPanel -> eqPanelFocus.requestFocus()
+                uiState.showSoundPanel -> soundPanelFocus.requestFocus()
                 uiState.showControls -> controlBarFocus.requestFocus()
             }
         }
+    }
+
+    // 音效面板关闭后，焦点回到控制栏的音效按钮（按钮不可见时兜底到播放/暂停）
+    var soundPanelWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.showSoundPanel) {
+        if (soundPanelWasOpen && !uiState.showSoundPanel) {
+            delay(100)
+            runCatching { soundButtonFocus.requestFocus() }
+                .onFailure { runCatching { controlBarFocus.requestFocus() } }
+        }
+        soundPanelWasOpen = uiState.showSoundPanel
     }
 
     var didSeekDuringPress by remember { mutableStateOf(false) }
@@ -130,16 +150,16 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(PlayerColors.Background)
-            .pointerInput(uiState.showControls, uiState.showEqPanel) {
-                // 控制栏/均衡器面板弹出时点击其他区域关闭；子节点消费的事件不会触发此回调
-                if (uiState.showEqPanel) {
-                    detectTapGestures { viewModel.closeEqPanel() }
+            .pointerInput(uiState.showControls, uiState.showSoundPanel) {
+                // 控制栏/面板弹出时点击其他区域关闭；子节点消费的事件不会触发此回调
+                if (uiState.showSoundPanel) {
+                    detectTapGestures { viewModel.closeSoundPanel() }
                 } else if (uiState.showControls) {
                     detectTapGestures { viewModel.hideControls() }
                 }
             }
             .onPreviewKeyEvent { event ->
-                val controlsHidden = !uiState.showControls && !uiState.showQueueDrawer && !uiState.showEqPanel
+                val controlsHidden = !uiState.showControls && !uiState.showQueueDrawer && !uiState.showSoundPanel
                 when (event.type) {
                     KeyEventType.KeyDown -> {
                         interactionCount++
@@ -151,8 +171,8 @@ fun PlayerScreen(
                                         viewModel.closeQueueDrawer()
                                         true
                                     }
-                                    uiState.showEqPanel -> {
-                                        viewModel.closeEqPanel()
+                                    uiState.showSoundPanel -> {
+                                        viewModel.closeSoundPanel()
                                         true
                                     }
                                     uiState.showControls -> {
@@ -323,18 +343,20 @@ fun PlayerScreen(
                 onSeek = { viewModel.seekTo(it) },
                 onCyclePlayMode = { viewModel.cyclePlayMode() },
                 onToggleQueue = { viewModel.toggleQueueDrawer() },
-                onToggleEq = if (uiState.eqEnabled) ({ viewModel.toggleEqPanel() }) else null,
+                // 音效总入口：均衡器或音效任一开启即显示（总开关在设置页）
+                onToggleSound = if (uiState.eqEnabled || uiState.sfxEnabled) ({ viewModel.toggleSoundPanel() }) else null,
                 onToggleFavorite = { viewModel.toggleFavorite() },
                 onCycleAudioTrack = { viewModel.cycleAudioTrack() },
                 onRefreshLyrics = { viewModel.refreshLyrics() },
                 playPauseFocusRequester = controlBarFocus,
+                soundButtonFocusRequester = soundButtonFocus,
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
         // 控制栏隐藏时的触屏入口：用 pointerInput 而非 clickable，避免进入遥控器焦点链
         AnimatedVisibility(
-            visible = !uiState.showControls && !uiState.showQueueDrawer && !uiState.showEqPanel,
+            visible = !uiState.showControls && !uiState.showQueueDrawer && !uiState.showSoundPanel,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -374,25 +396,36 @@ fun PlayerScreen(
             )
         }
 
-        // 均衡器面板从右侧滑入，与左侧播放队列抽屉对称
+        // 合并音效面板从右侧滑入（音效模式 + 均衡器），与左侧播放队列抽屉对称
         AnimatedVisibility(
-            visible = uiState.showEqPanel,
+            visible = uiState.showSoundPanel,
             enter = slideInHorizontally { it },
             exit = slideOutHorizontally { it },
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
-            EqPanel(
-                supported = uiState.eqSupported,
-                preset = uiState.eqPreset,
-                bands = uiState.eqBands,
-                bandFrequencies = uiState.eqBandFrequencies,
-                bandLevelMin = uiState.eqBandLevelMin,
-                bandLevelMax = uiState.eqBandLevelMax,
-                presetKeys = uiState.eqPresetKeys,
-                presetNames = uiState.eqPresetNames,
-                onSetPreset = { viewModel.setEqualizerPreset(it) },
-                onSetBand = { index, level -> viewModel.setEqualizerBand(index, level) },
-                initialFocusRequester = eqPanelFocus,
+            SoundPanel(
+                sfxSupported = uiState.sfxSupported,
+                sfxOnA2dp = uiState.sfxOnA2dp,
+                sfxMode = uiState.sfxMode,
+                sfxStrength = uiState.sfxStrength,
+                sfxModeKeys = uiState.sfxModeKeys,
+                sfxModeNames = uiState.sfxModeNames,
+                sfxModeSupported = uiState.sfxModeSupported,
+                onSetSfxMode = { viewModel.setSfxMode(it) },
+                onSetSfxStrength = { viewModel.setSfxStrength(it) },
+                eqSupported = uiState.eqSupported,
+                eqEnabled = uiState.eqEnabled,
+                eqPreset = uiState.eqPreset,
+                eqBands = uiState.eqBands,
+                eqBandFrequencies = uiState.eqBandFrequencies,
+                eqBandLevelMin = uiState.eqBandLevelMin,
+                eqBandLevelMax = uiState.eqBandLevelMax,
+                eqPresetKeys = uiState.eqPresetKeys,
+                eqPresetNames = uiState.eqPresetNames,
+                onSetEqEnabled = { viewModel.setEqualizerEnabled(it) },
+                onSetEqPreset = { viewModel.setEqualizerPreset(it) },
+                onSetEqBand = { index, level -> viewModel.setEqualizerBand(index, level) },
+                initialFocusRequester = soundPanelFocus,
                 modifier = Modifier.fillMaxHeight().width(440.dp)
             )
         }
