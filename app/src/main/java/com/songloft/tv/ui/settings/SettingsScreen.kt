@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,7 +31,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -594,6 +597,9 @@ private fun LyricSizeRow(
     onReset: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    // 触屏水平滑动累计距离，每满一个步进阈值触发一步调节
+    var dragAccum by remember { mutableFloatStateOf(0f) }
+    val slideStepPx = with(LocalDensity.current) { LYRIC_SIZE_SLIDE_THRESHOLD.toDp().toPx() }
 
     Row(
         modifier = Modifier
@@ -609,6 +615,23 @@ private fun LyricSizeRow(
                 }
             }
             .focusable()
+            .pointerInput(slideStepPx) {
+                // 触屏水平滑动调节字号；只消费水平拖动，垂直滑动让位给列表滚动
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        dragAccum += dragAmount
+                        while (dragAccum >= slideStepPx) {
+                            onStep(LYRIC_SIZE_STEP)
+                            dragAccum -= slideStepPx
+                        }
+                        while (dragAccum <= -slideStepPx) {
+                            onStep(-LYRIC_SIZE_STEP)
+                            dragAccum += slideStepPx
+                        }
+                    }
+                )
+            }
             .background(
                 if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -658,6 +681,7 @@ private const val LYRIC_SIZE_MIN = 20
 private const val LYRIC_SIZE_MAX = 48
 private const val LYRIC_SIZE_STEP = 2
 private const val LYRIC_SIZE_DEFAULT = 30
+private const val LYRIC_SIZE_SLIDE_THRESHOLD = 16f
 
 @Composable
 private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {
