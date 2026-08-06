@@ -151,9 +151,12 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(PlayerColors.Background)
-            .pointerInput(uiState.showControls, uiState.showSoundPanel) {
+            .pointerInput(uiState.showControls, uiState.showQueueDrawer, uiState.showSoundPanel) {
                 // 控制栏/面板弹出时点击其他区域关闭；子节点消费的事件不会触发此回调
-                if (uiState.showSoundPanel) {
+                // 关闭优先级与 BackHandler 一致：队列抽屉 → 音效面板 → 控制栏
+                if (uiState.showQueueDrawer) {
+                    detectTapGestures { viewModel.closeQueueDrawer() }
+                } else if (uiState.showSoundPanel) {
                     detectTapGestures { viewModel.closeSoundPanel() }
                 } else if (uiState.showControls) {
                     detectTapGestures { viewModel.hideControls() }
