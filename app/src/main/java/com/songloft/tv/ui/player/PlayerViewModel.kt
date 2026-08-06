@@ -60,7 +60,8 @@ data class PlayerUiState(
     val sfxModeNames: List<String> = emptyList(),
     val sfxModeSupported: List<Boolean> = emptyList(),
     val sfxOnA2dp: Boolean = false,
-    val lyricHighlightColor: Int = 1
+    val lyricHighlightColor: Int = 1,
+    val lyricFontSize: Int = 30
 )
 
 @HiltViewModel
@@ -90,6 +91,11 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             dataStore.lyricHighlightColor.collect { mode ->
                 _uiState.update { it.copy(lyricHighlightColor = mode) }
+            }
+        }
+        viewModelScope.launch {
+            dataStore.lyricFontSize.collect { size ->
+                _uiState.update { it.copy(lyricFontSize = size) }
             }
         }
         viewModelScope.launch {

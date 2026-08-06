@@ -313,7 +313,8 @@ fun PlayerScreen(
                         lyrics = uiState.lyrics,
                         currentIndex = uiState.currentLyricIndex,
                         currentPosition = uiState.currentPosition,
-                        highlightColor = highlightColor
+                        highlightColor = highlightColor,
+                        fontSize = uiState.lyricFontSize
                     )
                 }
                 }

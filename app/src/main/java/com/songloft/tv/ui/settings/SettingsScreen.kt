@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,8 +25,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -189,11 +196,33 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSection("歌词高亮颜色") {
+        SettingsSection("歌词") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OptionChip("默认（白色）", uiState.lyricHighlightColor == 1) { viewModel.setLyricHighlightColor(1) }
                 OptionChip("跟随主题色", uiState.lyricHighlightColor == 2) { viewModel.setLyricHighlightColor(2) }
             }
+            Spacer(Modifier.height(12.dp))
+            LyricSizeRow(
+                fontSize = uiState.lyricFontSize,
+                onStep = { delta ->
+                    viewModel.setLyricFontSize((uiState.lyricFontSize + delta).coerceIn(LYRIC_SIZE_MIN, LYRIC_SIZE_MAX))
+                },
+                onReset = { viewModel.setLyricFontSize(LYRIC_SIZE_DEFAULT) }
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "歌词预览",
+                fontSize = uiState.lyricFontSize.sp,
+                lineHeight = (uiState.lyricFontSize * 42 / 30).sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    .padding(vertical = 16.dp)
+            )
         }
 
         Spacer(Modifier.height(24.dp))
@@ -557,6 +586,78 @@ private fun SettingsItem(
         Text(value, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
     }
 }
+
+@Composable
+private fun LyricSizeRow(
+    fontSize: Int,
+    onStep: (Int) -> Unit,
+    onReset: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> { onStep(-LYRIC_SIZE_STEP); true }
+                    Key.DirectionRight -> { onStep(LYRIC_SIZE_STEP); true }
+                    else -> false
+                }
+            }
+            .focusable()
+            .background(
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
+                ) else Modifier
+            )
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "字号",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "左右键调节（${LYRIC_SIZE_MIN}-${LYRIC_SIZE_MAX}）",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${fontSize} sp",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            OptionChip(
+                label = "恢复默认",
+                isSelected = false,
+                onClick = onReset
+            )
+        }
+    }
+}
+
+private const val LYRIC_SIZE_MIN = 20
+private const val LYRIC_SIZE_MAX = 48
+private const val LYRIC_SIZE_STEP = 2
+private const val LYRIC_SIZE_DEFAULT = 30
 
 @Composable
 private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {

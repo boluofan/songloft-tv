@@ -36,7 +36,8 @@ data class SettingsUiState(
     val sfxEnabled: Boolean = false,
     val soundUnsupportedNotice: Boolean = false,
     val logExportStatus: String = "",
-    val lyricHighlightColor: Int = 1
+    val lyricHighlightColor: Int = 1,
+    val lyricFontSize: Int = 30
 )
 
 @HiltViewModel
@@ -83,6 +84,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             dataStore.lyricHighlightColor.collect { mode ->
                 _uiState.value = _uiState.value.copy(lyricHighlightColor = mode)
+            }
+        }
+        viewModelScope.launch {
+            dataStore.lyricFontSize.collect { size ->
+                _uiState.value = _uiState.value.copy(lyricFontSize = size)
             }
         }
         viewModelScope.launch {
@@ -157,6 +163,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setLyricHighlightColor(mode: Int) {
         viewModelScope.launch { dataStore.setLyricHighlightColor(mode) }
+    }
+
+    fun setLyricFontSize(size: Int) {
+        viewModelScope.launch { dataStore.setLyricFontSize(size) }
     }
 
     fun clearServerConfig() {

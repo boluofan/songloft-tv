@@ -31,9 +31,17 @@ fun LyricsPanel(
     currentIndex: Int,
     currentPosition: Long,
     modifier: Modifier = Modifier,
-    highlightColor: Color = PlayerColors.TextPrimary
+    highlightColor: Color = PlayerColors.TextPrimary,
+    fontSize: Int = 30
 ) {
     val listState = rememberLazyListState()
+
+    // 当前句字号由设置决定，其余行按默认比例（30/42/22/30/16）派生
+    val activeSize = fontSize.sp
+    val activeLineHeight = (fontSize * 42 / 30).sp
+    val inactiveSize = (fontSize * 22 / 30).sp
+    val inactiveLineHeight = (fontSize * 30 / 30).sp
+    val translationSize = (fontSize * 16 / 30).sp
 
     LaunchedEffect(currentIndex) {
         if (currentIndex >= 0 && currentIndex < lyrics.size) {
@@ -65,12 +73,17 @@ fun LyricsPanel(
                 val alpha = if (isActive) 1f else (0.85f - 0.08f * distance).coerceIn(0.45f, 0.85f)
 
                 if (isActive && line.hasWords) {
-                    KaraokeLine(line = line, position = currentPosition, highlightColor = highlightColor)
+                    KaraokeLine(
+                        line = line,
+                        position = currentPosition,
+                        highlightColor = highlightColor,
+                        fontSize = fontSize
+                    )
                 } else {
                     Text(
                         text = line.text.ifEmpty { "···" },
-                        fontSize = if (isActive) 30.sp else 22.sp,
-                        lineHeight = if (isActive) 42.sp else 30.sp,
+                        fontSize = if (isActive) activeSize else inactiveSize,
+                        lineHeight = if (isActive) activeLineHeight else inactiveLineHeight,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                         color = if (isActive) highlightColor else PlayerColors.TextPrimary.copy(alpha = alpha),
                         style = TextStyle(shadow = PlayerColors.LyricShadow),
@@ -84,7 +97,7 @@ fun LyricsPanel(
                 if (isActive && line.translation != null) {
                     Text(
                         text = line.translation,
-                        fontSize = 16.sp,
+                        fontSize = translationSize,
                         color = PlayerColors.LyricsWord,
                         style = TextStyle(shadow = PlayerColors.LyricShadow),
                         textAlign = TextAlign.Center,
@@ -100,7 +113,7 @@ fun LyricsPanel(
 
 /** 当前行逐字渐进高亮：已唱过的字为高亮色，正在唱的字按进度部分点亮。 */
 @Composable
-private fun KaraokeLine(line: LyricLine, position: Long, highlightColor: Color) {
+private fun KaraokeLine(line: LyricLine, position: Long, highlightColor: Color, fontSize: Int = 30) {
     val words = line.words ?: return
     val spanActive = SpanStyle(color = highlightColor)
     val spanInactive = SpanInactive
@@ -124,8 +137,8 @@ private fun KaraokeLine(line: LyricLine, position: Long, highlightColor: Color) 
     }
     Text(
         text = annotated,
-        fontSize = 30.sp,
-        lineHeight = 42.sp,
+        fontSize = fontSize.sp,
+        lineHeight = (fontSize * 42 / 30).sp,
         fontWeight = FontWeight.Bold,
         style = TextStyle(shadow = PlayerColors.LyricShadow),
         textAlign = TextAlign.Center,

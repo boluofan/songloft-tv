@@ -35,6 +35,7 @@ class PreferencesDataStore @Inject constructor(
         private val SFX_MODE = stringPreferencesKey("sfx_mode")
         private val SFX_STRENGTH = intPreferencesKey("sfx_strength")
         val LYRIC_HIGHLIGHT_COLOR = intPreferencesKey("lyric_highlight_color")
+        val LYRIC_FONT_SIZE = intPreferencesKey("lyric_font_size")
     }
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
@@ -56,6 +57,8 @@ class PreferencesDataStore @Inject constructor(
     val sfxStrength: Flow<Int> = context.dataStore.data.map { it[SFX_STRENGTH] ?: 50 }
     // 歌词高亮颜色：1=默认白色，2=跟随主题色
     val lyricHighlightColor: Flow<Int> = context.dataStore.data.map { it[LYRIC_HIGHLIGHT_COLOR] ?: 1 }
+    // 歌词字号：当前句字号 sp，默认 30；非当前句/翻译行按比例派生
+    val lyricFontSize: Flow<Int> = context.dataStore.data.map { it[LYRIC_FONT_SIZE] ?: 30 }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url }
@@ -111,6 +114,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setLyricHighlightColor(mode: Int) {
         context.dataStore.edit { it[LYRIC_HIGHLIGHT_COLOR] = mode }
+    }
+
+    suspend fun setLyricFontSize(size: Int) {
+        context.dataStore.edit { it[LYRIC_FONT_SIZE] = size }
     }
 
     suspend fun setTokens(access: String, refresh: String) {
