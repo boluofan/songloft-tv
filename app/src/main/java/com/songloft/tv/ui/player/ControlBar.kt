@@ -237,7 +237,7 @@ fun ControlBar(
 }
 
 @Composable
-private fun TransportButton(
+internal fun TransportButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,

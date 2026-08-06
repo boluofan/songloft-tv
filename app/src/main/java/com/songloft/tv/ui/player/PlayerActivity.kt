@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -326,6 +327,22 @@ fun PlayerScreen(
             ) {
                 Text("未选择歌曲", color = PlayerColors.TextTertiary, fontSize = 20.sp)
             }
+        }
+
+        // 左上角返回按钮：与控制栏同显同隐（10s 无操作自动隐藏、点击空白/返回键先关控制栏）
+        AnimatedVisibility(
+            visible = uiState.showControls,
+            enter = fadeIn() + slideInVertically { -it },
+            exit = fadeOut() + slideOutVertically { -it },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        ) {
+            TransportButton(
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = "返回",
+                onClick = onBack
+            )
         }
 
         AnimatedVisibility(
