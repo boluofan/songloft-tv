@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +54,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.songloft.tv.domain.PlayMode
@@ -63,14 +67,17 @@ private const val SEEK_STEP_MS = 10_000L
 private fun SeekBar(
     progress: Float,
     onSeekBy: (Long) -> Unit,
+    onSeekTo: (Float) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    var trackWidth by remember { mutableIntStateOf(0) }
 
     Box(
         modifier = modifier
             .height(20.dp)
             .padding(horizontal = 12.dp)
+            .onSizeChanged { trackWidth = it.width }
             .onFocusChanged { isFocused = it.isFocused }
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -80,7 +87,25 @@ private fun SeekBar(
                     else -> false
                 }
             }
-            .focusable(),
+            .focusable()
+            .pointerInput(Unit) {
+                // 触屏点击：按点击位置直接定位；消费事件避免触发控制栏外部的关闭手势
+                detectTapGestures { offset ->
+                    if (trackWidth > 0) onSeekTo((offset.x / trackWidth).coerceIn(0f, 1f))
+                }
+            }
+            .pointerInput(Unit) {
+                // 触屏拖动：按下即定位，拖动中持续跟随手指位置
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        if (trackWidth > 0) onSeekTo((offset.x / trackWidth).coerceIn(0f, 1f))
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        if (trackWidth > 0) onSeekTo((change.position.x / trackWidth).coerceIn(0f, 1f))
+                    }
+                )
+            },
         contentAlignment = Alignment.CenterStart
     ) {
         Box(
@@ -156,6 +181,12 @@ fun ControlBar(
                 progress = progress,
                 onSeekBy = { delta ->
                     val target = (uiState.currentPosition + delta)
+                        .coerceIn(0L, uiState.duration.coerceAtLeast(0L))
+                    onSeek(target)
+                },
+                onSeekTo = { ratio ->
+                    val target = (ratio * uiState.duration.toFloat())
+                        .toLong()
                         .coerceIn(0L, uiState.duration.coerceAtLeast(0L))
                     onSeek(target)
                 },
