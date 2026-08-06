@@ -11,6 +11,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalView
 import kotlinx.coroutines.launch
 
 @Stable
@@ -40,8 +41,11 @@ fun ListBackToTopHandler(
 ) {
     val bridge = LocalTabBarBridge.current
     val scope = rememberCoroutineScope()
+    // 触摸模式下焦点请求无效（hasFocus 恒 false），三段式无意义且会吞掉返回键，
+    // 直接禁用让返回键穿透到外层（弹退出确认/回上一级）；遥控器模式保持原有行为
+    val touchMode = LocalView.current.isInTouchMode
     BackHandler(
-        enabled = enabled && bridge?.hasFocus != true &&
+        enabled = enabled && !touchMode && bridge?.hasFocus != true &&
             !(topFocusHasFocus && !listState.canScrollBackward) &&
             (listState.canScrollBackward || bridge != null)
     ) {
