@@ -141,6 +141,41 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        SettingsSection("播放缓存（已播歌曲自动缓存）") {
+            CacheSizeRow(
+                cacheMb = uiState.playCacheMb,
+                onStep = { delta ->
+                    viewModel.setPlayCacheMb((uiState.playCacheMb + delta).coerceIn(CACHE_SIZE_MIN, CACHE_SIZE_MAX))
+                },
+                onReset = { viewModel.setPlayCacheMb(CACHE_SIZE_DEFAULT) }
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "未播放时修改立即生效，播放中将于下次播放生效；设为 0 即关闭并清空缓存；更换服务器后自动清空",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "当前占用：${formatBytes(uiState.playCacheUsageBytes)}",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                )
+                OptionChip(
+                    label = "清除缓存",
+                    isSelected = false,
+                    onClick = { viewModel.clearPlayCache() }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         SettingsSection("背景播放（退出应用后继续播放）") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OptionChip("是", uiState.backgroundPlayback) { viewModel.setBackgroundPlayback(true) }
@@ -312,55 +347,170 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        var clearFocused by remember { mutableStateOf(false) }
-        Text(
-            text = "清除配置",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(
-                    if (clearFocused) MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-                    else Color.Transparent
-                )
-                .then(
-                    if (clearFocused) Modifier.border(
-                        2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp)
-                    ) else Modifier
-                )
-                .onFocusChanged { clearFocused = it.isFocused }
-                .clickable {
+        SettingsItem(
+            label = "重启应用",
+            value = "重启应用可使部分设置（如播放缓存大小）立即生效",
+            onClick = { viewModel.restartApp() }
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        var pendingDanger by remember { mutableStateOf<DangerAction?>(null) }
+
+        // 危险操作沉底，降低误触概率
+        Column {
+            Text(
+                text = "危险操作",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DangerTextButton("清除配置") { pendingDanger = DangerAction.CLEAR_CONFIG }
+                DangerTextButton("退出登录") { pendingDanger = DangerAction.LOGOUT }
+            }
+        }
+
+        when (pendingDanger) {
+            DangerAction.CLEAR_CONFIG -> DangerConfirmDialog(
+                title = "清除配置",
+                message = "将清除服务器地址、Token 等全部配置，并回到配置服务器页面。此操作不可撤销，确定继续吗？",
+                onConfirm = {
+                    pendingDanger = null
                     viewModel.clearServerConfig()
                     onConfigureServer()
-                }
-                .padding(12.dp)
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        var logoutFocused by remember { mutableStateOf(false) }
-        Text(
-            text = "退出登录",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(
-                    if (logoutFocused) MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-                    else Color.Transparent
-                )
-                .then(
-                    if (logoutFocused) Modifier.border(
-                        2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp)
-                    ) else Modifier
-                )
-                .onFocusChanged { logoutFocused = it.isFocused }
-                .clickable { onLogout() }
-                .padding(12.dp)
-        )
+                },
+                onDismiss = { pendingDanger = null }
+            )
+            DangerAction.LOGOUT -> DangerConfirmDialog(
+                title = "退出登录",
+                message = "将清除当前账号的登录状态，下次使用需重新登录。此操作不可撤销，确定继续吗？",
+                onConfirm = {
+                    pendingDanger = null
+                    onLogout()
+                },
+                onDismiss = { pendingDanger = null }
+            )
+            null -> Unit
+        }
     }
+}
+
+private enum class DangerAction { CLEAR_CONFIG, LOGOUT }
+
+@Composable
+private fun DangerTextButton(label: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    Text(
+        text = label,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isFocused) MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                else Color.Transparent
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp)
+                ) else Modifier
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(12.dp)
+    )
+}
+
+@Composable
+private fun DangerConfirmDialog(
+    title: String,
+    message: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    // 默认焦点落在「取消」，避免误按确认键直接执行危险操作
+    val cancelFocus = remember { FocusRequester() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 36.dp, vertical = 28.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = message,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+            )
+            Spacer(Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                var cancelFocused by remember { mutableStateOf(false) }
+                Text(
+                    text = "取消",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (cancelFocused) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (cancelFocused) MaterialTheme.colorScheme.surfaceVariant
+                            else Color.Transparent
+                        )
+                        .then(
+                            if (cancelFocused) Modifier.border(
+                                2.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(8.dp)
+                            ) else Modifier
+                        )
+                        .focusRequester(cancelFocus)
+                        .onFocusChanged { cancelFocused = it.isFocused }
+                        .clickable { onDismiss() }
+                        .padding(horizontal = 28.dp, vertical = 10.dp)
+                )
+                var confirmFocused by remember { mutableStateOf(false) }
+                Text(
+                    text = "确认",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (confirmFocused) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                        )
+                        .then(
+                            if (confirmFocused) Modifier.border(
+                                2.dp, MaterialTheme.colorScheme.onError, RoundedCornerShape(8.dp)
+                            ) else Modifier
+                        )
+                        .onFocusChanged { confirmFocused = it.isFocused }
+                        .clickable { onConfirm() }
+                        .padding(horizontal = 28.dp, vertical = 10.dp)
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { runCatching { cancelFocus.requestFocus() } }
 }
 
 @Composable
@@ -677,11 +827,117 @@ private fun LyricSizeRow(
     }
 }
 
+@Composable
+private fun CacheSizeRow(
+    cacheMb: Int,
+    onStep: (Int) -> Unit,
+    onReset: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    // 触屏水平滑动累计距离，每满一个步进阈值触发一步调节
+    var dragAccum by remember { mutableFloatStateOf(0f) }
+    val slideStepPx = with(LocalDensity.current) { CACHE_SIZE_SLIDE_THRESHOLD.toDp().toPx() }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> { onStep(-CACHE_SIZE_STEP); true }
+                    Key.DirectionRight -> { onStep(CACHE_SIZE_STEP); true }
+                    else -> false
+                }
+            }
+            .focusable()
+            .pointerInput(slideStepPx) {
+                // 触屏水平滑动调节大小；只消费水平拖动，垂直滑动让位给列表滚动
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        dragAccum += dragAmount
+                        while (dragAccum >= slideStepPx) {
+                            onStep(CACHE_SIZE_STEP)
+                            dragAccum -= slideStepPx
+                        }
+                        while (dragAccum <= -slideStepPx) {
+                            onStep(-CACHE_SIZE_STEP)
+                            dragAccum += slideStepPx
+                        }
+                    }
+                )
+            }
+            .background(
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
+                ) else Modifier
+            )
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "缓存大小",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "左右键调节（${CACHE_SIZE_MIN}-${CACHE_SIZE_MAX} MB）",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = formatCacheSize(cacheMb),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            OptionChip(
+                label = "恢复默认",
+                isSelected = false,
+                onClick = onReset
+            )
+        }
+    }
+}
+
+private fun formatCacheSize(mb: Int): String = when {
+    mb <= 0 -> "关闭"
+    mb >= 1024 -> "1 GB"
+    else -> "$mb MB"
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes < 1024 -> "$bytes B"
+    bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024f)
+    bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / (1024f * 1024f))
+    else -> "%.1f GB".format(bytes / (1024f * 1024f * 1024f))
+}
+
 private const val LYRIC_SIZE_MIN = 20
 private const val LYRIC_SIZE_MAX = 48
 private const val LYRIC_SIZE_STEP = 2
 private const val LYRIC_SIZE_DEFAULT = 30
 private const val LYRIC_SIZE_SLIDE_THRESHOLD = 16f
+
+private const val CACHE_SIZE_MIN = 0
+private const val CACHE_SIZE_MAX = 1024
+private const val CACHE_SIZE_STEP = 128
+private const val CACHE_SIZE_DEFAULT = 0
+private const val CACHE_SIZE_SLIDE_THRESHOLD = 24f
 
 @Composable
 private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {

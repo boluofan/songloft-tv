@@ -600,6 +600,37 @@ class PlayerController @Inject constructor(
         querySfxInfo(c)
     }
 
+    // 清空播放缓存（服务未运行时会拉起服务执行，成功回调 true）
+    fun clearPlayCache(onResult: ((Boolean) -> Unit)? = null) {
+        withController { c ->
+            val future = c.sendCustomCommand(
+                SessionCommand(MusicService.CACHE_CLEAR, Bundle.EMPTY), Bundle.EMPTY
+            )
+            future.addListener({
+                val ok = runCatching {
+                    future.get().resultCode == SessionResult.RESULT_SUCCESS
+                }.getOrDefault(false)
+                Log.i(TAG, "cache/clear 结果：$ok")
+                onResult?.invoke(ok)
+            }, ContextCompat.getMainExecutor(context))
+        }
+    }
+
+    // 缓存设置变更：服务未运行则下次拉起自动生效；已运行且未播放则重启服务立即生效；
+    // 正在播放则不打扰（保持下次生效）。重启后旧连接失效，主动释放，下次播放重建
+    fun applyCacheSetting() {
+        val c = controller ?: return
+        if (!c.isConnected) return
+        val playing = c.isPlaying
+        c.sendCustomCommand(SessionCommand(MusicService.CACHE_APPLY, Bundle.EMPTY), Bundle.EMPTY)
+        if (!playing) {
+            c.release()
+            controller = null
+            // 旧 future 已指向被释放的 controller，必须一并清空，否则下次连接会复用已释放实例
+            controllerFuture = null
+        }
+    }
+
     private suspend fun checkSfxSupport(): Boolean = withTimeoutOrNull(5_000) {
         suspendCancellableCoroutine { cont ->
             withController { c ->

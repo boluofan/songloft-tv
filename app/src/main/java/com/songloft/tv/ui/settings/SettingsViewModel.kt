@@ -1,9 +1,11 @@
 package com.songloft.tv.ui.settings
 
 import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.api.ApiClient
+import com.songloft.tv.data.cache.PlaybackCache
 import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.domain.PlayerController
 import com.songloft.tv.util.LogStore
@@ -37,7 +39,9 @@ data class SettingsUiState(
     val soundUnsupportedNotice: Boolean = false,
     val logExportStatus: String = "",
     val lyricHighlightColor: Int = 1,
-    val lyricFontSize: Int = 30
+    val lyricFontSize: Int = 30,
+    val playCacheMb: Int = 0,
+    val playCacheUsageBytes: Long = 0
 )
 
 @HiltViewModel
@@ -89,6 +93,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             dataStore.lyricFontSize.collect { size ->
                 _uiState.value = _uiState.value.copy(lyricFontSize = size)
+            }
+        }
+        viewModelScope.launch {
+            dataStore.playCacheMb.collect { mb ->
+                _uiState.value = _uiState.value.copy(playCacheMb = mb)
+                refreshPlayCacheUsage()
             }
         }
         viewModelScope.launch {
@@ -167,6 +177,33 @@ class SettingsViewModel @Inject constructor(
 
     fun setLyricFontSize(size: Int) {
         viewModelScope.launch { dataStore.setLyricFontSize(size) }
+    }
+
+    fun setPlayCacheMb(mb: Int) {
+        viewModelScope.launch {
+            dataStore.setPlayCacheMb(mb)
+            // 持久化完成后通知服务：未播放则立即重启，让新大小下次播放即生效
+            playerController.applyCacheSetting()
+        }
+    }
+
+    fun refreshPlayCacheUsage() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val bytes = runCatching { PlaybackCache.usage(context) }.getOrDefault(0L)
+            _uiState.update { it.copy(playCacheUsageBytes = bytes) }
+        }
+    }
+
+    fun clearPlayCache() {
+        playerController.clearPlayCache { _ -> refreshPlayCacheUsage() }
+    }
+
+    // 重启应用：先发启动 Intent 再退出进程，由系统重新拉起（部分设置如播放缓存大小需重启生效）
+    fun restartApp() {
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        context.startActivity(intent)
+        Runtime.getRuntime().exit(0)
     }
 
     fun clearServerConfig() {

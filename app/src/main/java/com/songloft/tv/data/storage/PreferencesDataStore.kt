@@ -36,6 +36,8 @@ class PreferencesDataStore @Inject constructor(
         private val SFX_STRENGTH = intPreferencesKey("sfx_strength")
         val LYRIC_HIGHLIGHT_COLOR = intPreferencesKey("lyric_highlight_color")
         val LYRIC_FONT_SIZE = intPreferencesKey("lyric_font_size")
+        private val PLAY_CACHE_MB = intPreferencesKey("play_cache_mb")
+        private val CACHE_SERVER_URL = stringPreferencesKey("cache_server_url")
     }
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
@@ -59,6 +61,9 @@ class PreferencesDataStore @Inject constructor(
     val lyricHighlightColor: Flow<Int> = context.dataStore.data.map { it[LYRIC_HIGHLIGHT_COLOR] ?: 1 }
     // 歌词字号：当前句字号 sp，默认 30；非当前句/翻译行按比例派生
     val lyricFontSize: Flow<Int> = context.dataStore.data.map { it[LYRIC_FONT_SIZE] ?: 30 }
+    // 播放缓存：MB，0=关闭（默认）；仅当缓存归属服务器与当前 serverUrl 一致时才复用缓存目录
+    val playCacheMb: Flow<Int> = context.dataStore.data.map { it[PLAY_CACHE_MB] ?: 0 }
+    val cacheServerUrl: Flow<String?> = context.dataStore.data.map { it[CACHE_SERVER_URL] }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url }
@@ -118,6 +123,14 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setLyricFontSize(size: Int) {
         context.dataStore.edit { it[LYRIC_FONT_SIZE] = size }
+    }
+
+    suspend fun setPlayCacheMb(mb: Int) {
+        context.dataStore.edit { it[PLAY_CACHE_MB] = mb }
+    }
+
+    suspend fun setCacheServerUrl(url: String) {
+        context.dataStore.edit { it[CACHE_SERVER_URL] = url }
     }
 
     suspend fun setTokens(access: String, refresh: String) {

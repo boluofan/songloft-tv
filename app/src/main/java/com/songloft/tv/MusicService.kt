@@ -19,8 +19,14 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.FileDataSource
+import androidx.media3.datasource.cache.CacheDataSink
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -30,17 +36,44 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.songloft.tv.data.api.ApiClient
+import com.songloft.tv.data.cache.PlaybackCache
+import com.songloft.tv.data.cache.RoutingDataSource
+import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.ui.player.PlayerActivity
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MusicService : MediaSessionService() {
+
+    @Inject lateinit var dataStore: PreferencesDataStore
 
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
     private var equalizer: Equalizer? = null
+    private var cache: SimpleCache? = null
     // 音效模式效果器（与均衡器独立叠加，单模式互斥）
     private val sfxEffects = mutableMapOf<SfxType, AudioEffect>()
 
     private enum class SfxType { VIRTUALIZER, BASS_BOOST, LOUDNESS, REVERB }
+
+    // 缓存命中日志节流：同一资源加载期间只打一次，避免每次 read 都刷日志
+    private var cacheHitLoggedForLoad = false
+
+    private val cacheEventListener = object : CacheDataSource.EventListener {
+        override fun onCachedBytesRead(cacheSizeBytes: Long, cachedBytesRead: Long) {
+            if (cachedBytesRead > 0 && !cacheHitLoggedForLoad) {
+                cacheHitLoggedForLoad = true
+                Log.i(TAG, "播放缓存：命中缓存数据（缓存总量 ${cacheSizeBytes / 1024 / 1024} MB）")
+            }
+        }
+
+        override fun onCacheIgnored(reason: Int) {
+            Log.w(TAG, "播放缓存：本次读取忽略缓存（reason=$reason），继续流式播放")
+        }
+    }
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
@@ -65,8 +98,31 @@ class MusicService : MediaSessionService() {
             }
         }
 
+        // 播放缓存：大小（MB，0=关闭）与缓存归属服务器。换服务器后旧缓存必须清空；
+        // 清理放在这里（SimpleCache 未打开时），不能在运行中删目录，否则损坏缓存索引
+        val cacheMb = runCatching { runBlocking { dataStore.playCacheMb.first() } }.getOrDefault(0)
+        val serverUrl = runCatching { runBlocking { dataStore.serverUrl.first() } }.getOrNull().orEmpty()
+        val cacheServerUrl = runCatching { runBlocking { dataStore.cacheServerUrl.first() } }.getOrNull()
+        if (cacheMb <= 0) {
+            PlaybackCache.clear(this)
+        } else {
+            if (cacheServerUrl != serverUrl) PlaybackCache.clear(this)
+            cache = runCatching {
+                SimpleCache(
+                    PlaybackCache.dir(this),
+                    LeastRecentlyUsedCacheEvictor(cacheMb.toLong() * 1024L * 1024L),
+                    StandaloneDatabaseProvider(this)
+                )
+            }.getOrNull()
+            if (cache == null) Log.w(TAG, "播放缓存创建失败，回退纯流式（cacheMb=$cacheMb）")
+            else Log.i(TAG, "播放缓存已启用：$cacheMb MB，LRU 自动淘汰，目录 ${PlaybackCache.dir(this)}")
+        }
+        if (serverUrl.isNotBlank()) {
+            runBlocking { dataStore.setCacheServerUrl(serverUrl) }
+        }
+
         // 流媒体请求需携带 JWT，token 可能在运行期刷新，故每次创建数据源时读取
-        val dataSourceFactory = DataSource.Factory {
+        val upstreamFactory = DataSource.Factory {
             DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true)
                 .createDataSource()
@@ -76,6 +132,26 @@ class MusicService : MediaSessionService() {
                     }
                 }
         }
+        // 开启缓存时：非 m3u8 资源经 CacheDataSource（LRU 淘汰），m3u8 直播清单走纯流式
+        val dataSourceFactory = cache?.let { cache ->
+            val cacheFactory = DataSource.Factory {
+                CacheDataSource(
+                    cache,
+                    upstreamFactory.createDataSource(),
+                    FileDataSource(),
+                    CacheDataSink(cache, 5 * 1024 * 1024L),
+                    CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR,
+                    cacheEventListener
+                )
+            }
+            DataSource.Factory {
+                RoutingDataSource(
+                    cacheFactory.createDataSource(),
+                    upstreamFactory.createDataSource(),
+                    onCacheLoadStarted = { cacheHitLoggedForLoad = false }
+                )
+            }
+        } ?: upstreamFactory
 
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
@@ -240,6 +316,8 @@ class MusicService : MediaSessionService() {
                 .add(SessionCommand(SFX_APPLY, Bundle.EMPTY))
                 .add(SessionCommand(SFX_INFO, Bundle.EMPTY))
                 .add(SessionCommand(SFX_CHECK, Bundle.EMPTY))
+                .add(SessionCommand(CACHE_CLEAR, Bundle.EMPTY))
+                .add(SessionCommand(CACHE_APPLY, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(available)
@@ -255,6 +333,34 @@ class MusicService : MediaSessionService() {
         ): ListenableFuture<SessionResult> {
             // 音效命令不依赖均衡器，先行分发
             when (customCommand.customAction) {
+                CACHE_APPLY -> {
+                    // 缓存大小变更：未播放时重启服务，下次播放即按新值生效；播放中不打扰
+                    val p = player
+                    if (p == null || !p.playWhenReady || p.mediaItemCount == 0) {
+                        Log.i(TAG, "cache/apply：未在播放，重启服务使缓存设置生效")
+                        stopSelf()
+                    } else {
+                        Log.i(TAG, "cache/apply：正在播放，缓存设置保持下次生效")
+                    }
+                    Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+                CACHE_CLEAR -> {
+                    val ok = runCatching {
+                        val c = cache
+                        if (c == null) {
+                            true
+                        } else {
+                            c.getKeys().forEach { key -> c.removeResource(key) }
+                            Log.i(TAG, "cache/clear：已清空播放缓存")
+                            true
+                        }
+                    }.getOrDefault(false)
+                    if (!ok) Log.w(TAG, "cache/clear 执行失败")
+                    Futures.immediateFuture(
+                        if (ok) SessionResult(SessionResult.RESULT_SUCCESS)
+                        else SessionResult(SessionResult.RESULT_ERROR_UNKNOWN)
+                    )
+                }
                 SFX_APPLY -> {
                     // enabled=false 时即使 mode 残留也强制关闭，避免"开关已关但效果仍生效"
                     val mode = if (args.getBoolean(EXTRA_ENABLED, false)) {
@@ -387,6 +493,8 @@ class MusicService : MediaSessionService() {
             mediaSession = null
             this@MusicService.player = null
         }
+        runCatching { cache?.release() }
+        cache = null
         equalizer?.release()
         equalizer = null
         releaseSfxAll()
@@ -409,6 +517,9 @@ class MusicService : MediaSessionService() {
         const val SFX_APPLY = "sfx/apply"
         const val SFX_INFO = "sfx/info"
         const val SFX_CHECK = "sfx/check"
+
+        const val CACHE_CLEAR = "cache/clear"
+        const val CACHE_APPLY = "cache/apply"
 
         const val EXTRA_ENABLED = "enabled"
         const val EXTRA_BANDS = "bands"
