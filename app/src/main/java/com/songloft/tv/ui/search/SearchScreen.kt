@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -91,6 +92,20 @@ fun SearchScreen(
         topFocusHasFocus = searchFocused,
         enabled = !showKeyboard
     )
+
+    // 无关键词浏览曲库：滚动接近底部时懒加载下一页；切换关键词时重置监听
+    LaunchedEffect(uiState.query) {
+        if (uiState.query.isNotBlank()) return@LaunchedEffect
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible to info.totalItemsCount
+        }.collect { (lastVisible, totalItems) ->
+            if (totalItems > 0 && lastVisible >= totalItems - 3) {
+                viewModel.loadMoreBrowse()
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -219,70 +234,103 @@ fun SearchScreen(
 
         // 结果区占据剩余高度，键盘固定贴底，保证操作行不被挤出屏幕
         Column(Modifier.weight(1f)) {
-        if (uiState.isSearching) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("搜索中...", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            }
-        } else if (uiState.hasSearched && uiState.results.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("未找到结果", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-            }
-        } else if (uiState.results.isNotEmpty()) {
-            Text(
-                text = "共 ${uiState.results.size} 首",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            LazyColumn(
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                contentPadding = PaddingValues(vertical = 6.dp)
-            ) {
-                itemsIndexed(uiState.results) { index, song ->
-                    SongListItem(
-                        song = song,
-                        onClick = { onSongClick(uiState.results, index) },
-                        favoriteMode = SongItemFavoriteMode.TOGGLE,
-                        isFavorite = song.id in favoriteIds,
-                        onFavoriteClick = { viewModel.toggleFavorite(song) }
-                    )
-                }
-            }
-        } else if (!uiState.hasSearched) {
-            if (uiState.hotTags.isNotEmpty()) {
-                Text(
-                    text = "热门搜索",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
-                )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(uiState.hotTags) { tag ->
-                        HotTagChip(tag) { viewModel.onQueryChanged(tag) }
+            if (uiState.query.isBlank()) {
+                // 无关键词：热门搜索标签 + 曲库浏览（首次进入默认展示），滚动接近底部自动加载下一页
+                Column {
+                    if (uiState.hotTags.isNotEmpty()) {
+                        Text(
+                            text = "热门搜索",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(uiState.hotTags) { tag ->
+                                HotTagChip(tag) { viewModel.onQueryChanged(tag) }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    when {
+                        uiState.browseSongs.isNotEmpty() -> {
+                            Text(
+                                text = "共 ${uiState.browseTotal} 首",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            SongResultList(
+                                songs = uiState.browseSongs,
+                                listState = listState,
+                                favoriteIds = favoriteIds,
+                                isLoadingMore = uiState.isLoadingMore,
+                                onSongClick = { onSongClick(uiState.browseSongs, it) },
+                                onFavoriteClick = viewModel::toggleFavorite
+                            )
+                        }
+                        uiState.isBrowseLoading -> {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("加载中...", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                            }
+                        }
+                        uiState.error != null -> {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("加载失败：${uiState.error}", fontSize = 16.sp, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        else -> {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(48.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "输入关键词搜索歌曲",
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                )
+                            }
+                        }
                     }
                 }
-            } else {
+            } else if (uiState.isSearching) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().padding(48.dp),
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "输入关键词搜索歌曲",
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
+                    Text("搜索中...", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
+            } else if (uiState.hasSearched && uiState.results.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("未找到结果", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                }
+            } else if (uiState.results.isNotEmpty()) {
+                Text(
+                    text = "共 ${uiState.results.size} 首",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                SongResultList(
+                    songs = uiState.results,
+                    listState = listState,
+                    favoriteIds = favoriteIds,
+                    isLoadingMore = false,
+                    onSongClick = { onSongClick(uiState.results, it) },
+                    onFavoriteClick = viewModel::toggleFavorite
+                )
+            } else if (!uiState.hasSearched) {
+                HotSearchSection(uiState.hotTags, viewModel::onQueryChanged)
             }
-        }
         }
 
         if (useCustomKeyboard && showKeyboard) {
@@ -363,6 +411,75 @@ private fun SearchQrDialog(url: String?, onDismiss: () -> Unit) {
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SongResultList(
+    songs: List<Song>,
+    listState: LazyListState,
+    favoriteIds: Set<Long>,
+    isLoadingMore: Boolean,
+    onSongClick: (Int) -> Unit,
+    onFavoriteClick: (Song) -> Unit
+) {
+    LazyColumn(
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        contentPadding = PaddingValues(vertical = 6.dp)
+    ) {
+        itemsIndexed(songs) { index, song ->
+            SongListItem(
+                song = song,
+                onClick = { onSongClick(index) },
+                favoriteMode = SongItemFavoriteMode.TOGGLE,
+                isFavorite = song.id in favoriteIds,
+                onFavoriteClick = { onFavoriteClick(song) }
+            )
+        }
+        if (isLoadingMore) {
+            item {
+                Box(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "加载中...",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HotSearchSection(hotTags: List<String>, onTagClick: (String) -> Unit) {
+    if (hotTags.isNotEmpty()) {
+        Text(
+            text = "热门搜索",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(hotTags) { tag ->
+                HotTagChip(tag) { onTagClick(tag) }
+            }
+        }
+    } else {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "输入关键词搜索歌曲",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
         }
     }
 }

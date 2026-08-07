@@ -38,7 +38,13 @@ data class SearchUiState(
     val hasSearched: Boolean = false,
     val hotTags: List<String> = emptyList(),
     val candidates: List<String> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    /** 无关键词时浏览曲库（首次进入默认展示），滚动懒加载分页 */
+    val browseSongs: List<Song> = emptyList(),
+    val browseTotal: Int = 0,
+    val hasMoreBrowse: Boolean = false,
+    val isBrowseLoading: Boolean = false,
+    val isLoadingMore: Boolean = false
 )
 
 @HiltViewModel
@@ -103,11 +109,60 @@ class SearchViewModel @Inject constructor(
 
     private var pinyinIndex: List<PinyinEntry> = emptyList()
 
+    private var loadMoreBrowseJob: Job? = null
+
     init {
         viewModelScope.launch { favoriteRepository.ensureFavoriteIdsLoaded() }
         viewModelScope.launch { loadSearchIndex() }
+        viewModelScope.launch { loadBrowsePage() }
     }
 
+    /** 首次进入无关键词：分页拉取曲库第一页作为默认内容 */
+    private suspend fun loadBrowsePage() {
+        _uiState.value = _uiState.value.copy(isBrowseLoading = true, error = null)
+        songRepository.getSongs(limit = BROWSE_PAGE_SIZE, offset = 0).fold(
+            onSuccess = { page ->
+                _uiState.value = _uiState.value.copy(
+                    browseSongs = page.songs,
+                    browseTotal = page.total,
+                    hasMoreBrowse = page.songs.size < page.total,
+                    isBrowseLoading = false,
+                    error = null
+                )
+            },
+            onFailure = { e ->
+                _uiState.value = _uiState.value.copy(isBrowseLoading = false, error = e.message)
+            }
+        )
+    }
+
+    /** 滚动接近底部时追加下一页曲库；有关键词时由 onQueryChanged 接管，不触发 */
+    fun loadMoreBrowse() {
+        val state = _uiState.value
+        if (state.query.isNotBlank() || state.isBrowseLoading || state.isLoadingMore || !state.hasMoreBrowse) return
+        if (loadMoreBrowseJob?.isActive == true) return
+        loadMoreBrowseJob = viewModelScope.launch {
+            val offset = state.browseSongs.size
+            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            songRepository.getSongs(limit = BROWSE_PAGE_SIZE, offset = offset).fold(
+                onSuccess = { page ->
+                    val current = _uiState.value
+                    val merged = (current.browseSongs + page.songs).distinctBy { it.id }
+                    _uiState.value = current.copy(
+                        browseSongs = merged,
+                        browseTotal = page.total,
+                        hasMoreBrowse = merged.size < page.total,
+                        isLoadingMore = false
+                    )
+                },
+                onFailure = {
+                    _uiState.value = _uiState.value.copy(isLoadingMore = false)
+                }
+            )
+        }
+    }
+
+    /** 热门搜索标签 + 拼音候选索引，首次进入即加载（曲库浏览区顶部展示热门标签） */
     private suspend fun loadSearchIndex() {
         val popularArtists = songRepository.getFacets("artist", limit = 1000).getOrNull()
             .orEmpty().map { it.value }.filter { it.isNotBlank() }
@@ -129,7 +184,14 @@ class SearchViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(query = query, candidates = candidates)
         searchJob?.cancel()
         if (query.isBlank()) {
-            _uiState.value = _uiState.value.copy(results = emptyList(), hasSearched = false)
+            // 清空关键词回到曲库浏览：保留已加载的 browseSongs，仅清掉搜索结果
+            _uiState.value = _uiState.value.copy(
+                query = query,
+                results = emptyList(),
+                hasSearched = false,
+                isSearching = false,
+                error = null
+            )
             return
         }
         searchJob = viewModelScope.launch {
@@ -152,11 +214,23 @@ class SearchViewModel @Inject constructor(
     }
 
     fun clearSearch() {
-        _uiState.value = SearchUiState(hotTags = _uiState.value.hotTags)
         searchJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            query = "",
+            results = emptyList(),
+            hasSearched = false,
+            candidates = emptyList(),
+            isSearching = false,
+            error = null
+        )
+        val state = _uiState.value
+        if (state.browseSongs.isEmpty() && !state.isBrowseLoading) {
+            viewModelScope.launch { loadBrowsePage() }
+        }
     }
 
     companion object {
         private val REMOTE_PORTS = intArrayOf(18903, 18904, 18905, 18906)
+        private const val BROWSE_PAGE_SIZE = 50
     }
 }
