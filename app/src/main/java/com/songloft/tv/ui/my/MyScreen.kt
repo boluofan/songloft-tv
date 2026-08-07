@@ -52,7 +52,7 @@ fun MyScreen(
     val restorer = rememberScreenFocusRestorer()
     var topFocusHasFocus by remember { mutableStateOf(false) }
 
-    ListBackToTopHandler(listState, topFocus, topFocusHasFocus = topFocusHasFocus)
+    ListBackToTopHandler(listState, topFocus, topFocusHasFocus = topFocusHasFocus, jumpToTabBar = true)
     RestoreFocusEffect(restorer)
     DefaultFocusEffect(restorer, settingsFocus)
 

@@ -90,6 +90,8 @@ fun SearchScreen(
         listState,
         topFocus = searchBoxFocus,
         topFocusHasFocus = searchFocused,
+        // 焦点在搜索框时按返回键先跳底部 Tab 栏，而非直接回首页
+        jumpToTabBar = true,
         enabled = !showKeyboard
     )
 
