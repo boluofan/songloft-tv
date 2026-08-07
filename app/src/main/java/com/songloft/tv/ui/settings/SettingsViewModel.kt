@@ -12,9 +12,12 @@ import com.songloft.tv.util.LogStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -53,6 +56,14 @@ class SettingsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    /** 缓存占用心跳：由设置页在可见期间 collect，播放中缓存增长时数值随之刷新 */
+    val cacheUsageTicker: Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            delay(CACHE_USAGE_POLL_INTERVAL_MS)
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -249,6 +260,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
+        const val CACHE_USAGE_POLL_INTERVAL_MS = 5_000L
+
         val SENSITIVE_HEADER_REGEX =
             Regex("(?i)\\b(authorization|cookie|set-cookie|x-api-key)\\s*:\\s*.*")
         val SENSITIVE_JSON_REGEX =

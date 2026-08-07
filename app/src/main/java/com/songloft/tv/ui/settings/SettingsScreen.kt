@@ -41,7 +41,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
 import com.songloft.tv.ui.theme.SelectedFocusBorder
 import com.songloft.tv.ui.theme.seedColorFor
@@ -61,6 +64,14 @@ fun SettingsScreen(
     var backButtonHasFocus by remember { mutableStateOf(false) }
     val bridge = LocalTabBarBridge.current
     val scope = rememberCoroutineScope()
+
+    // 缓存占用心跳：仅设置页处于前台可见期间轮询，离开页面即停止
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.cacheUsageTicker.collect { viewModel.refreshPlayCacheUsage() }
+        }
+    }
 
     // 焦点已在返回按钮且页面在顶部时禁用，返回键穿透到外层 BackHandler 直接返回上一级
     BackHandler(
