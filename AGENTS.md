@@ -19,13 +19,14 @@ Songloft TV — [Songloft](https://github.com/songloft-org/songloft) 音乐服�
 单模块 `:app`，包根 `com.songloft.tv`，标准三层：
 
 - `data/api/` — Retrofit 接口（`SongloftApi`）、`AuthInterceptor`（附加 access token）、`TokenAuthenticator`（401 时用 refresh token 刷新）、`UrlHelper`（拼接服务器资源 URL）
+- `data/cache/` — 播放缓存（`PlaybackCache` 目录管理 + `RoutingDataSource` 按 URL 路由 m3u8 清单走纯流式）；缓存大小存 DataStore，MusicService 启动时建 `SimpleCache`（LRU 淘汰）
 - `data/repository/` — 各业务仓库，UI 层不直接碰 API
 - `data/storage/PreferencesDataStore.kt` — DataStore 持久化（服务器地址、Token、设置项）
 - `data/config/ConfigWebServer.kt` — NanoHTTPD 内置 HTTP 服务，配合 ZXing 二维码实现手机扫码配置
 - `domain/PlayerController.kt` — 播放队列/模式/双音轨切换的唯一入口；内部经 Media3 `MediaController` 连接 MusicService，**ExoPlayer 实例只在 MusicService 中创建**
-- `MusicService.kt` — MediaSessionService，ExoPlayer 宿主，后台播放
+- `MusicService.kt` — MediaSessionService，ExoPlayer 宿主，后台播放；缓存初始化与 eq/sfx/cache 自定义命令
 - `ui/<feature>/` — 每个功能目录含 Screen + ViewModel（Hilt 注入，StateFlow 暴露状态）
-- 主界面**不用 Navigation Compose**：`MainActivity.TvApp` 用 `mutableStateOf<Screen>` 手写状态导航（路由定义在 `ui/navigation/Screen.kt`）；全屏播放器是独立 `PlayerActivity`
+- 主界面**不用 Navigation Compose**：`MainActivity.TvApp` 用 `mutableStateOf<Screen>` 手写状态导航（路由定义在 `ui/navigation/Screen.kt`）；全屏播放器是独立 `PlayerActivity`；遥控器返回键走 `ui/navigation/BackToTop.kt` 三段式（回顶 → 聚焦顶部 → 底部 Tab 栏）
 
 实现细节详见 `doc/implementation.md`（API 清单、认证刷新流程、双音轨机制、各页面实现、已知遗留问题）。
 

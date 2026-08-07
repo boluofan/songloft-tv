@@ -1,6 +1,6 @@
 # Songloft TV — 实现文档
 
-> 基于当前代码整理（v1.0.0），描述实际实现，区别于 [design.md](design.md) 的设计稿。
+> 基于当前代码整理（v1.1.5+），描述实际实现，区别于 [design.md](design.md) 的设计稿。
 
 ---
 
@@ -12,7 +12,7 @@
 UI (Compose Screen + ViewModel, Hilt + StateFlow)
    │
 domain/PlayerController ── MediaController ──> MusicService (ExoPlayer + MediaSession)
-   │
+   │                                             └─ data/cache (SimpleCache + RoutingDataSource)
 data/repository ──> data/api (Retrofit + OkHttp) ──> Songloft 后端 /api/v1
    │
 data/storage/PreferencesDataStore (DataStore)
@@ -78,12 +78,18 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 - **PlaylistRepository**：歌单列表/详情/歌曲（详情页按 500 首/页循环拉取直至全量，修复原先只显示前 50 首的问题）；列表第一页把内置收藏歌单（收藏/电台收藏）固定置顶，后续分页不变。
 - **SongRepository**：`getSongs`、`getFacets`、`getSongLyric`（歌词全空抛异常）、`reportPlayed`、`getLibraryStats`（分页拉全库统计，上限 5000 首）。
 - **StatsRepository**：播放统计插件（`jsplugin/stats`）数据源，`getSummary(range)`（range 由 `StatsRange` 枚举换算 from/to 时间戳：全部/今日/本周[周一起]/本月）、`getTrends(days)`、`getHourly()`、`getHistory(limit, offset)`；任一接口失败返回 Result.failure，UI 层据此回退。
+- **UpdateRepository**：GitHub Release 更新检查 + APK 下载，见 §5。
 
 ### 2.5 存储（`data/storage/PreferencesDataStore.kt`）
 
-DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(Int)、`theme_color`(String，默认 `"indigo"`)、`audio_quality`、`access_token`、`refresh_token`、`background_playback`、`use_custom_keyboard`、`ignored_version_code`、`eq_enabled`(Boolean)、`eq_preset`(Int，系统预设下标，-1=自定义)、`eq_bands`(String，逗号分隔 dB)。均以 Flow 暴露。
+DataStore 名 `songloft_tv_settings`，19 个 key：`server_url`、`theme_mode`(Int，0=跟随系统/1=浅色/2=深色/3=暗夜)、`theme_color`(String，默认 `"indigo"`)、`audio_quality`、`access_token`、`refresh_token`、`background_playback`、`use_custom_keyboard`、`ignored_version_code`、`eq_enabled`(Boolean)、`eq_preset`(Int，系统预设下标，-1=自定义)、`eq_bands`(String，逗号分隔 dB)、`sfx_enabled`(Boolean)、`sfx_mode`(String，virtualizer/bass_boost/loudness/reverb)、`sfx_strength`(Int，0-100)、`lyric_highlight_color`(Int)、`lyric_font_size`(Int，默认 30)、`play_cache_mb`(Int，MB，0=关闭)、`cache_server_url`(String，缓存归属服务器)。均以 Flow 暴露。
 
-### 2.6 UrlHelper（`data/api/UrlHelper.kt`）
+### 2.6 播放缓存（`data/cache/PlaybackCache.kt`）
+
+- **PlaybackCache**（object）：缓存目录 `cacheDir/play_cache`，提供 `dir`/`clear`（递归删除）/`usage`（统计文件总字节）。目录专用，勿存放其他文件。
+- **RoutingDataSource**：按 URL 路由的数据源包装。`open(dataSpec)` 时若 `uri.lastPathSegment` 以 `.m3u8` 结尾（HLS 直播清单）走纯 upstream——缓存会让 live 清单永久命中旧版本导致 `PlaylistStuckException` 卡死；其余资源（音频/视频/HLS 分片）走 CacheDataSource。其余方法（read/close/getUri/getResponseHeaders/addTransferListener）转发到当前选中源。
+
+### 2.7 UrlHelper（`data/api/UrlHelper.kt`）
 
 - `songPlayUrl(id, quality?, track?)` → `/api/v1/songs/{id}/play?quality=..&track=..`
 - `songCoverUrl` / `playlistCoverUrl`
@@ -93,12 +99,23 @@ DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(
 
 ### 3.1 MusicService（`MusicService.kt`）
 
-- ExoPlayer 真正的创建位置。自定义 `DataSource.Factory`：每次创建 `DefaultHttpDataSource` 时**动态**读取 `AuthInterceptor.accessToken` 附加 `Authorization` 头（JWT 会运行期刷新，不能固化）。
-- AudioAttributes（music/media + 音频焦点）、`handleAudioBecomingNoisy`。
+`@AndroidEntryPoint`（Hilt 注入 PreferencesDataStore）。ExoPlayer 真正的创建位置。自定义 `DataSource.Factory`：每次创建 `DefaultHttpDataSource` 时**动态**读取 `AuthInterceptor.accessToken` 附加 `Authorization` 头（JWT 会运行期刷新，不能固化）。
+
+- AudioAttributes（music/media + 音频焦点）、`setHandleAudioBecomingNoisy(true)`。
 - MediaSession 的 sessionActivity 指向 `PlayerActivity`（点通知回播放器）。
-- `onTaskRemoved`：仅在未播放或队列为空时 `stopSelf()` —— 播放中移除任务不停止，天然后台播放（**没有**用户可见的后台播放开关）。
+- `onTaskRemoved`：仅在未播放或队列为空时 `stopSelf()` —— 播放中移除任务不停止，天然后台播放（**没有**用户可见的后台播放开关，设置页的"背景播放"项仅控制退出应用时是否 stopService）。
 - 通知使用 MediaSessionService 默认 MediaNotification，元数据来自 MediaItem 的 MediaMetadata。
-- **均衡器**：ExoPlayer 的 audio session 在首次播放时才生成，`playerListener.onAudioSessionId` 回调中懒创建 `android.media.audiofx.Equalizer`（设备不支持 audiofx 时静默降级为 null）。MediaSession `setCallback` 处理两条自定义命令：`eq/apply`（应用开关/预设/频段增益）与 `eq/info`（回传支持性/频段数/中心频率/增益范围/预设名/当前状态，经 SessionResult.extras）；`onCustomCommand` 返回 `ListenableFuture<SessionResult>`（`Futures.immediateFuture` 包装）。
+- **播放缓存**（`onCreate` 中初始化，runCatching 兜底失败回退纯流式）：
+  - 读 `play_cache_mb`/`serverUrl`/`cacheServerUrl`；大小 >0 且缓存归属服务器与当前不同 → `PlaybackCache.clear` 后建 `SimpleCache`（`LeastRecentlyUsedCacheEvictor(缓存MB × 1MB)` + `StandaloneDatabaseProvider`，media3 1.5.0 三参构造）；大小 =0 → 清空目录且 cache 为 null；随后写回 `cache_server_url`。
+  - 数据源链：upstream（带 JWT 头）→ CacheDataSource（`FileDataSource` 读 + `CacheDataSink` 5MB 分片写 + `FLAG_IGNORE_CACHE_ON_ERROR`，缓存读写失败不影响播放）→ RoutingDataSource（m3u8 清单绕开缓存）。
+  - `CacheDataSource.EventListener` 打缓存命中日志（每次资源加载节流一条）与忽略缓存告警；缓存大小下次服务启动生效，运行中变更走 `cache/apply` 命令（未播放则 stopSelf 重启，播放中不打扰）。
+- **均衡器**：audioSessionId 在 ExoPlayer 构建时即分配（AudioTrack 复用同一 id），`ensureEqualizer()` 按需懒创建 `android.media.audiofx.Equalizer`，失败（无 audiofx HAL）时每次命令到达重试。
+- **音效**（与均衡器独立叠加、单模式互斥）：四类效果器 Virtualizer/BassBoost/LoudnessEnhancer/PresetReverb 按需创建（`ensureSfx`），`applySfx(mode, strength)` 先禁用全部再启用选中模式；强度 0-100 映射 audiofx 参数（BassBoost 上限 600 防破音，PresetReverb 按段映射）；输出设备切换（HDMI/蓝牙/内置，API 23+ `AudioDeviceCallback`）或音频会话变化时释放全部效果器待重建，A2DP 状态经 `sfx/info` 上报供 UI 提示。
+- **自定义命令**（`onConnect` 授权，`onCustomCommand` 返回 `ListenableFuture<SessionResult>`）：
+  - `eq/apply`、`eq/info`、`eq/check`：均衡器开关/预设/频段增益应用、能力与状态回传、静态能力校验；
+  - `sfx/apply`、`sfx/info`、`sfx/check`：音效应用（enabled=false 时强制 mode=off）、能力矩阵（逐效果器查询 `AudioEffect.queryEffects()`）+ A2DP 状态 + 当前生效模式回传、静态能力校验；
+  - `cache/clear`：遍历 `cache.getKeys()` 逐个 `removeResource` 清空；`cache/apply`：未播放则 stopSelf 立即生效，播放中保持下次生效。
+- `onDestroy` 释放顺序：mediaSession → player → `cache?.release()` → 均衡器/音效 → 注销设备回调。
 
 ### 3.2 PlayerController（`domain/PlayerController.kt`）
 
@@ -113,6 +130,8 @@ DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(
 - **播放上报**：转场时上一首按原因报 `finish`（自然播完）/`skip`（手动切），新歌报 `play`；source 固定 `tv`（来源统计），`play` 事件带当前播放上下文（见上）。
 - **睡眠定时器**（两种互斥）：`setSleepTimer(minutes)` 协程每分钟递减；`setSleepAfterSongs(count)` 在自然转场时递减；归零 pause。UI 入口在设置页。
 - **均衡器**：`PlaybackState` 暴露 eqSupported/eqEnabled/eqPreset/eqBands/eqBandFrequencies/eqBandLevelMin/Max/eqPresetNames。`init` 中 `combine(eqEnabled, eqPreset, eqBands)` 收集 DataStore flow——UI 修改只写 DataStore，闭环自动 `sendEqApply`（幂等）；连接时**先应用缓存配置再 `queryEqInfo`**（保证 info 反映应用后状态），播放就绪（STATE_READY）且仍不支持时 `retryEqSetup` 重试（音频会话晚于连接就绪的冷启动竞态）。`setEqualizerBand` 手动调频段时自动将 preset 置 -1（自定义曲线）。
+- **音效**：`PlaybackState` 暴露 sfxEnabled/sfxMode/sfxStrength/sfxSupportedMatrix/sfxA2dpActive/sfxActiveMode；与均衡器同构的 DataStore 闭环（`sfx_enabled`/`sfx_mode`/`sfx_strength`），连接时先应用缓存再 `querySfxInfo`；`sfx/info` 回传能力矩阵与 A2DP 状态，UI 据此显示"当前设备不支持音效"提示或蓝牙输出提醒。
+- **缓存命令**：`clearPlayCache(onResult)` 发 `cache/clear`，回调透传成功与否；`applyCacheSetting()` 发 `cache/apply`，若当前未播放则 `release()` 并**同时清空 controllerFuture**（旧 future 指向已释放的 controller，不清会导致下次连接复用已释放实例），让服务停止后下次播放按新大小生效。
 
 ### 3.3 LyricParser（`domain/LyricParser.kt`）
 
@@ -126,10 +145,10 @@ DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(
 
 - **PlayerActivity**：独立 Activity，仅承载 `PlayerScreen`。
 - **PlayerViewModel**：collect PlayerController.state 映射 UiState；进度轮询自适应——有逐字歌词时 60ms（卡拉 OK 平滑），否则 500ms；收藏乐观更新、失败回滚。
-- **交互**：控制栏 10s 无操作自动隐藏；控制隐藏时——左右键长按连续 ±10s seek、短按切歌、上下/OK 唤出控制栏；媒体键直达。
+- **交互**：控制栏 10s 无操作自动隐藏；控制隐藏时——左右键长按连续 ±10s seek、短按切歌、上下/OK 唤出控制栏；媒体键直达。控制栏左上角带返回按钮（`PlayerActivity` 内 BackHandler/按钮返回主界面）。
 - **两种模式**：视频（全屏 `VideoPlayer` = PlayerView 绑定 MediaController，多音轨时右上角 TrackChips）；音频（封面 blur(60dp) 毛玻璃背景 + 左封面/右 `LyricsPanel`）。
 - **LyricsPanel**：自动滚动居中；逐字行渲染 KaraokeLine（按 word start/end 进度逐字点亮）；附带翻译行。
-- **ControlBar**：SeekBar + 上一曲/播放暂停/下一曲/播放模式/收藏/重新获取歌词/均衡器/队列按钮（重新获取歌词走 `refresh=1` 重跑服务端歌词插件搜索，请求中按钮显示加载圈）。
+- **ControlBar**：SeekBar（支持触屏点击定位 + 拖拽 seek）+ 上一曲/播放暂停/下一曲/播放模式/收藏/重新获取歌词/均衡器/队列按钮（重新获取歌词走 `refresh=1` 重跑服务端歌词插件搜索，请求中按钮显示加载圈）。
 - **QueueDrawer**：左侧 400dp 抽屉，当前曲高亮，自动滚到当前位置，点击条目跳播（`PlayerController.playAt(index)`）。
 - **EqPanel**：右侧 440dp 抽屉（与队列抽屉对称），开关 chip（开启/关闭）+ 系统预设 chip（FlowRow 前 6 个）+ 频段增益条（聚焦时左右键 ±1dB 步进，范围 levelMin/100..levelMax/100，手绘轨道+拇指复用 ControlBar SeekBar 样式）；`eqSupported=false` 时仅显示"当前设备不支持均衡器"；Back/点击外部关闭，Back 优先级：队列抽屉 > EQ 面板 > 控制栏。
 
@@ -139,6 +158,14 @@ DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(
 
 `ui/navigation/Screen.kt`：sealed class，顶级 Tab 为 Home/Search/Playlists/My（`TvBottomNav` 底栏），二级页 Settings、Stats、PlaylistDetail(id)、SongFilter(field,value)、FacetList(field)。`MainActivity.TvApp` 用 `when(currentScreen)` 切换，`BackHandler` 定义回退链（PlaylistDetail→Playlists，Settings→My，其余→Home）。
 
+**焦点与返回键（遥控器模式）**：
+
+- `TabBarBridge`（compositionLocal）：`tabFocusRequester` 挂在当前选中 Tab 上（`TvBottomNav` 选中项挂 `focusRequester`），`hasFocus` 跟踪 Tab 栏焦点态；`focusTabBar()` 请求 Tab 栏焦点。
+- `ListBackToTopHandler`（`ui/navigation/BackToTop.kt`）统一三段式返回：① 列表非顶部 → 回顶并聚焦顶部元素；② 列表在顶部但顶部元素未聚焦 → 聚焦顶部元素；③ 焦点已在顶部元素且列表在顶部 → 聚焦底部 Tab 栏。禁用条件：触摸模式（焦点请求无效，直接穿透弹退出确认）、Tab 栏已有焦点（穿透回首页/上一级）、二级界面焦点已在返回按钮（穿透返回）。
+- `jumpToTabBar` 参数（一级 tab 页专用）：焦点已在顶部元素且列表在顶部时**不穿透**，先跳底部 Tab 栏。首页（`topFocusInList=true`，顶部=管理歌单）、搜索（顶部=搜索框）、歌单（顶部=全部过滤 chip）、我的（顶部=收藏歌曲 chip）四个 tab 页均启用，返回链路统一为：回顶 → 聚焦顶部按钮 → 跳 Tab 栏 → 回首页 → 退出确认。
+- 首页默认焦点落在**底部 Tab 栏当前选中的「首页」按钮**（`HomeScreen` 中 `defaultFocusTarget = tabBarBridge?.tabFocusRequester ?: topFocus`，无 bridge 环境回退管理歌单）；其余 tab 页默认焦点在各页顶部元素（搜索框/过滤 chip/设置按钮）。
+- `ScreenFocusRestorer`：二级界面返回时恢复点击来源元素焦点（`restorableFocus` 按 pendingKey 挂 requester，`RestoreFocusEffect` 按帧重试），优先级高于默认焦点。
+
 启动流程：`MainApp` 观察 `AuthViewModel.authState`，`LoggedIn` 进 TvApp，否则显示 `AuthSetupScreen`。有播放时右下角悬浮 `FloatingPlayerBar`。
 
 ### 4.2 各页面
@@ -147,7 +174,7 @@ DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(
 |---|---|
 | 首页 Home | 5 个 async 并发拉统计/歌手/专辑/年份/歌单；统计卡 ×4、歌单 4 列网格（≤8，内置收藏歌单置顶）、歌手/专辑两列（各 6）、年份胶囊行（8）；最下方「年份速览」动态切换：仅预取统计插件 summary（全部区间，不带参数），成功则展示「播放统计」概览（全部/今日/本周/本月 Tab，切换其他区间时按需请求该区间 summary，右上角查看全部进统计页），失败则回退年份速览；概览区「本月」Tab 与「查看全部」用 `focusProperties` 双向焦点跳转 |
 | 统计 Stats | 播放统计插件（jsplugin/stats）子界面：全部/今日/本周/本月时间 Tab、概览卡 ×4（播放次数/听歌时长/不同歌曲/不同艺术家）、艺术家排行 top4、歌曲排行 top3、听歌趋势（7/30 天柱状图）、专辑排行 top3、时段分布、来源分布 top3、歌曲类型 top3、最近播放 top3；各卡片标题栏带「刷新」按钮 |
-| 搜索 Search | 300ms 防抖搜索；自定义 `TvKeyboard`（左侧 8×4 字母方阵+功能键、右侧 4×4 数字/符号方阵可切换 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10；拼音/首字母候选取 `songs/names`（title+artist 去重全量）经 `PinyinMatcher` 索引，输入 ≥2 个字母时匹配候选（旧服务器无该接口时回退 artist facet 值） |
+| 搜索 Search | 300ms 防抖搜索；**无关键词时直接分页浏览曲库**（首次进入即展示，滚动接近底部懒加载下一页，列表顶部显示"共 N 首"）；自定义 `TvKeyboard`（左侧 8×4 字母方阵+功能键、右侧 4×4 数字/符号方阵可切换 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10；拼音/首字母候选取 `songs/names`（title+artist 去重全量）经 `PinyinMatcher` 索引，输入 ≥2 个字母时匹配候选（旧服务器无该接口时回退 artist facet 值） |
 | 分类 FacetList | 全部歌手/专辑/年份，3 列网格 → 点击进 SongFilter |
 | 筛选 FilteredSongs | 按 artist/album/year 拉 500 首列表 |
 | 歌单 Playlists | 全部/普通/电台 FilterChip 过滤，4 列网格（第一页内置收藏歌单置顶）；详情页有"播放全部/随机播放" |
@@ -157,14 +184,21 @@ DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(
 
 ### 4.3 设置页
 
-- **主题**：跟随系统(0)/浅色(1)/深色(2) 写 DataStore `theme_mode`；`TvTheme` 直接订阅同一 key，即时全局换肤。
+- **主题模式**：跟随系统(0)/浅色(1)/深色(2)/**暗夜(3)** 写 DataStore `theme_mode`；`TvTheme` 直接订阅同一 key，即时全局换肤（暗夜为冷蓝紫暗调变体，见 4.5）。
 - **主题色调**：黛青蓝(`"indigo"`，默认)/薄荷绿(`"emerald"`)/珊瑚粉(`"sakura"`)/蜜橘橙(`"honey"`)，写 DataStore `theme_color`；选项带对应主题色色块预览（种子色参考 songloft-player 主题 primary 色值）；`TvTheme` 订阅同一 key 动态构造 colorScheme，切换即全局替换，播放器深色 UI 不随色调变化。
+- **服务器**：显示当前服务器地址，点击跳配置页。
 - **音质**：原始("")/mp3/flac 写 DataStore，PlayerController 取流时读取拼入 quality 参数。
-- **均衡器**：开关直接写 DataStore `eq_enabled`（PlayerController 闭环推送到服务端生效），与播放器面板状态双向同步；说明行指向播放器内微调。
-- **睡眠定时**：直接调 PlayerController（不持久化），剩余量实时回显。
+- **播放缓存**：`CacheSizeRow` 调节 0-1024MB（步进 128，D-Pad 左右键 + 触屏滑动，0=关闭、1024=1 GB、其余 xxx MB，"恢复默认"=0）；提示"未播放时修改立即生效，播放中将于下次播放生效；设为 0 即关闭并清空缓存；更换服务器后自动清空"；下方显示**当前占用**（`PlaybackCache.usage` 统计目录文件字节）+ **清除缓存**按钮（`clearPlayCache` 发 `cache/clear`）；占用数值在设置页可见期间**每 5 秒心跳刷新**（`cacheUsageTicker` flow + `repeatOnLifecycle(STARTED)` collect，离开页面自动停止）。
+- **背景播放**：退出应用时是否 stopService（关闭则退出时结束后台播放）。
+- **自定义键盘**：使用 `TvKeyboard` 或系统键盘。
+- **睡眠定时**：分钟定时 + 播完 N 首两种（互斥），直接调 PlayerController（不持久化），剩余量实时回显。
+- **音效开关**：音效 + 均衡器二合一总开关（开启时分别校验能力，两者均不支持弹"当前设备不支持音效"对话框；关闭时同时关 EQ/SFX）。
+- **歌词**：高亮色（默认白色/跟随主题色）+ 字号调节（`LyricSizeRow`，D-Pad 左右键 + 触屏滑动，30-60sp）。
 - **日志导出**：`logcat -d` 逐行脱敏（Authorization/Cookie 头、JSON token/password 字段、URL token 参数、裸 JWT 四个正则）后写系统下载目录（API 29+ 用 MediaStore）。
-- **关于**：运行时读 versionName、项目地址、开源组件列表。
-- **危险区**：清除服务器配置、退出登录。
+- **帮助**：操作说明对话框（聚焦/返回键三段式行为说明）。
+- **关于**：运行时读 versionName、检查更新（`UpdateRepository`，见 §5）、项目地址、开源组件列表。
+- **重启应用**：整行可聚焦项（`SettingsItem` 样式），点击重启（发启动 Intent 后 `Runtime.exit`，部分设置如缓存大小需重启服务生效）。
+- **危险操作**（红色标题，沉底降低误触）：清除配置、退出登录两个按钮，点击后弹**二次确认对话框**（默认焦点在"取消"，确认键为红色实心），确认才执行。
 
 ### 4.4 配置/登录（`ui/config/`）
 
@@ -181,9 +215,16 @@ DataStore 名 `songloft_tv_settings`，12 个 key：`server_url`、`theme_mode`(
 - **FloatingPlayerBar**：右下角迷你条，未聚焦为 96dp 圆形（仅封面），聚焦展开 300dp 露出标题；播放中封面 10s/圈旋转。
 - **TvFocusable / D-Pad 规范**：统一"焦点 = 缩放 1.05-1.1x + primary 边框"模式；`Modifier.tvFocusable()` 是抽象，多数页面内联实现同一模式；无自定义 FocusOrder，依赖 Compose 默认焦点搜索。
 - **选中型组件规范**（设置/首页/我的/歌单/统计等页 chip 统一）：选中 = primary 实心填充 + ✓；聚焦 = 缩放 1.1x(120ms tween) + 3dp 描边（选中项用 `SelectedFocusBorder` 白边保证高对比，未选中项用 primary 边）。
-- **主题 TvTheme**：种子色由 `ThemeSeeds` + `seedColorFor(name)` 按 DataStore `theme_color` 取值（默认黛青蓝 `0xFF415F91`），动态构造 Light/Dark ColorScheme；composable 内直接订阅 `PreferencesDataStore.THEME_MODE` / `THEME_COLOR` 两个 key，切换即全局换肤。播放器深色 UI 的固定色集中定义在 `PlayerColors`（不随主题色调变化），语义白描边抽为 `SelectedFocusBorder`。
+- **主题 TvTheme**：种子色由 `ThemeSeeds` + `seedColorFor(name)` 按 DataStore `theme_color` 取值（默认黛青蓝 `0xFF415F91`），动态构造 Light/Dark ColorScheme；composable 内直接订阅 `PreferencesDataStore.THEME_MODE` / `THEME_COLOR` 两个 key，切换即全局换肤。模式 3 为**暗夜模式**（`nightScheme`，冷蓝紫暗调的 darkColorScheme 变体，强调沉浸感）。播放器深色 UI 的固定色集中定义在 `PlayerColors`（不随主题色调变化），语义白描边抽为 `SelectedFocusBorder`。
 
-## 5. 已知问题 / 遗留
+## 5. 应用更新（`data/repository/UpdateRepository.kt`）
+
+- **镜像代理池**：`MIRRORS` = GitHub 直连 + ghfast.top / gh-proxy.com / ghproxy.net 三个前缀代理；`TlsCompat` 兼容老电视的 TLS 配置，检查 10s / 下载 20s / 探测 8s 超时。
+- **检查（并发首胜）**：并发请求全部镜像的 `version.json`，取**延迟最低的成功结果**；版本比较优先 `versionCode`，旧 Release 无该字段时回退 semver 比较（合成 versionCode 供忽略过滤与缓存文件命名）；进程内 `autoCheckDone` 保证启动自动检查只执行一次。
+- **下载（先测速再整包）**：并发向各镜像发 `Range: bytes=0-64KB` 探测请求，按（网速、进程内历史稳定度、延迟）排序后从最优镜像整包下载；失败按序回退；完整命中已下载文件直接复用；进度每 256KB 上报一次；临时文件 + rename 原子落盘。
+- 下载完成的 APK 经系统安装器安装；`ignored_version_code` 支持"忽略此版本"。UI 在 `MainActivity.TvApp` 的 `UpdateDialog`（启动自动检查 + 设置页关于区手动检查）。
+
+## 6. 已知问题 / 遗留
 
 | 问题 | 位置 |
 |---|---|
