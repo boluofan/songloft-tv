@@ -193,6 +193,10 @@ class SettingsViewModel @Inject constructor(
     fun setPlayCacheMb(mb: Int) {
         viewModelScope.launch {
             dataStore.setPlayCacheMb(mb)
+            if (mb == 0) {
+                // 关闭缓存：立即清空现有占用（播放中只能按 key 删除；服务下次启动时再整目录清理）
+                playerController.clearPlayCache { _ -> refreshPlayCacheUsage() }
+            }
             // 持久化完成后通知服务：未播放则立即重启，让新大小下次播放即生效
             playerController.applyCacheSetting()
         }
