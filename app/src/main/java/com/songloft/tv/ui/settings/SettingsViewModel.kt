@@ -221,6 +221,8 @@ class SettingsViewModel @Inject constructor(
                     MappingTarget.RIGHT -> current.copy(right = keyCode)
                     MappingTarget.BACK -> current.copy(back = keyCode)
                     MappingTarget.CONFIRM -> current.copy(confirm = keyCode)
+                    MappingTarget.TOP -> current.copy(top = keyCode)
+                    MappingTarget.BOTTOM -> current.copy(bottom = keyCode)
                 }
             )
         }

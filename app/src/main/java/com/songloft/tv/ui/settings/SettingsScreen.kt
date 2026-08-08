@@ -52,6 +52,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.songloft.tv.domain.KeyMapping
 import com.songloft.tv.domain.KeyMappingManager
 import com.songloft.tv.domain.MappingTarget
+import com.songloft.tv.ui.navigation.LocalPageScrollBridge
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
 import com.songloft.tv.ui.theme.SelectedFocusBorder
 import com.songloft.tv.ui.theme.seedColorFor
@@ -67,10 +68,33 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val topFocus = remember { FocusRequester() }
+    val logoutFocus = remember { FocusRequester() }
     val scrollState = rememberScrollState()
     var backButtonHasFocus by remember { mutableStateOf(false) }
     val bridge = LocalTabBarBridge.current
     val scope = rememberCoroutineScope()
+
+    // 注册全局「返回顶部/返回底部」回调（由 MainActivity 拦截自定义按键后调用）：
+    // 顶部 = 聚焦顶部返回按钮并滚回页面顶部；底部 = 聚焦最下方的退出登录按钮
+    val pageScrollBridge = LocalPageScrollBridge.current
+    DisposableEffect(Unit) {
+        pageScrollBridge.scrollToTop = {
+            scope.launch {
+                runCatching { topFocus.requestFocus() }
+                scrollState.animateScrollTo(0)
+            }
+        }
+        pageScrollBridge.scrollToBottom = {
+            scope.launch {
+                runCatching { logoutFocus.requestFocus() }
+                scrollState.animateScrollTo(scrollState.maxValue)
+            }
+        }
+        onDispose {
+            pageScrollBridge.scrollToTop = null
+            pageScrollBridge.scrollToBottom = null
+        }
+    }
 
     // 缓存占用心跳：仅设置页处于前台可见期间轮询，离开页面即停止
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -404,8 +428,15 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                DangerTextButton("清除配置") { pendingDanger = DangerAction.CLEAR_CONFIG }
-                DangerTextButton("退出登录") { pendingDanger = DangerAction.LOGOUT }
+                DangerTextButton(
+                    label = "清除配置",
+                    onClick = { pendingDanger = DangerAction.CLEAR_CONFIG }
+                )
+                DangerTextButton(
+                    label = "退出登录",
+                    onClick = { pendingDanger = DangerAction.LOGOUT },
+                    focusRequester = logoutFocus
+                )
             }
         }
 
@@ -437,7 +468,11 @@ fun SettingsScreen(
 private enum class DangerAction { CLEAR_CONFIG, LOGOUT }
 
 @Composable
-private fun DangerTextButton(label: String, onClick: () -> Unit) {
+private fun DangerTextButton(
+    label: String,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
+) {
     var isFocused by remember { mutableStateOf(false) }
     Text(
         text = label,
@@ -456,6 +491,7 @@ private fun DangerTextButton(label: String, onClick: () -> Unit) {
                 ) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .clickable { onClick() }
             .padding(12.dp)
     )

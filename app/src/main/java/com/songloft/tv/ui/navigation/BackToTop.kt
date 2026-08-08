@@ -3,6 +3,7 @@ package com.songloft.tv.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -26,6 +27,16 @@ class TabBarBridge {
 
 val LocalTabBarBridge = compositionLocalOf<TabBarBridge?> { null }
 
+/** 全局「返回顶部/返回底部」回调桥：当前组合中的页面注册自己的滚动实现，
+ *  MainActivity 拦截到自定义按键后调用，实现任何界面快速滚动到顶/底 */
+@Stable
+class PageScrollBridge {
+    var scrollToTop: (() -> Unit)? = null
+    var scrollToBottom: (() -> Unit)? = null
+}
+
+val LocalPageScrollBridge = compositionLocalOf<PageScrollBridge> { PageScrollBridge() }
+
 /**
  * 三段式返回键：列表非顶部时回顶并聚焦 [topFocus]；已在顶部时聚焦底部 Tab 栏；
  * 焦点已在 Tab 栏、或（跟踪了 [topFocusHasFocus] 的二级界面）焦点已在返回按钮且列表在顶部时，
@@ -47,6 +58,30 @@ fun ListBackToTopHandler(
     // 触摸模式下焦点请求无效（hasFocus 恒 false），三段式无意义且会吞掉返回键，
     // 直接禁用让返回键穿透到外层（弹退出确认/回上一级）；遥控器模式保持原有行为
     val touchMode = LocalView.current.isInTouchMode
+
+    // 注册全局「返回顶部/返回底部」滚动回调：滚动到顶时同时把焦点移回 [topFocus]（锚点若在列表内会随滚动就位）
+    val pageScrollBridge = LocalPageScrollBridge.current
+    DisposableEffect(listState) {
+        pageScrollBridge.scrollToTop = {
+            scope.launch {
+                if (topFocusInList) {
+                    listState.scrollToItem(0)
+                    topFocus?.let { runCatching { it.requestFocus() } }
+                } else {
+                    topFocus?.let { runCatching { it.requestFocus() } }
+                    listState.scrollToItem(0)
+                }
+            }
+        }
+        // 「返回底部」= 焦点直接跳到底部 Tab 栏（首页/搜索/歌单/我的），便于快速切换页面
+        pageScrollBridge.scrollToBottom = {
+            bridge?.focusTabBar()
+        }
+        onDispose {
+            pageScrollBridge.scrollToTop = null
+            pageScrollBridge.scrollToBottom = null
+        }
+    }
     BackHandler(
         enabled = enabled && !touchMode && bridge?.hasFocus != true &&
             !(topFocusHasFocus && !listState.canScrollBackward && !jumpToTabBar) &&

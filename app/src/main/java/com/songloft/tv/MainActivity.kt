@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.storage.PreferencesDataStore
 import com.songloft.tv.domain.KeyMappingManager
+import com.songloft.tv.domain.MappingTarget
 import com.songloft.tv.domain.PlayMode
 import com.songloft.tv.domain.PlayerController
 import com.songloft.tv.ui.config.AuthSetupScreen
@@ -59,7 +60,9 @@ import com.songloft.tv.ui.home.HomeScreen
 import com.songloft.tv.ui.library.FacetListScreen
 import com.songloft.tv.ui.library.FilteredSongsScreen
 import com.songloft.tv.ui.my.MyScreen
+import com.songloft.tv.ui.navigation.LocalPageScrollBridge
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
+import com.songloft.tv.ui.navigation.PageScrollBridge
 import com.songloft.tv.ui.navigation.Screen
 import com.songloft.tv.ui.navigation.stateKey
 import com.songloft.tv.ui.navigation.TabBarBridge
@@ -89,29 +92,48 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var keyMappingManager: KeyMappingManager
 
-    /** 用户自定义按键映射：命中映射表的 keycode 翻译成标准功能键 keycode 后继续分发 */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-        super.dispatchKeyEvent(keyMappingManager.translateEvent(event))
+    /** 全局「返回顶部/返回底部」回调桥，由当前组合中的页面注册滚动实现 */
+    val pageScrollBridge = PageScrollBridge()
+
+    /** 用户自定义按键映射：特殊功能键（返回顶部/底部）拦截处理，其余命中映射表的 keycode 翻译成标准功能键后继续分发 */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            when (keyMappingManager.matchSpecialKey(event.keyCode)) {
+                MappingTarget.TOP -> {
+                    pageScrollBridge.scrollToTop?.invoke()
+                    return true
+                }
+                MappingTarget.BOTTOM -> {
+                    pageScrollBridge.scrollToBottom?.invoke()
+                    return true
+                }
+                else -> {}
+            }
+        }
+        return super.dispatchKeyEvent(keyMappingManager.translateEvent(event))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            TvTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    MainApp(
-                        playerController = playerController,
-                        onPlaySongs = { songs, index, contextType, contextKey ->
-                            openPlayer(songs, index, contextType, contextKey)
-                        },
-                        onShufflePlay = { songs, contextType, contextKey ->
-                            playerController.setPlayMode(PlayMode.RANDOM)
-                            openPlayer(songs, Random.nextInt(songs.size), contextType, contextKey)
-                        },
-                        onOpenPlayer = {
-                            startActivity(Intent(this@MainActivity, PlayerActivity::class.java))
-                        },
-                        onExit = { exitApp() }
-                    )
+            CompositionLocalProvider(LocalPageScrollBridge provides pageScrollBridge) {
+                TvTheme {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        MainApp(
+                            playerController = playerController,
+                            onPlaySongs = { songs, index, contextType, contextKey ->
+                                openPlayer(songs, index, contextType, contextKey)
+                            },
+                            onShufflePlay = { songs, contextType, contextKey ->
+                                playerController.setPlayMode(PlayMode.RANDOM)
+                                openPlayer(songs, Random.nextInt(songs.size), contextType, contextKey)
+                            },
+                            onOpenPlayer = {
+                                startActivity(Intent(this@MainActivity, PlayerActivity::class.java))
+                            },
+                            onExit = { exitApp() }
+                        )
+                    }
                 }
             }
         }
