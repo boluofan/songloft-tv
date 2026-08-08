@@ -3,6 +3,7 @@ package com.songloft.tv
 import android.content.Intent
 import android.os.Bundle
 import android.os.Process
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.BackHandler
@@ -45,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.storage.PreferencesDataStore
+import com.songloft.tv.domain.KeyMappingManager
 import com.songloft.tv.domain.PlayMode
 import com.songloft.tv.domain.PlayerController
 import com.songloft.tv.ui.config.AuthSetupScreen
@@ -83,6 +85,13 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var preferencesDataStore: PreferencesDataStore
+
+    @Inject
+    lateinit var keyMappingManager: KeyMappingManager
+
+    /** 用户自定义按键映射：命中映射表的 keycode 翻译成标准功能键 keycode 后继续分发 */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        super.dispatchKeyEvent(keyMappingManager.translateEvent(event))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

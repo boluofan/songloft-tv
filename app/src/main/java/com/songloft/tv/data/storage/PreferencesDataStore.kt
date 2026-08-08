@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.songloft.tv.domain.KeyMapping
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -38,6 +39,13 @@ class PreferencesDataStore @Inject constructor(
         val LYRIC_FONT_SIZE = intPreferencesKey("lyric_font_size")
         private val PLAY_CACHE_MB = intPreferencesKey("play_cache_mb")
         private val CACHE_SERVER_URL = stringPreferencesKey("cache_server_url")
+        // 自定义按键映射：用户物理按键 keycode，0 = 未自定义（跟随系统默认键）
+        private val KEY_MAPPING_UP = intPreferencesKey("key_mapping_up")
+        private val KEY_MAPPING_DOWN = intPreferencesKey("key_mapping_down")
+        private val KEY_MAPPING_LEFT = intPreferencesKey("key_mapping_left")
+        private val KEY_MAPPING_RIGHT = intPreferencesKey("key_mapping_right")
+        private val KEY_MAPPING_BACK = intPreferencesKey("key_mapping_back")
+        private val KEY_MAPPING_CONFIRM = intPreferencesKey("key_mapping_confirm")
     }
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[SERVER_URL] }
@@ -64,6 +72,16 @@ class PreferencesDataStore @Inject constructor(
     // 播放缓存：MB，0=关闭（默认）；仅当缓存归属服务器与当前 serverUrl 一致时才复用缓存目录
     val playCacheMb: Flow<Int> = context.dataStore.data.map { it[PLAY_CACHE_MB] ?: 0 }
     val cacheServerUrl: Flow<String?> = context.dataStore.data.map { it[CACHE_SERVER_URL] }
+    val keyMapping: Flow<KeyMapping> = context.dataStore.data.map {
+        KeyMapping(
+            up = it[KEY_MAPPING_UP] ?: 0,
+            down = it[KEY_MAPPING_DOWN] ?: 0,
+            left = it[KEY_MAPPING_LEFT] ?: 0,
+            right = it[KEY_MAPPING_RIGHT] ?: 0,
+            back = it[KEY_MAPPING_BACK] ?: 0,
+            confirm = it[KEY_MAPPING_CONFIRM] ?: 0
+        )
+    }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url }
@@ -131,6 +149,17 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setCacheServerUrl(url: String) {
         context.dataStore.edit { it[CACHE_SERVER_URL] = url }
+    }
+
+    suspend fun setKeyMapping(m: KeyMapping) {
+        context.dataStore.edit {
+            it[KEY_MAPPING_UP] = m.up
+            it[KEY_MAPPING_DOWN] = m.down
+            it[KEY_MAPPING_LEFT] = m.left
+            it[KEY_MAPPING_RIGHT] = m.right
+            it[KEY_MAPPING_BACK] = m.back
+            it[KEY_MAPPING_CONFIRM] = m.confirm
+        }
     }
 
     suspend fun setTokens(access: String, refresh: String) {

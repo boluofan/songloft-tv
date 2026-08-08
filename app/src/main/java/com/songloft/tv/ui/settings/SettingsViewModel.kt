@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.api.ApiClient
 import com.songloft.tv.data.cache.PlaybackCache
 import com.songloft.tv.data.storage.PreferencesDataStore
+import com.songloft.tv.domain.KeyMapping
+import com.songloft.tv.domain.MappingTarget
 import com.songloft.tv.domain.PlayerController
 import com.songloft.tv.util.LogStore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,7 +46,8 @@ data class SettingsUiState(
     val lyricHighlightColor: Int = 1,
     val lyricFontSize: Int = 30,
     val playCacheMb: Int = 0,
-    val playCacheUsageBytes: Long = 0
+    val playCacheUsageBytes: Long = 0,
+    val keyMapping: KeyMapping = KeyMapping()
 )
 
 @HiltViewModel
@@ -110,6 +113,11 @@ class SettingsViewModel @Inject constructor(
             dataStore.playCacheMb.collect { mb ->
                 _uiState.value = _uiState.value.copy(playCacheMb = mb)
                 refreshPlayCacheUsage()
+            }
+        }
+        viewModelScope.launch {
+            dataStore.keyMapping.collect { mapping ->
+                _uiState.value = _uiState.value.copy(keyMapping = mapping)
             }
         }
         viewModelScope.launch {
@@ -200,6 +208,26 @@ class SettingsViewModel @Inject constructor(
             // 持久化完成后通知服务：未播放则立即重启，让新大小下次播放即生效
             playerController.applyCacheSetting()
         }
+    }
+
+    fun setKeyMapping(target: MappingTarget, keyCode: Int) {
+        viewModelScope.launch {
+            val current = _uiState.value.keyMapping
+            dataStore.setKeyMapping(
+                when (target) {
+                    MappingTarget.UP -> current.copy(up = keyCode)
+                    MappingTarget.DOWN -> current.copy(down = keyCode)
+                    MappingTarget.LEFT -> current.copy(left = keyCode)
+                    MappingTarget.RIGHT -> current.copy(right = keyCode)
+                    MappingTarget.BACK -> current.copy(back = keyCode)
+                    MappingTarget.CONFIRM -> current.copy(confirm = keyCode)
+                }
+            )
+        }
+    }
+
+    fun resetKeyMapping() {
+        viewModelScope.launch { dataStore.setKeyMapping(KeyMapping()) }
     }
 
     fun refreshPlayCacheUsage() {

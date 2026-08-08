@@ -1,6 +1,7 @@
 package com.songloft.tv.ui.player
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -62,14 +63,24 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.songloft.tv.data.api.UrlHelper
+import com.songloft.tv.domain.KeyMappingManager
 import com.songloft.tv.ui.components.CoverImage
 import com.songloft.tv.ui.theme.PlayerColors
 import com.songloft.tv.ui.theme.TvTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class PlayerActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var keyMappingManager: KeyMappingManager
+
+    /** 用户自定义按键映射：命中映射表的 keycode 翻译成标准功能键 keycode 后继续分发 */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        super.dispatchKeyEvent(keyMappingManager.translateEvent(event))
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

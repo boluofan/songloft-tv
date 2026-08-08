@@ -1,5 +1,6 @@
 package com.songloft.tv.ui.settings
 
+import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -9,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +33,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -45,6 +49,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.songloft.tv.domain.KeyMapping
+import com.songloft.tv.domain.KeyMappingManager
+import com.songloft.tv.domain.MappingTarget
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
 import com.songloft.tv.ui.theme.SelectedFocusBorder
 import com.songloft.tv.ui.theme.seedColorFor
@@ -73,7 +80,7 @@ fun SettingsScreen(
         }
     }
 
-    // 焦点已在返回按钮且页面在顶部时禁用，返回键穿透到外层 BackHandler 直接返回上一级
+    // 焦点已在返回按钮且页面在顶部时禁用，「返回键」穿透到外层 BackHandler 直接返回上一级
     BackHandler(
         enabled = bridge?.hasFocus != true && !(backButtonHasFocus && scrollState.value == 0)
     ) {
@@ -201,6 +208,25 @@ fun SettingsScreen(
                 OptionChip("是", uiState.useCustomKeyboard) { viewModel.setUseCustomKeyboard(true) }
                 OptionChip("否", !uiState.useCustomKeyboard) { viewModel.setUseCustomKeyboard(false) }
             }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        var showKeyMappingDialog by remember { mutableStateOf(false) }
+        SettingsSection("按键设置（自定义遥控器按键映射）") {
+            SettingsItem(
+                label = "自定义按键",
+                value = "配置上 / 下 / 左 / 右 / 返回 / 确认",
+                onClick = { showKeyMappingDialog = true }
+            )
+        }
+        if (showKeyMappingDialog) {
+            KeyMappingDialog(
+                keyMapping = uiState.keyMapping,
+                onSetMapping = viewModel::setKeyMapping,
+                onReset = viewModel::resetKeyMapping,
+                onDismiss = { showKeyMappingDialog = false }
+            )
         }
 
         Spacer(Modifier.height(24.dp))
@@ -580,6 +606,174 @@ private fun UnsupportedDialog(
     LaunchedEffect(Unit) { runCatching { closeFocus.requestFocus() } }
 }
 
+/** 按键设置二级弹窗：列表视图（6 个功能键 + 恢复默认）与录制视图在同一个 Dialog 内切换。
+ *  对话框是独立窗口，不经过 Activity 层翻译，录制时收到的即原始 keycode；
+ *  录制视图捕获任意 KeyDown 完成映射，KeyUp 一并消费防止平台关闭对话框 */
+@Composable
+private fun KeyMappingDialog(
+    keyMapping: KeyMapping,
+    onSetMapping: (MappingTarget, Int) -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var capturing by remember { mutableStateOf<MappingTarget?>(null) }
+    var hint by remember { mutableStateOf<String?>(null) }
+    val firstRowFocus = remember { FocusRequester() }
+    val closeFocus = remember { FocusRequester() }
+    var closeFocused by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.55f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 36.dp, vertical = 28.dp)
+                .onPreviewKeyEvent { event ->
+                    val target = capturing ?: return@onPreviewKeyEvent false
+                    when (event.type) {
+                        KeyEventType.KeyDown -> {
+                            val raw = event.nativeKeyEvent.keyCode
+                            val occupied = KeyMappingManager.occupiedTarget(keyMapping, target, raw)
+                            when {
+                                raw == KeyEvent.KEYCODE_UNKNOWN -> {
+                                    hint = "无法识别该按键，请重试"
+                                    true
+                                }
+                                raw == KeyEvent.KEYCODE_BACK && target != MappingTarget.BACK -> {
+                                    capturing = null
+                                    true
+                                }
+                                occupied != null -> {
+                                    hint = "该按键已被【${occupied.displayName}键】使用"
+                                    true
+                                }
+                                else -> {
+                                    onSetMapping(target, raw)
+                                    capturing = null
+                                    true
+                                }
+                            }
+                        }
+                        else -> true
+                    }
+                }
+        ) {
+            val target = capturing
+            if (target == null) {
+                Text(
+                    text = "按键设置",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "点击要修改的按键，然后在遥控器上按下您希望使用的实际按键",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(16.dp))
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = KEY_MAPPING_DIALOG_LIST_HEIGHT.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(MappingTarget.entries) { item ->
+                        SettingsItem(
+                            label = "${item.displayName}键",
+                            value = KeyMappingManager.keyDisplayName(keyMapping.valueFor(item)),
+                            onClick = {
+                                capturing = item
+                                hint = null
+                            },
+                            focusRequester = if (item == MappingTarget.UP) firstRowFocus else null
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            label = "恢复默认",
+                            value = "重置全部按键映射",
+                            onClick = onReset
+                        )
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    text = "关闭",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (closeFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (closeFocused) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                        .focusRequester(closeFocus)
+                        .onFocusChanged { closeFocused = it.isFocused }
+                        .clickable { onDismiss() }
+                        .padding(horizontal = 28.dp, vertical = 10.dp)
+                )
+            } else {
+                Text(
+                    text = "自定义按键",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = if (target == MappingTarget.BACK) {
+                        "请按下您希望作为【「返回键」】使用的按键"
+                    } else {
+                        "请按下您希望作为【${target.displayName}键】使用的按键\n（按「返回键」可取消录制）"
+                    },
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                )
+                hint?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(Modifier.height(24.dp))
+                var cancelFocused by remember { mutableStateOf(false) }
+                Text(
+                    text = "取消",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (cancelFocused) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (cancelFocused) MaterialTheme.colorScheme.surfaceVariant
+                            else Color.Transparent
+                        )
+                        .then(
+                            if (cancelFocused) Modifier.border(
+                                2.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(8.dp)
+                            ) else Modifier
+                        )
+                        .focusRequester(closeFocus)
+                        .onFocusChanged { cancelFocused = it.isFocused }
+                        .clickable { capturing = null }
+                        .padding(horizontal = 28.dp, vertical = 10.dp)
+                )
+            }
+        }
+    }
+
+    // 打开弹窗及录制取消/完成后，焦点回到第一个配置项「上键」，确认键即可直接进入录制
+    LaunchedEffect(capturing) {
+        if (capturing == null) runCatching { firstRowFocus.requestFocus() }
+    }
+}
+
 @Composable
 private fun HelpDialog(onDismiss: () -> Unit) {
     val closeFocus = remember { FocusRequester() }
@@ -609,28 +803,28 @@ private fun HelpDialog(onDismiss: () -> Unit) {
                     HelpBlock(
                         title = "首页",
                         lines = listOf(
-                            "列表已滚动时按返回键：快速回到顶部并聚焦顶部按钮",
-                            "已在顶部时按返回键：焦点跳到底部 Tab 栏",
-                            "焦点在底部 Tab 栏时按返回键：弹出退出应用确认"
+                            "列表已滚动时按「「返回键」」：快速回到顶部并聚焦顶部按钮",
+                            "已在顶部时按「返回键」：焦点跳到底部 Tab 栏",
+                            "焦点在底部 Tab 栏时按「返回键」：弹出退出应用确认"
                         )
                     )
                     HelpBlock(
                         title = "其他一级界面（搜索 / 歌单 / 我的）",
                         lines = listOf(
-                            "列表已滚动时按返回键：快速回到顶部并聚焦顶部按钮",
-                            "在顶部但焦点不在顶部按钮时按返回键：焦点跳到顶部按钮",
-                            "焦点已在顶部按钮时按返回键：焦点先跳到底部 Tab 栏",
-                            "焦点在底部 Tab 栏时按返回键：回到首页，再按弹出退出应用确认"
+                            "列表已滚动时按「返回键」：快速回到顶部并聚焦顶部按钮",
+                            "在顶部但焦点不在顶部按钮时按「返回键」：焦点跳到顶部按钮",
+                            "焦点已在顶部按钮时按「返回键」：焦点先跳到底部 Tab 栏",
+                            "焦点在底部 Tab 栏时按「返回键」：回到首页，再按弹出退出应用确认"
                         )
                     )
                     HelpBlock(
                         title = "二级界面（歌单详情 / 筛选歌曲 / 设置等）",
                         lines = listOf(
-                            "进入时焦点默认在左上角【返回】按钮，直接按返回键即回上一级",
-                            "列表已滚动时按返回键：先回到顶部并聚焦【返回】按钮",
-                            "在顶部但焦点不在【返回】按钮时按返回键：焦点跳到【返回】按钮",
-                            "焦点已在【返回】按钮时按返回键：直接回上一级",
-                            "焦点在底部 Tab 栏时按返回键：直接回上一级"
+                            "进入时焦点默认在左上角【返回】按钮，直接按「返回键」即回上一级",
+                            "列表已滚动时按「返回键」：先回到顶部并聚焦【返回】按钮",
+                            "在顶部但焦点不在【返回】按钮时按「返回键」：焦点跳到【返回】按钮",
+                            "焦点已在【返回】按钮时按「返回键」：直接回上一级",
+                            "焦点在底部 Tab 栏时按「返回键」：直接回上一级"
                         )
                     )
                 }
@@ -641,16 +835,24 @@ private fun HelpDialog(onDismiss: () -> Unit) {
                             "控制栏隐藏时：左/右键单击切上一首/下一首，长按快退/快进",
                             "控制栏隐藏时：按上/下/确认键唤出控制栏",
                             "控制栏 10 秒无操作自动隐藏",
-                            "播放列表侧边栏打开时按返回键：关闭侧边栏",
-                            "其余情况按返回键：退出播放器（音乐可后台继续播放）"
+                            "播放列表侧边栏打开时按「返回键」：关闭侧边栏",
+                            "其余情况按「返回键」：退出播放器（音乐可后台继续播放）"
                         )
                     )
                     HelpBlock(
                         title = "快速聚焦技巧",
                         lines = listOf(
-                            "长列表中任意位置按返回键 = 一键回顶，无需长按方向键",
-                            "首页在顶部时按返回键：焦点直达底部 Tab 栏",
-                            "任意界面连按返回键最终都会回到首页，再按弹出退出确认"
+                            "长列表中任意位置按「返回键」 = 一键回顶，无需长按方向键",
+                            "首页在顶部时按「返回键」：焦点直达底部 Tab 栏",
+                            "任意界面连按「返回键」最终都会回到首页，再按弹出退出确认"
+                        )
+                    )
+                    HelpBlock(
+                        title = "自定义按键",
+                        lines = listOf(
+                            "在「按键设置」中按下遥控器实际按键，即可映射到上/下/左/右/返回/确认",
+                            "映射后应用内所有界面（含播放器）按自定义键生效，原默认键仍可用",
+                            "录制时按「返回键」可取消；「恢复默认」可清除全部映射"
                         )
                     )
                 }
@@ -721,7 +923,8 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
 private fun SettingsItem(
     label: String,
     value: String,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    focusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
@@ -729,6 +932,7 @@ private fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .then(if (onClick != null) Modifier
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable { onClick() }
@@ -949,6 +1153,9 @@ private const val CACHE_SIZE_MAX = 1024
 private const val CACHE_SIZE_STEP = 128
 private const val CACHE_SIZE_DEFAULT = 0
 private const val CACHE_SIZE_SLIDE_THRESHOLD = 24f
+
+// 按键设置弹窗列表最大高度：超出后滚动，避免小屏设备上按钮被截断
+private const val KEY_MAPPING_DIALOG_LIST_HEIGHT = 320
 
 @Composable
 private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {
