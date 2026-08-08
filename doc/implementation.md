@@ -82,7 +82,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 
 ### 2.5 存储（`data/storage/PreferencesDataStore.kt`）
 
-DataStore 名 `songloft_tv_settings`，19 个 key：`server_url`、`theme_mode`(Int，0=跟随系统/1=浅色/2=深色/3=暗夜)、`theme_color`(String，默认 `"indigo"`)、`audio_quality`、`access_token`、`refresh_token`、`background_playback`、`use_custom_keyboard`、`ignored_version_code`、`eq_enabled`(Boolean)、`eq_preset`(Int，系统预设下标，-1=自定义)、`eq_bands`(String，逗号分隔 dB)、`sfx_enabled`(Boolean)、`sfx_mode`(String，virtualizer/bass_boost/loudness/reverb)、`sfx_strength`(Int，0-100)、`lyric_highlight_color`(Int)、`lyric_font_size`(Int，默认 30)、`play_cache_mb`(Int，MB，0=关闭)、`cache_server_url`(String，缓存归属服务器)。均以 Flow 暴露。
+DataStore 名 `songloft_tv_settings`，27 个 key：`server_url`、`theme_mode`(Int，0=跟随系统/1=浅色/2=深色/3=暗夜)、`theme_color`(String，默认 `"indigo"`)、`audio_quality`、`access_token`、`refresh_token`、`background_playback`、`use_custom_keyboard`、`ignored_version_code`、`eq_enabled`(Boolean)、`eq_preset`(Int，系统预设下标，-1=自定义)、`eq_bands`(String，逗号分隔 dB)、`sfx_enabled`(Boolean)、`sfx_mode`(String，virtualizer/bass_boost/loudness/reverb)、`sfx_strength`(Int，0-100)、`lyric_highlight_color`(Int)、`lyric_font_size`(Int，默认 30)、`play_cache_mb`(Int，MB，0=关闭)、`cache_server_url`(String，缓存归属服务器)、`key_mapping_up/down/left/right/back/confirm/top/bottom`(Int，自定义按键映射，0=未设置)。均以 Flow 暴露；按键映射以 `KeyMapping` 数据类聚合暴露，`setKeyMapping` 单次原子写 6+2 个 key。
 
 ### 2.6 播放缓存（`data/cache/PlaybackCache.kt`）
 
@@ -145,7 +145,7 @@ DataStore 名 `songloft_tv_settings`，19 个 key：`server_url`、`theme_mode`(
 
 - **PlayerActivity**：独立 Activity，仅承载 `PlayerScreen`。
 - **PlayerViewModel**：collect PlayerController.state 映射 UiState；进度轮询自适应——有逐字歌词时 60ms（卡拉 OK 平滑），否则 500ms；收藏乐观更新、失败回滚。
-- **交互**：控制栏 10s 无操作自动隐藏；控制隐藏时——左右键长按连续 ±10s seek、短按切歌、上下/OK 唤出控制栏；媒体键直达。控制栏左上角带返回按钮（`PlayerActivity` 内 BackHandler/按钮返回主界面）。
+- **交互**：控制栏 10s 无操作自动隐藏；控制隐藏时——左右键长按连续 ±10s seek、短按切歌、上下/OK 唤出控制栏；媒体键直达（MediaNext/Previous/PlayPause）。控制栏左上角带返回按钮（`PlayerActivity` 内 BackHandler/按钮返回主界面）。
 - **两种模式**：视频（全屏 `VideoPlayer` = PlayerView 绑定 MediaController，多音轨时右上角 TrackChips）；音频（封面 blur(60dp) 毛玻璃背景 + 左封面/右 `LyricsPanel`）。
 - **LyricsPanel**：自动滚动居中；逐字行渲染 KaraokeLine（按 word start/end 进度逐字点亮）；附带翻译行。
 - **ControlBar**：SeekBar（支持触屏点击定位 + 拖拽 seek）+ 上一曲/播放暂停/下一曲/播放模式/收藏/重新获取歌词/均衡器/队列按钮（重新获取歌词走 `refresh=1` 重跑服务端歌词插件搜索，请求中按钮显示加载圈）。
@@ -165,6 +165,8 @@ DataStore 名 `songloft_tv_settings`，19 个 key：`server_url`、`theme_mode`(
 - `jumpToTabBar` 参数（一级 tab 页专用）：焦点已在顶部元素且列表在顶部时**不穿透**，先跳底部 Tab 栏。首页（`topFocusInList=true`，顶部=管理歌单）、搜索（顶部=搜索框）、歌单（顶部=全部过滤 chip）、我的（顶部=收藏歌曲 chip）四个 tab 页均启用，返回链路统一为：回顶 → 聚焦顶部按钮 → 跳 Tab 栏 → 回首页 → 退出确认。
 - 首页默认焦点落在**底部 Tab 栏当前选中的「首页」按钮**（`HomeScreen` 中 `defaultFocusTarget = tabBarBridge?.tabFocusRequester ?: topFocus`，无 bridge 环境回退管理歌单）；其余 tab 页默认焦点在各页顶部元素（搜索框/过滤 chip/设置按钮）。
 - `ScreenFocusRestorer`：二级界面返回时恢复点击来源元素焦点（`restorableFocus` 按 pendingKey 挂 requester，`RestoreFocusEffect` 按帧重试），优先级高于默认焦点。
+- **自定义按键映射**（`domain/KeyMappingManager.kt`）：8 个功能键（上/下/左/右/返回/确认 + 特殊业务键"返回顶部/返回底部"），用户可把遥控器/方向盘的任意物理键录制映射到功能键（录制式交互：设置页弹窗内按下目标物理键即捕获 keycode，0=未设置）。`MainActivity` 与 `PlayerActivity` 覆写 `Activity.dispatchKeyEvent`：命中映射表的 keycode 经 `translateEvent` 翻译为标准 keycode（DPAD_UP=19/DOWN=20/LEFT=21/RIGHT=22/BACK=4/CENTER=23）后继续分发，Compose 层焦点导航、`BackHandler`、媒体键监听自动生效，无需改任何监听点；DOWN/UP 成对翻译保持 repeatCount/scanCode 等字段（长按 seek 不受影响）。录制对话框利用 Compose `Dialog` 独立窗口特性（不经过 Activity.dispatchKeyEvent）在内容根部 `onPreviewKeyEvent` 捕获**原始** keycode；KEYCODE_UNKNOWN 拒绝、录制非"返回"项时按返回取消、重复占用其他功能键提示。
+- **返回顶部/返回底部**（`PageScrollBridge`，compositionLocal）：特殊业务键由 `MainActivity.dispatchKeyEvent` 拦截（`matchSpecialKey` 命中即消费事件），调用当前组合页面注册的滚动回调。`ListBackToTopHandler` 统一为 8 个长列表页注册：返回顶部 = 滚到列表第一项并聚焦顶部返回按钮；返回底部 = 焦点直接跳到底部 Tab 栏（首页/搜索/歌单/我的，便于快速切换页面）。设置页单独注册：返回顶部 = 聚焦顶部返回按钮并滚回顶部；返回底部 = 聚焦最下方"退出登录"按钮。页面销毁时注销回调。
 
 启动流程：`MainApp` 观察 `AuthViewModel.authState`，`LoggedIn` 进 TvApp，否则显示 `AuthSetupScreen`。有播放时右下角悬浮 `FloatingPlayerBar`。
 
@@ -191,6 +193,7 @@ DataStore 名 `songloft_tv_settings`，19 个 key：`server_url`、`theme_mode`(
 - **播放缓存**：`CacheSizeRow` 调节 0-1024MB（步进 128，D-Pad 左右键 + 触屏滑动，0=关闭、1024=1 GB、其余 xxx MB，"恢复默认"=0）；提示"未播放时修改立即生效，播放中将于下次播放生效；设为 0 即关闭并清空缓存；更换服务器后自动清空"；下方显示**当前占用**（`PlaybackCache.usage` 统计目录文件字节）+ **清除缓存**按钮（`clearPlayCache` 发 `cache/clear`）；占用数值在设置页可见期间**每 5 秒心跳刷新**（`cacheUsageTicker` flow + `repeatOnLifecycle(STARTED)` collect，离开页面自动停止）。
 - **背景播放**：退出应用时是否 stopService（关闭则退出时结束后台播放）。
 - **自定义键盘**：使用 `TvKeyboard` 或系统键盘。
+- **按键设置**（自定义遥控器按键映射）：二级弹窗内 8 个配置项——上/下/左/右/返回/确认 + 返回顶部/返回底部，点击任意一项进入**录制模式**（"请按下您希望作为【X】使用的按键"，按下物理键即保存并关闭；无法识别的键拒绝、录制非"返回"项时按返回取消、已分配给其他功能键的按键提示不可用），末尾"恢复默认"一键重置；持久化 `key_mapping_*`，重启后生效，机制见 §4.1。适用于 keycode 非标的遥控器/车机方向盘按键。
 - **睡眠定时**：分钟定时 + 播完 N 首两种（互斥），直接调 PlayerController（不持久化），剩余量实时回显。
 - **音效开关**：音效 + 均衡器二合一总开关（开启时分别校验能力，两者均不支持弹"当前设备不支持音效"对话框；关闭时同时关 EQ/SFX）。
 - **歌词**：高亮色（默认白色/跟随主题色）+ 字号调节（`LyricSizeRow`，D-Pad 左右键 + 触屏滑动，30-60sp）。
