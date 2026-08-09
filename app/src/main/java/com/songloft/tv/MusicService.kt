@@ -36,6 +36,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.songloft.tv.data.api.ApiClient
+import com.songloft.tv.data.cache.Id3SkippingDataSource
 import com.songloft.tv.data.cache.PlaybackCache
 import com.songloft.tv.data.cache.RoutingDataSource
 import com.songloft.tv.data.storage.PreferencesDataStore
@@ -43,6 +44,7 @@ import com.songloft.tv.ui.player.PlayerActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -121,16 +123,21 @@ class MusicService : MediaSessionService() {
             runBlocking { dataStore.setCacheServerUrl(serverUrl) }
         }
 
-        // 流媒体请求需携带 JWT，token 可能在运行期刷新，故每次创建数据源时读取
+        // 流媒体请求需携带 JWT，token 可能在运行期刷新，故每次创建数据源时读取；
+        // ID3 剥离：兼容 bili 下载产生的「ID3v2 标签 + MP4 容器」混合文件
+        val id3SkipCache = ConcurrentHashMap<String, Long>()
         val upstreamFactory = DataSource.Factory {
-            DefaultHttpDataSource.Factory()
-                .setAllowCrossProtocolRedirects(true)
-                .createDataSource()
-                .apply {
-                    ApiClient.authInterceptor.accessToken?.let {
-                        setRequestProperty("Authorization", "Bearer $it")
-                    }
-                }
+            Id3SkippingDataSource(
+                DefaultHttpDataSource.Factory()
+                    .setAllowCrossProtocolRedirects(true)
+                    .createDataSource()
+                    .apply {
+                        ApiClient.authInterceptor.accessToken?.let {
+                            setRequestProperty("Authorization", "Bearer $it")
+                        }
+                    },
+                id3SkipCache
+            )
         }
         // 开启缓存时：非 m3u8 资源经 CacheDataSource（LRU 淘汰），m3u8 直播清单走纯流式
         val dataSourceFactory = cache?.let { cache ->
