@@ -27,7 +27,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -111,10 +114,24 @@ class SearchViewModel @Inject constructor(
 
     private var loadMoreBrowseJob: Job? = null
 
+    private val indexRefreshMutex = Mutex()
+    private var lastIndexBuildMs = 0L
+
     init {
         viewModelScope.launch { favoriteRepository.ensureFavoriteIdsLoaded() }
         viewModelScope.launch { loadSearchIndex() }
         viewModelScope.launch { loadBrowsePage() }
+        startIndexHeartbeat()
+    }
+
+    /** 心跳：周期静默重建拼音索引，曲库新增/改名歌曲自动进入候选 */
+    private fun startIndexHeartbeat() {
+        viewModelScope.launch {
+            while (isActive) {
+                delay(INDEX_REFRESH_INTERVAL_MS)
+                refreshSearchIndex()
+            }
+        }
     }
 
     /** 首次进入无关键词：分页拉取曲库第一页作为默认内容 */
@@ -169,10 +186,29 @@ class SearchViewModel @Inject constructor(
         if (popularArtists.isNotEmpty()) {
             _uiState.value = _uiState.value.copy(hotTags = popularArtists.take(10))
         }
+        buildSearchIndex(popularArtists)
+    }
+
+    /** 后台静默刷新拼音索引：保留旧索引直到新索引就绪；短间隔内重复调用直接跳过（含首次并发去重） */
+    fun refreshSearchIndex() {
+        viewModelScope.launch {
+            indexRefreshMutex.withLock {
+                if (System.currentTimeMillis() - lastIndexBuildMs < INDEX_REFRESH_MIN_GAP_MS) return@withLock
+                buildSearchIndex(emptyList())
+            }
+        }
+    }
+
+    /** 拉取全量歌名/歌手名并重建拼音索引；拉取失败或结果为空时保留旧索引 */
+    private suspend fun buildSearchIndex(fallbackArtists: List<String>) {
         val titles = songRepository.getSongNames("title").getOrDefault(emptyList())
         val artists = songRepository.getSongNames("artist").getOrDefault(emptyList())
-        val names = (titles + artists).ifEmpty { popularArtists }
-        pinyinIndex = withContext(Dispatchers.Default) { PinyinMatcher.index(names) }
+        val names = (titles + artists).ifEmpty { fallbackArtists }
+        if (names.isEmpty()) return
+        val newIndex = withContext(Dispatchers.Default) { PinyinMatcher.index(names) }
+        if (newIndex.isEmpty()) return
+        pinyinIndex = newIndex
+        lastIndexBuildMs = System.currentTimeMillis()
     }
 
     fun onQueryChanged(query: String) {
@@ -232,5 +268,9 @@ class SearchViewModel @Inject constructor(
     companion object {
         private val REMOTE_PORTS = intArrayOf(18903, 18904, 18905, 18906)
         private const val BROWSE_PAGE_SIZE = 50
+        /** 心跳刷新间隔：曲库新增歌曲最多延迟这么久进入拼音候选 */
+        private const val INDEX_REFRESH_INTERVAL_MS = 30 * 1000L
+        /** 最小刷新间隔：避免进入页面与心跳/首次加载互相重复拉取 */
+        private const val INDEX_REFRESH_MIN_GAP_MS = 15 * 1000L
     }
 }

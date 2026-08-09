@@ -70,6 +70,11 @@ fun SearchScreen(
         runCatching { searchBoxFocus.requestFocus() }
     }
 
+    // 每次进入搜索页静默刷新拼音索引（ViewModel 为 Activity 级，init 只在进程启动后执行一次）
+    LaunchedEffect(Unit) {
+        viewModel.refreshSearchIndex()
+    }
+
     LaunchedEffect(Unit) {
         viewModel.remoteSubmitEvents.collect {
             showQrDialog = false
