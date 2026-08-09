@@ -59,9 +59,19 @@ fun SearchScreen(
     var showQrDialog by remember { mutableStateOf(false) }
     val searchBoxFocus = remember { FocusRequester() }
     val keyboardFocus = remember { FocusRequester() }
+    val candidateFocus = remember { FocusRequester() }
 
     LaunchedEffect(showKeyboard) {
         if (showKeyboard) runCatching { keyboardFocus.requestFocus() }
+    }
+    // 键盘关闭后：有拼音候选时焦点直接落到第一个候选（候选词少时用 D-Pad 很难选中），否则回搜索框
+    LaunchedEffect(showKeyboard) {
+        if (showKeyboard) return@LaunchedEffect
+        if (uiState.candidates.isNotEmpty()) {
+            runCatching { candidateFocus.requestFocus() }
+        } else {
+            runCatching { searchBoxFocus.requestFocus() }
+        }
     }
     var searchFocused by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -228,8 +238,11 @@ fun SearchScreen(
         // 候选词若在其内会被挤扁变形
         if (uiState.candidates.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(uiState.candidates) { candidate ->
-                    HotTagChip(candidate) {
+                itemsIndexed(uiState.candidates) { index, candidate ->
+                    HotTagChip(
+                        tag = candidate,
+                        modifier = if (index == 0) Modifier.focusRequester(candidateFocus) else Modifier
+                    ) {
                         viewModel.onQueryChanged(candidate)
                         showKeyboard = false
                         runCatching { searchBoxFocus.requestFocus() }
@@ -352,7 +365,7 @@ fun SearchScreen(
                             }
                         }
                         "清空" -> viewModel.clearSearch()
-                        "确定" -> { showKeyboard = false; searchBoxFocus.requestFocus() }
+                        "确定" -> { showKeyboard = false }
                         "空格" -> viewModel.onQueryChanged("${uiState.query} ")
                         else -> viewModel.onQueryChanged("${uiState.query}$key")
                     }
@@ -492,7 +505,7 @@ private fun HotSearchSection(hotTags: List<String>, onTagClick: (String) -> Unit
 }
 
 @Composable
-private fun HotTagChip(tag: String, onClick: () -> Unit) {
+private fun HotTagChip(tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
 
     Text(
@@ -501,7 +514,7 @@ private fun HotTagChip(tag: String, onClick: () -> Unit) {
         fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
         color = if (isFocused) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(
                 if (isFocused) MaterialTheme.colorScheme.primary
