@@ -131,6 +131,7 @@ DataStore 名 `songloft_tv_settings`，27 个 key：`server_url`、`theme_mode`(
 - **睡眠定时器**（两种互斥）：`setSleepTimer(minutes)` 协程每分钟递减；`setSleepAfterSongs(count)` 在自然转场时递减；归零 pause。UI 入口在设置页。
 - **均衡器**：`PlaybackState` 暴露 eqSupported/eqEnabled/eqPreset/eqBands/eqBandFrequencies/eqBandLevelMin/Max/eqPresetNames。`init` 中 `combine(eqEnabled, eqPreset, eqBands)` 收集 DataStore flow——UI 修改只写 DataStore，闭环自动 `sendEqApply`（幂等）；连接时**先应用缓存配置再 `queryEqInfo`**（保证 info 反映应用后状态），播放就绪（STATE_READY）且仍不支持时 `retryEqSetup` 重试（音频会话晚于连接就绪的冷启动竞态）。`setEqualizerBand` 手动调频段时自动将 preset 置 -1（自定义曲线）。
 - **音效**：`PlaybackState` 暴露 sfxEnabled/sfxMode/sfxStrength/sfxSupportedMatrix/sfxA2dpActive/sfxActiveMode；与均衡器同构的 DataStore 闭环（`sfx_enabled`/`sfx_mode`/`sfx_strength`），连接时先应用缓存再 `querySfxInfo`；`sfx/info` 回传能力矩阵与 A2DP 状态，UI 据此显示"当前设备不支持音效"提示或蓝牙输出提醒。
+- **原伴唱音效联动**：切到伴唱（第 1 条音轨视为原唱，其余视为伴唱）且设备支持响度音效时，把当前音效（开关/模式/强度）备份到内存（`sfxBackup`，不写 DataStore），临时切到响度模式；切回原唱、切到新歌或重新播放时还原备份。覆盖只改运行缓存（`sfxEnabledCache` 等），服务重连/播放就绪重放时按缓存生效，进程重启后仍是用户原设置。
 - **缓存命令**：`clearPlayCache(onResult)` 发 `cache/clear`，回调透传成功与否；`applyCacheSetting()` 发 `cache/apply`，若当前未播放则 `release()` 并**同时清空 controllerFuture**（旧 future 指向已释放的 controller，不清会导致下次连接复用已释放实例），让服务停止后下次播放按新大小生效。
 
 ### 3.3 LyricParser（`domain/LyricParser.kt`）

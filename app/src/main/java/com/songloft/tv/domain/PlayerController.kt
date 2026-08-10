@@ -77,6 +77,9 @@ private val SFX_MODES = linkedMapOf(
 private val SFX_MODE_KEYS = SFX_MODES.keys.toList()
 private val SFX_MODE_NAMES = SFX_MODES.values.toList()
 
+// 伴唱模式下被临时替换的音效设置（开关/模式/强度），切回原唱时还原
+private data class SfxBackup(val enabled: Boolean, val mode: String, val strength: Int)
+
 enum class PlayMode { ORDER, LOOP, SINGLE, RANDOM }
 
 data class PlaybackState(
@@ -141,6 +144,9 @@ class PlayerController @Inject constructor(
     private var sfxEnabledCache: Boolean = false
     private var sfxModeCache: String = "virtualizer"
     private var sfxStrengthCache: Int = 50
+
+    // 伴唱模式下音效的运行时备份（不落盘）：切伴唱时备份当前音效并临时切响度，回原唱时还原
+    private var sfxBackup: SfxBackup? = null
 
     // 输出设备切换（HDMI/蓝牙/内置喇叭）后音效能力可能变化，主动刷新让 UI 实时感知
     private val audioDeviceCallback = object : AudioDeviceCallback() {
@@ -225,6 +231,10 @@ class PlayerController @Inject constructor(
                     },
                     duration = ((song?.duration ?: 0.0) * 1000).toLong()
                 )
+            }
+            // 新歌默认回到第一轨（原唱），伴唱音效覆盖随之还原（同曲音轨切换保留覆盖）
+            if (song != null && song.id != previousSong?.id) {
+                setTrackSfxOverride(accompaniment = false)
             }
         }
 
@@ -321,6 +331,8 @@ class PlayerController @Inject constructor(
             c.prepare()
             c.play()
         }
+        // 新播放从第一轨（原唱）开始，伴唱音效覆盖还原（同曲重播时 onMediaItemTransition 不触发）
+        setTrackSfxOverride(accompaniment = false)
     }
 
     fun togglePlay() = withController { c ->
@@ -371,6 +383,7 @@ class PlayerController @Inject constructor(
             c.play()
         }
         _state.update { it.copy(currentTrack = track) }
+        syncSfxWithTrack(track)
     }
 
     private fun switchEmbeddedTrack(track: Track) {
@@ -384,6 +397,46 @@ class PlayerController @Inject constructor(
                 .build()
             _state.update { it.copy(currentTrack = track) }
         }
+        syncSfxWithTrack(track)
+    }
+
+    // 原伴唱音效联动：第 1 条音轨视为原唱，其余视为伴唱（与 ControlBar 的按钮状态一致）
+    private fun syncSfxWithTrack(track: Track) {
+        val accompaniment = when {
+            track.id.startsWith(EMBEDDED_TRACK_PREFIX) ->
+                (track.id.removePrefix(EMBEDDED_TRACK_PREFIX).toIntOrNull() ?: 0) > 0
+            else ->
+                (_state.value.currentSong?.tracks?.indexOfFirst { it.id == track.id } ?: 0) > 0
+        }
+        setTrackSfxOverride(accompaniment)
+    }
+
+    // 伴唱：备份当前音效（开关/模式/强度）并临时切响度；回原唱：还原备份。
+    // 仅设备支持响度音效时生效，且只改运行缓存不写 DataStore，进程重启后仍是用户原设置
+    private fun setTrackSfxOverride(accompaniment: Boolean) {
+        if (!accompaniment) {
+            val backup = sfxBackup ?: return
+            sfxBackup = null
+            applySfxOverride(backup.enabled, backup.mode, backup.strength)
+            Log.d(TAG, "伴唱结束，音效还原：enabled=${backup.enabled} mode=${backup.mode} strength=${backup.strength}")
+            return
+        }
+        if (sfxBackup != null) return
+        val loudnessIndex = SFX_MODE_KEYS.indexOf("loudness")
+        if (loudnessIndex < 0 || !_state.value.sfxModeSupported.getOrElse(loudnessIndex) { false }) return
+        val s = _state.value
+        sfxBackup = SfxBackup(s.sfxEnabled, s.sfxMode, s.sfxStrength)
+        applySfxOverride(true, "loudness", s.sfxStrength)
+        Log.d(TAG, "切伴唱，音效备份：enabled=${s.sfxEnabled} mode=${s.sfxMode} strength=${s.sfxStrength}，临时切响度")
+    }
+
+    // 直接应用音效（绕过 DataStore 闭环），同步缓存与状态；服务重连/播放就绪时会按缓存重放
+    private fun applySfxOverride(enabled: Boolean, mode: String, strength: Int) {
+        sfxEnabledCache = enabled
+        sfxModeCache = mode
+        sfxStrengthCache = strength
+        _state.update { it.copy(sfxEnabled = enabled, sfxMode = mode, sfxStrength = strength) }
+        sendSfxApply(enabled, mode, strength)
     }
 
     fun currentPosition(): Long = controller?.currentPosition ?: 0L
