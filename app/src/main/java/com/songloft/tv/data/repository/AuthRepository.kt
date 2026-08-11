@@ -42,6 +42,24 @@ class AuthRepository @Inject constructor(
         }
 
     /**
+     * tv-helper 插件远程一键登录：宿主插件 token 永不过期，无需 refresh token，
+     * 写入空 refresh token 即可（token 失效只发生在宿主重启后重新签发，届时回到配置页重新配对）。
+     */
+    suspend fun applyRemoteLogin(serverUrl: String, accessToken: String): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                ApiClient.initialize(serverUrl)
+                com.songloft.tv.data.api.UrlHelper.initialize(serverUrl)
+                ApiClient.authInterceptor.accessToken = accessToken
+                ApiClient.authInterceptor.refreshToken = null
+                ApiClient.getApi().health()
+                dataStore.setServerUrl(serverUrl)
+                dataStore.setTokens(accessToken, "")
+                true
+            }.getOrDefault(false)
+        }
+
+    /**
      * 服务器返回 401 时 Retrofit 抛出的 HttpException.message 只是 "HTTP 401"，
      * 真实原因在响应体 JSON（如 {"error":"用户名或密码错误"}）里，这里解析出来替换。
      */

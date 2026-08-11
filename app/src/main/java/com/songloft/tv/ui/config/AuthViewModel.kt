@@ -1,6 +1,8 @@
 package com.songloft.tv.ui.config
 
 import android.content.Context
+import android.os.Build
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.songloft.tv.data.config.ConfigWebServer
@@ -10,6 +12,9 @@ import com.songloft.tv.util.LogStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fi.iki.elonen.NanoHTTPD
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -59,35 +64,88 @@ class AuthViewModel @Inject constructor(
     private val _configUrl = MutableStateFlow<String?>(null)
     val configUrl: StateFlow<String?> = _configUrl.asStateFlow()
 
+    private val _pairingPin = MutableStateFlow("")
+    val pairingPin: StateFlow<String> = _pairingPin.asStateFlow()
+
     val useCustomKeyboard: StateFlow<Boolean> = dataStore.useCustomKeyboard
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     private var configServer: ConfigWebServer? = null
+    private var pinRefreshJob: Job? = null
+
+    private val deviceName: String =
+        runCatching {
+            Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
+        }.getOrNull().orEmpty()
+            .ifBlank { Build.MODEL }
 
     fun startConfigServer() {
         if (configServer != null) return
         val ip = ConfigWebServer.localIpAddress() ?: return
+        _pairingPin.value = generatePin()
         for (port in CONFIG_PORTS) {
-            val server = ConfigWebServer(port, onConfig = { serverUrl, username, password ->
-                viewModelScope.launch {
-                    _serverUrl.value = serverUrl
-                    _username.value = username
-                    _password.value = password
-                    login()
+            val server = ConfigWebServer(
+                port,
+                onConfig = { serverUrl, username, password ->
+                    viewModelScope.launch {
+                        _serverUrl.value = serverUrl
+                        _username.value = username
+                        _password.value = password
+                        login()
+                    }
+                },
+                logsDir = LogStore.dir(context),
+                deviceName = deviceName,
+                pin = _pairingPin.value,
+                onPushToken = { serverUrl, token ->
+                    viewModelScope.launch { handlePushToken(serverUrl, token) }
                 }
-            }, logsDir = LogStore.dir(context))
+            )
             if (runCatching { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }.isSuccess) {
                 configServer = server
+                server.startBeacon()
+                startPinRefresh()
                 _configUrl.value = "http://$ip:$port"
                 return
             }
         }
     }
 
+    private fun startPinRefresh() {
+        pinRefreshJob?.cancel()
+        pinRefreshJob = viewModelScope.launch {
+            while (isActive) {
+                delay(PIN_REFRESH_INTERVAL_MS)
+                _pairingPin.value = generatePin()
+                configServer?.pin = _pairingPin.value
+            }
+        }
+    }
+
     private fun stopConfigServer() {
+        pinRefreshJob?.cancel()
+        pinRefreshJob = null
+        configServer?.stopBeacon()
         configServer?.stop()
         configServer = null
         _configUrl.value = null
+        _pairingPin.value = ""
+    }
+
+    /** tv-helper 插件远程一键登录：校验宿主 token 可用后持久化并进入主界面 */
+    private suspend fun handlePushToken(serverUrl: String, token: String) {
+        if (authRepository.applyRemoteLogin(serverUrl, token)) {
+            _serverUrl.value = serverUrl
+            _authState.value = AuthState.LoggedIn("tv-helper")
+            stopConfigServer()
+        } else {
+            _error.value = "远程登录失败：token 无效或服务器不可达，请重试或改用扫码登录"
+        }
+    }
+
+    private fun generatePin(): String {
+        val random = java.security.SecureRandom()
+        return (1..4).joinToString("") { random.nextInt(10).toString() }
     }
 
     /** 无协议前缀时按 https → http 顺序生成候选地址，探测出可用协议 */
@@ -181,5 +239,6 @@ class AuthViewModel @Inject constructor(
 
     companion object {
         private val CONFIG_PORTS = intArrayOf(18899, 18900, 18901, 18902)
+        private const val PIN_REFRESH_INTERVAL_MS = 60_000L
     }
 }

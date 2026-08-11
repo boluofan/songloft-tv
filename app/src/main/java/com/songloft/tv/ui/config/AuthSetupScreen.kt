@@ -70,6 +70,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
     val isLoading by viewModel.isLoggingIn.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val configUrl by viewModel.configUrl.collectAsStateWithLifecycle()
+    val pairingPin by viewModel.pairingPin.collectAsStateWithLifecycle()
     val useCustomKeyboard by viewModel.useCustomKeyboard.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { viewModel.startConfigServer() }
@@ -240,6 +241,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
         configUrl?.let { url ->
             QrPanel(
                 url = url,
+                pin = pairingPin,
                 modifier = Modifier
                     .weight(0.4f)
                     .fillMaxHeight()
@@ -316,7 +318,7 @@ private fun LoginForm(viewModel: AuthViewModel) {
 }
 
 @Composable
-private fun QrPanel(url: String, modifier: Modifier = Modifier) {
+private fun QrPanel(url: String, pin: String = "", modifier: Modifier = Modifier) {
     val qrBitmap = remember(url) { generateQrBitmap(url) }
 
     Column(
@@ -356,6 +358,22 @@ private fun QrPanel(url: String, modifier: Modifier = Modifier) {
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
         )
+        if (pin.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "配对码：$pin",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "在 tv-helper 插件中选择本设备并核对配对码",
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
     }
 }
 

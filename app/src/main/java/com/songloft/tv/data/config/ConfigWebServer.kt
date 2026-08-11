@@ -1,23 +1,38 @@
 package com.songloft.tv.data.config
 
+import com.songloft.tv.BuildConfig
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
 import java.io.FileInputStream
+import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.Inet4Address
+import java.net.InetAddress
 import java.net.NetworkInterface
+import java.nio.charset.StandardCharsets
 
 /**
  * 局域网 Web 服务：手机扫码打开页签页面，
  * 「登录配置」页签提交服务器地址/账号/密码回电视端登录，
  * 「搜索」页签提交关键字触发电视端搜索，
  * 「日志」页签列出电视端导出的日志文件并支持下载。
+ * 同时承担 tv-helper 插件一键登录：
+ * startBeacon() 广播设备信息（含配对码）供插件发现，
+ * POST /push-token 校验配对码后写入宿主 token 完成远程登录。
  */
 class ConfigWebServer(
     port: Int,
     private val onConfig: ((server: String, username: String, password: String) -> Unit)? = null,
     private val onSearch: ((keyword: String) -> Unit)? = null,
-    private val logsDir: File? = null
+    private val logsDir: File? = null,
+    private val deviceName: String = "",
+    @Volatile var pin: String = "",
+    private val onPushToken: ((server: String, token: String) -> Unit)? = null
 ) : NanoHTTPD(port) {
+
+    @Volatile
+    private var beaconRunning = false
+    private var beaconThread: Thread? = null
 
     override fun serve(session: IHTTPSession): Response {
         if (session.method == Method.POST && session.uri == "/submit") {
@@ -33,6 +48,25 @@ class ConfigWebServer(
             } else {
                 onConfig(server, username, password)
                 html(Response.Status.OK, resultPage("已提交", "电视端正在登录，请查看电视屏幕。"))
+            }
+        }
+        if (session.method == Method.POST && session.uri == "/push-token") {
+            session.parseBody(HashMap())
+            val onPushToken = onPushToken
+                ?: return json(Response.Status.BAD_REQUEST, """{"success":false,"message":"电视端当前不在登录页，无法接收登录推送。"}""")
+            val params = session.parameters
+            val server = params["server"]?.firstOrNull()?.trim().orEmpty()
+            val token = params["token"]?.firstOrNull()?.trim().orEmpty()
+            val remotePin = params["pin"]?.firstOrNull()?.trim().orEmpty()
+            return when {
+                remotePin.isBlank() || remotePin != pin ->
+                    json(Response.Status.BAD_REQUEST, """{"success":false,"message":"配对码错误，请核对电视屏幕显示的配对码。"}""")
+                server.isBlank() || token.isBlank() ->
+                    json(Response.Status.BAD_REQUEST, """{"success":false,"message":"服务器地址或登录凭证缺失。"}""")
+                else -> {
+                    onPushToken(server, token)
+                    json(Response.Status.OK, """{"success":true,"message":"已接收，电视端正在登录。"}""")
+                }
             }
         }
         if (session.method == Method.POST && session.uri == "/search") {
@@ -77,10 +111,55 @@ class ConfigWebServer(
     private fun html(status: Response.Status, content: String): Response =
         newFixedLengthResponse(status, "text/html; charset=utf-8", content)
 
+    private fun json(status: Response.Status, content: String): Response =
+        newFixedLengthResponse(status, "application/json; charset=utf-8", content)
+
     private fun text(status: Response.Status, content: String): Response =
         newFixedLengthResponse(status, "text/plain; charset=utf-8", content)
 
+    /** 向局域网广播设备信息（含配对码），供 tv-helper 插件发现；2 秒一次，直到 stopBeacon() */
+    fun startBeacon() {
+        if (beaconRunning) return
+        beaconRunning = true
+        val payload = beaconPayload().toByteArray(StandardCharsets.UTF_8)
+        beaconThread = Thread {
+            var socket: DatagramSocket? = null
+            try {
+                socket = DatagramSocket().apply { broadcast = true }
+                while (beaconRunning) {
+                    runCatching {
+                        socket.send(
+                            DatagramPacket(payload, payload.size, InetAddress.getByName(BEACON_ADDRESS), BEACON_PORT)
+                        )
+                    }
+                    Thread.sleep(BEACON_INTERVAL_MS)
+                }
+            } catch (_: InterruptedException) {
+            } catch (e: Exception) {
+                android.util.Log.w("ConfigWebServer", "beacon 广播失败", e)
+            } finally {
+                runCatching { socket?.close() }
+            }
+        }.apply { isDaemon = true; start() }
+    }
+
+    fun stopBeacon() {
+        beaconRunning = false
+        beaconThread?.interrupt()
+        beaconThread = null
+    }
+
+    private fun beaconPayload(): String {
+        val name = deviceName.ifBlank { "Songloft TV" }.replace("\"", "\\\"")
+        val ip = localIpAddress().orEmpty()
+        // 只广播设备/应用信息，配对码不上广播（用户登录时手动输入 TV 屏幕显示的码）
+        return """{"app":"songloft-tv","name":"$name","ip":"$ip","port":${getListeningPort()},"version":"${BuildConfig.VERSION_NAME}"}"""
+    }
+
     companion object {
+        private const val BEACON_ADDRESS = "255.255.255.255"
+        private const val BEACON_PORT = 18910
+        private const val BEACON_INTERVAL_MS = 2_000L
 
         fun localIpAddress(): String? =
             NetworkInterface.getNetworkInterfaces().asSequence()
