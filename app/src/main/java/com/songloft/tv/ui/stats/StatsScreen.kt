@@ -408,12 +408,17 @@ private fun RefreshButton(onClick: () -> Unit) {
         text = "刷新",
         fontSize = 13.sp,
         fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
-        color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+        color = MaterialTheme.colorScheme.primary,
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .background(
-                if (isFocused) MaterialTheme.colorScheme.primary
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)
+                ) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
@@ -807,8 +812,13 @@ private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = nu
             .size(40.dp)
             .clip(RoundedCornerShape(50))
             .background(
-                if (isFocused) MaterialTheme.colorScheme.primary
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(50)
+                ) else Modifier
             )
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
@@ -823,7 +833,7 @@ private fun BackButton(onClick: () -> Unit, focusRequester: FocusRequester? = nu
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = "返回",
-            tint = if (isFocused) MaterialTheme.colorScheme.onPrimary
+            tint = if (isFocused) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(22.dp)
         )

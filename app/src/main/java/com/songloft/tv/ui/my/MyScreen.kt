@@ -196,18 +196,23 @@ private fun SettingsButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.1f else 1.0f,
-        animationSpec = tween(150),
+        animationSpec = tween(120),
         label = "settingsScale"
     )
 
-    val color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+    val color = MaterialTheme.colorScheme.primary
     Row(
         modifier = modifier
             .scale(scale)
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (isFocused) MaterialTheme.colorScheme.primary
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)
+                ) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }

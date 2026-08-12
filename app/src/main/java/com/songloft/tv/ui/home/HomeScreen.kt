@@ -847,22 +847,34 @@ private fun SectionLink(
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = tween(120),
+        label = "sectionLinkScale"
+    )
 
     Text(
         text = text,
         fontSize = 14.sp,
         fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
-        color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+        color = MaterialTheme.colorScheme.primary,
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .scale(scale)
+            .clip(RoundedCornerShape(16.dp))
             .background(
-                if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                else Color.Transparent
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)
+                ) else Modifier
             )
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
-            .padding(8.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     )
 }

@@ -1,6 +1,8 @@
 package com.songloft.tv.ui.search
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -196,14 +199,19 @@ fun SearchScreen(
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = "清空",
-                    tint = if (clearFocused) MaterialTheme.colorScheme.onPrimary
+                    tint = if (clearFocused) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier
                         .padding(start = 12.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(
-                            if (clearFocused) MaterialTheme.colorScheme.primary
+                            if (clearFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                        .then(
+                            if (clearFocused) Modifier.border(
+                                3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)
+                            ) else Modifier
                         )
                         .onFocusChanged { clearFocused = it.isFocused }
                         .clickable { viewModel.clearSearch() }
@@ -214,14 +222,19 @@ fun SearchScreen(
             Icon(
                 imageVector = Icons.Rounded.QrCode,
                 contentDescription = "扫码搜索",
-                tint = if (qrFocused) MaterialTheme.colorScheme.onPrimary
+                tint = if (qrFocused) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier
                     .padding(start = 12.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(
-                        if (qrFocused) MaterialTheme.colorScheme.primary
+                        if (qrFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                    .then(
+                        if (qrFocused) Modifier.border(
+                            3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)
+                        ) else Modifier
                     )
                     .onFocusChanged { qrFocused = it.isFocused }
                     .clickable {
@@ -507,18 +520,29 @@ private fun HotSearchSection(hotTags: List<String>, onTagClick: (String) -> Unit
 @Composable
 private fun HotTagChip(tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = tween(120),
+        label = "hotTagChipScale"
+    )
 
     Text(
         text = tag,
         fontSize = 14.sp,
         fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
-        color = if (isFocused) MaterialTheme.colorScheme.onPrimary
+        color = if (isFocused) MaterialTheme.colorScheme.primary
         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         modifier = modifier
+            .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(
-                if (isFocused) MaterialTheme.colorScheme.primary
+                if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+            .then(
+                if (isFocused) Modifier.border(
+                    3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)
+                ) else Modifier
             )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
