@@ -326,52 +326,89 @@ private fun QrPanel(url: String, pin: String = "", modifier: Modifier = Modifier
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .padding(12.dp)
-        ) {
-            Image(
-                bitmap = qrBitmap.asImageBitmap(),
-                contentDescription = "扫码配置",
-                modifier = Modifier.size(180.dp)
-            )
-        }
-        Spacer(Modifier.height(12.dp))
         Text(
-            text = "手机扫码配置",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onBackground
+            text = "局域网登录",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "同一局域网内扫码，在手机上填写\n服务器地址和账号密码",
-            fontSize = 12.sp,
+            text = "手机与电视处于同一局域网时，可用以下快捷方式",
+            fontSize = 14.sp,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = url,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-        )
-        if (pin.isNotBlank()) {
-            Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
+
+        // 方式一：配对码配对（tv-helper 插件一键登录）
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 28.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
-                text = "配对码：$pin",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                text = "方式一 · 配对码配对",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
+            Spacer(Modifier.height(6.dp))
+            if (pin.isNotBlank()) {
+                Text(
+                    text = pin,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "在 tv-helper 插件中选择本设备并核对配对码",
+                text = "在手机 tv-helper 插件中输入此配对码登录",
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // 方式二：扫码配置（手机浏览器打开配置页）
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 28.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "方式二 · 手机扫码",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White)
+                    .padding(10.dp)
+            ) {
+                Image(
+                    bitmap = qrBitmap.asImageBitmap(),
+                    contentDescription = "扫码配置",
+                    modifier = Modifier.size(140.dp)
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = url,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
             )
         }
     }
