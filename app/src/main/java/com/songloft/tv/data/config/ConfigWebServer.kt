@@ -1,5 +1,6 @@
 package com.songloft.tv.data.config
 
+import android.util.Base64
 import com.songloft.tv.BuildConfig
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
@@ -121,7 +122,9 @@ class ConfigWebServer(
     fun startBeacon() {
         if (beaconRunning) return
         beaconRunning = true
-        val payload = beaconPayload().toByteArray(StandardCharsets.UTF_8)
+        val payloadText = beaconPayload()
+        val payload = payloadText.toByteArray(StandardCharsets.UTF_8)
+        val jsonText = beaconJson()
         beaconThread = Thread {
             var socket: DatagramSocket? = null
             try {
@@ -131,6 +134,9 @@ class ConfigWebServer(
                         socket.send(
                             DatagramPacket(payload, payload.size, InetAddress.getByName(BEACON_ADDRESS), BEACON_PORT)
                         )
+                        android.util.Log.i(TAG, "beacon 已广播: $jsonText | base64: $payloadText")
+                    }.onFailure { e ->
+                        android.util.Log.w(TAG, "beacon 广播失败", e)
                     }
                     Thread.sleep(BEACON_INTERVAL_MS)
                 }
@@ -149,14 +155,21 @@ class ConfigWebServer(
         beaconThread = null
     }
 
-    private fun beaconPayload(): String {
+    private fun beaconJson(): String {
         val name = deviceName.ifBlank { "Songloft TV" }.replace("\"", "\\\"")
         val ip = localIpAddress().orEmpty()
         // 只广播设备/应用信息，配对码不上广播（用户登录时手动输入 TV 屏幕显示的码）
         return """{"app":"songloft-tv","name":"$name","ip":"$ip","port":${getListeningPort()},"version":"${BuildConfig.VERSION_NAME}"}"""
     }
 
+    private fun beaconPayload(): String {
+        // 显式 Base64 编码：tv-helper 插件需先解宿主 UDP API 的 base64 层再解协议层，
+        // 保证中文设备名经 UTF-8 传输后不乱码
+        return Base64.encodeToString(beaconJson().toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
+    }
+
     companion object {
+        private const val TAG = "ConfigWebServer"
         private const val BEACON_ADDRESS = "255.255.255.255"
         private const val BEACON_PORT = 18910
         private const val BEACON_INTERVAL_MS = 2_000L
