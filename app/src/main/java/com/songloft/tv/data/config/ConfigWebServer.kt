@@ -106,6 +106,10 @@ class ConfigWebServer(
             response.addHeader("Content-Disposition", "attachment; filename=\"$name\"")
             return response
         }
+        // tv-helper 插件主动嗅探：局域网扫描时 GET /probe 返回设备信息（与 beacon 同构）
+        if (session.method == Method.GET && session.uri == "/probe") {
+            return json(Response.Status.OK, beaconJson())
+        }
         return html(Response.Status.OK, PAGE)
     }
 
