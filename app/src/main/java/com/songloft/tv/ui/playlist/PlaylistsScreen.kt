@@ -122,7 +122,8 @@ fun PlaylistsScreen(
             else -> {
                 LazyColumn(
                     state = listState,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
                     val rows = uiState.playlists.chunked(4)
                     items(rows.size) { rowIndex ->
