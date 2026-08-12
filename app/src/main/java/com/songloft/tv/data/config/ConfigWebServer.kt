@@ -125,15 +125,16 @@ class ConfigWebServer(
         val payloadText = beaconPayload()
         val payload = payloadText.toByteArray(StandardCharsets.UTF_8)
         val jsonText = beaconJson()
+        val targets = beaconTargets()
         beaconThread = Thread {
             var socket: DatagramSocket? = null
             try {
                 socket = DatagramSocket().apply { broadcast = true }
                 while (beaconRunning) {
                     runCatching {
-                        socket.send(
-                            DatagramPacket(payload, payload.size, InetAddress.getByName(BEACON_ADDRESS), BEACON_PORT)
-                        )
+                        targets.forEach { target ->
+                            socket.send(DatagramPacket(payload, payload.size, target, BEACON_PORT))
+                        }
                         android.util.Log.i(TAG, "beacon 已广播: $jsonText | base64: $payloadText")
                     }.onFailure { e ->
                         android.util.Log.w(TAG, "beacon 广播失败", e)
@@ -166,6 +167,20 @@ class ConfigWebServer(
         // 显式 Base64 编码：tv-helper 插件需先解宿主 UDP API 的 base64 层再解协议层，
         // 保证中文设备名经 UTF-8 传输后不乱码
         return Base64.encodeToString(beaconJson().toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
+    }
+
+    /** 广播目标：255.255.255.255 + 各网卡定向广播地址。热点与蜂窝同时在线时，
+     *  255.255.255.255 可能只从默认路由（蜂窝）口发出导致客户端收不到，需按接口定向广播 */
+    private fun beaconTargets(): List<InetAddress> {
+        val targets = mutableListOf<InetAddress>()
+        runCatching { targets.add(InetAddress.getByName(BEACON_ADDRESS)) }
+        NetworkInterface.getNetworkInterfaces().asSequence()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { it.interfaceAddresses.asSequence() }
+            .mapNotNull { it.broadcast }
+            .distinct()
+            .forEach { targets.add(it) }
+        return targets
     }
 
     companion object {
