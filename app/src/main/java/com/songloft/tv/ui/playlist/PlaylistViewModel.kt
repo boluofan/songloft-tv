@@ -160,7 +160,21 @@ class PlaylistViewModel @Inject constructor(
                     _listState.value = _listState.value.copy(isRefreshing = false)
                 }
             )
+            prunePinnedPlaylists()
         }
+    }
+
+    /** 刷新后校验置顶歌单仍存在：已被服务端删除的置顶 id 从配置清理（首页监听 pinnedPlaylistIds 自动刷新） */
+    private suspend fun prunePinnedPlaylists() {
+        val pinned = preferencesDataStore.pinnedPlaylistIds.first()
+        if (pinned.isEmpty()) return
+        val existing = _listState.value.playlists.map { it.id }.toSet()
+        val missing = pinned.filterNot { it in existing }
+        if (missing.isEmpty()) return
+        val removed = missing.filter { playlistRepository.getPlaylistDetail(it).isFailure }
+        if (removed.isEmpty()) return
+        preferencesDataStore.setPinnedPlaylistIds(pinned.filterNot { it in removed })
+        android.util.Log.d("PlaylistPin", "[prune] 置顶歌单已失效，清理：$removed")
     }
 
     fun loadPlaylistDetail(id: Long) {
