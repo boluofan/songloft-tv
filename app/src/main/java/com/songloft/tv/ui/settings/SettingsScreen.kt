@@ -166,8 +166,7 @@ fun SettingsScreen(
         SettingsSection("服务器") {
             SettingsItem(
                 label = "当前服务器",
-                value = uiState.serverUrl.ifEmpty { "未配置" },
-                onClick = onConfigureServer
+                value = uiState.serverUrl.ifEmpty { "未配置" }
             )
         }
 

@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -49,6 +50,7 @@ fun MyScreen(
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
+    val favoriteRadioFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
     var topFocusHasFocus by remember { mutableStateOf(false) }
 
@@ -80,6 +82,7 @@ fun MyScreen(
                 modifier = Modifier
                     .focusRequester(settingsFocus)
                     .restorableFocus(restorer, "settings")
+                    .focusProperties { down = favoriteRadioFocus }
             )
         }
 
@@ -87,7 +90,7 @@ fun MyScreen(
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TabChip("收藏歌曲", uiState.selectedTab == 0, focusRequester = topFocus, onFocusChanged = { topFocusHasFocus = it }) { viewModel.selectTab(0) }
-            TabChip("收藏电台", uiState.selectedTab == 1) { viewModel.selectTab(1) }
+            TabChip("收藏电台", uiState.selectedTab == 1, focusRequester = favoriteRadioFocus) { viewModel.selectTab(1) }
         }
 
         Spacer(Modifier.height(16.dp))

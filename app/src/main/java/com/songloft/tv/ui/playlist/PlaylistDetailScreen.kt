@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -50,7 +51,10 @@ fun PlaylistDetailScreen(
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
+    val playAllFocus = remember { FocusRequester() }
     var backButtonHasFocus by remember { mutableStateOf(false) }
+    // 电台歌单无「播放全部/随机播放」按钮，返回键 ↓ 直接落到列表第一首
+    val isRadioPlaylist = uiState.playlist?.type == "radio"
 
     ListBackToTopHandler(listState, topFocus, topFocusHasFocus = backButtonHasFocus)
 
@@ -73,7 +77,13 @@ fun PlaylistDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            BackButton(onBack, focusRequester = topFocus, onFocusChanged = { backButtonHasFocus = it })
+            BackButton(
+                onBack,
+                focusRequester = topFocus,
+                onFocusChanged = { backButtonHasFocus = it },
+                modifier = if (isRadioPlaylist) Modifier
+                else Modifier.focusProperties { down = playAllFocus }
+            )
         }
 
         Spacer(Modifier.height(16.dp))
@@ -137,12 +147,23 @@ fun PlaylistDetailScreen(
                             }
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ActionButton(Icons.Rounded.PlayArrow, "播放全部") {
-                                if (uiState.songs.isNotEmpty()) onSongClick(uiState.songs, 0)
-                            }
-                            ActionButton(Icons.Rounded.Shuffle, "随机播放") {
-                                if (uiState.songs.isNotEmpty()) onShufflePlay(uiState.songs)
+                        if (!isRadioPlaylist) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                ActionButton(
+                                    icon = Icons.Rounded.PlayArrow,
+                                    label = "播放全部",
+                                    onClick = {
+                                        if (uiState.songs.isNotEmpty()) onSongClick(uiState.songs, 0)
+                                    },
+                                    focusRequester = playAllFocus
+                                )
+                                ActionButton(
+                                    icon = Icons.Rounded.Shuffle,
+                                    label = "随机播放",
+                                    onClick = {
+                                        if (uiState.songs.isNotEmpty()) onShufflePlay(uiState.songs)
+                                    }
+                                )
                             }
                         }
                     }
@@ -172,7 +193,12 @@ fun PlaylistDetailScreen(
 }
 
 @Composable
-private fun BackButton(onBack: () -> Unit, focusRequester: FocusRequester? = null, onFocusChanged: ((Boolean) -> Unit)? = null) {
+private fun BackButton(
+    onBack: () -> Unit,
+    focusRequester: FocusRequester? = null,
+    onFocusChanged: ((Boolean) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.1f else 1.0f,
@@ -182,7 +208,7 @@ private fun BackButton(onBack: () -> Unit, focusRequester: FocusRequester? = nul
 
     val color = MaterialTheme.colorScheme.primary
     Row(
-        modifier = Modifier
+        modifier = modifier
             .scale(scale)
             .clip(RoundedCornerShape(8.dp))
             .background(
@@ -217,7 +243,12 @@ private fun BackButton(onBack: () -> Unit, focusRequester: FocusRequester? = nul
 }
 
 @Composable
-private fun ActionButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun ActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
+) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.1f else 1.0f,
@@ -228,6 +259,7 @@ private fun ActionButton(icon: ImageVector, label: String, onClick: () -> Unit) 
 
     Row(
         modifier = Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .scale(scale)
             .clip(RoundedCornerShape(8.dp))
             .background(
