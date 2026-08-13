@@ -74,8 +74,8 @@ class PreferencesDataStore @Inject constructor(
     val sfxStrength: Flow<Int> = context.dataStore.data.map { it[SFX_STRENGTH] ?: 50 }
     // 播放模式：PlayMode.name（"ORDER"/"LOOP"/"SINGLE"/"RANDOM"），默认顺序播放
     val playMode: Flow<String> = context.dataStore.data.map { it[PLAY_MODE] ?: "ORDER" }
-    // 歌词高亮颜色：1=默认白色，2=跟随主题色
-    val lyricHighlightColor: Flow<Int> = context.dataStore.data.map { it[LYRIC_HIGHLIGHT_COLOR] ?: 1 }
+    // 歌词高亮颜色：1=白色，2=跟随主题色（默认）
+    val lyricHighlightColor: Flow<Int> = context.dataStore.data.map { it[LYRIC_HIGHLIGHT_COLOR] ?: 2 }
     // 歌词字号：当前句字号 sp，默认 30；非当前句/翻译行按比例派生
     val lyricFontSize: Flow<Int> = context.dataStore.data.map { it[LYRIC_FONT_SIZE] ?: 30 }
     // 播放缓存：MB，0=关闭（默认）；仅当缓存归属服务器与当前 serverUrl 一致时才复用缓存目录

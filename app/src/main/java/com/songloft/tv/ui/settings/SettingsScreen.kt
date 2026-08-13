@@ -298,8 +298,8 @@ fun SettingsScreen(
 
         SettingsSection("歌词亮色") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OptionChip("默认（白色）", uiState.lyricHighlightColor == 1) { viewModel.setLyricHighlightColor(1) }
                 OptionChip("跟随主题色", uiState.lyricHighlightColor == 2) { viewModel.setLyricHighlightColor(2) }
+                OptionChip("白色", uiState.lyricHighlightColor == 1) { viewModel.setLyricHighlightColor(1) }
             }
             Spacer(Modifier.height(12.dp))
             LyricSizeRow(

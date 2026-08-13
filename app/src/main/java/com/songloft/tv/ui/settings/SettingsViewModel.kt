@@ -43,7 +43,7 @@ data class SettingsUiState(
     val sfxEnabled: Boolean = false,
     val soundUnsupportedNotice: Boolean = false,
     val logExportStatus: String = "",
-    val lyricHighlightColor: Int = 1,
+    val lyricHighlightColor: Int = 2,
     val lyricFontSize: Int = 30,
     val playCacheMb: Int = 0,
     val playCacheUsageBytes: Long = 0,

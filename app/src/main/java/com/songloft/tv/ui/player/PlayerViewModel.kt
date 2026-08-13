@@ -60,7 +60,7 @@ data class PlayerUiState(
     val sfxModeNames: List<String> = emptyList(),
     val sfxModeSupported: List<Boolean> = emptyList(),
     val sfxOnA2dp: Boolean = false,
-    val lyricHighlightColor: Int = 1,
+    val lyricHighlightColor: Int = 2,
     val lyricFontSize: Int = 30
 )
 
