@@ -53,6 +53,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.songloft.tv.domain.KeyMapping
 import com.songloft.tv.domain.KeyMappingManager
 import com.songloft.tv.domain.MappingTarget
+import com.songloft.tv.ui.components.HelpDialog
 import com.songloft.tv.ui.navigation.LocalPageScrollBridge
 import com.songloft.tv.ui.navigation.LocalTabBarBridge
 import com.songloft.tv.ui.theme.SelectedFocusBorder
@@ -295,7 +296,7 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSection("歌词") {
+        SettingsSection("歌词亮色") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OptionChip("默认（白色）", uiState.lyricHighlightColor == 1) { viewModel.setLyricHighlightColor(1) }
                 OptionChip("跟随主题色", uiState.lyricHighlightColor == 2) { viewModel.setLyricHighlightColor(2) }
@@ -807,157 +808,6 @@ private fun KeyMappingDialog(
     // 打开弹窗及录制取消/完成后，焦点回到第一个配置项「上键」，确认键即可直接进入录制
     LaunchedEffect(capturing) {
         if (capturing == null) runCatching { firstRowFocus.requestFocus() }
-    }
-}
-
-@Composable
-private fun HelpDialog(onDismiss: () -> Unit) {
-    val listFocus = remember { FocusRequester() }
-    val closeFocus = remember { FocusRequester() }
-    val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.72f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 36.dp, vertical = 28.dp)
-        ) {
-            Text(
-                text = "操作说明",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 340.dp)
-                    .focusable()
-                    .focusRequester(listFocus)
-                    .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown) {
-                            when (event.nativeKeyEvent.keyCode) {
-                                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                                    if (listState.canScrollForward) {
-                                        scope.launch { listState.animateScrollToItem(listState.firstVisibleItemIndex + 1) }
-                                        true
-                                    } else {
-                                        closeFocus.requestFocus()
-                                        true
-                                    }
-                                }
-                                KeyEvent.KEYCODE_DPAD_UP -> {
-                                    if (listState.canScrollBackward) {
-                                        scope.launch { listState.animateScrollToItem(listState.firstVisibleItemIndex - 1) }
-                                        true
-                                    } else false
-                                }
-                                else -> false
-                            }
-                        } else false
-                    },
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    HelpBlock(
-                        title = "返回键",
-                        lines = listOf(
-                            "一级界面（首页/搜索/歌单/我的）：滚动中按「返回键」回顶并聚焦顶部；已在顶部再按跳到底部 Tab 栏；",
-                            "二级界面（歌单详情/筛选/设置）：滚动中按「返回键」回顶并聚焦【返回】按钮，再按直接回上一级；",
-                            "播放器：侧边栏/控制栏打开时按「返回键」先关闭；其余情况退出播放器（音乐后台继续播放）；",
-                            "连按「返回键」最终回到首页，再按弹出退出应用确认。"
-                        )
-                    )
-                }
-                item {
-                    HelpBlock(
-                        title = "歌单置顶",
-                        lines = listOf(
-                            "在「歌单」界面长按「确认键」：弹窗确认置顶/取消置顶该歌单；",
-                            "置顶的歌单固定显示在列表最前，最多 8 个；",
-                            "置顶已满 8 个时：新置顶会自动顶掉最早置顶的歌单。"
-                        )
-                    )
-                }
-                item {
-                    HelpBlock(
-                        title = "播放器快捷键",
-                        lines = listOf(
-                            "控制栏隐藏时：左/右键单击切上一首/下一首，长按快退/快进；",
-                            "控制栏隐藏时：按上/下/确认键可唤出控制栏；",
-                            "控制栏 10 秒无操作自动隐藏。"
-                        )
-                    )
-                }
-                item {
-                    HelpBlock(
-                        title = "自定义按键",
-                        lines = listOf(
-                            "在「按键设置」中按下遥控器实际按键，即可映射自定义按键;",
-                            "映射后应用内所有界面（含播放器）按自定义键生效，原默认键仍可用;",
-                            "录制时按「返回键」可取消；「恢复默认」可清除全部映射；",
-                            "自定义「返回顶部」键：任意长列表一键回顶；",
-                            "自定义「返回底部」键：焦点直达底部 Tab 栏（设置页为退出登录按钮）。"
-                        )
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            var closeFocused by remember { mutableStateOf(false) }
-            Text(
-                text = "我知道了",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (closeFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        if (closeFocused) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    )
-                    .focusRequester(closeFocus)
-                    .onFocusChanged { closeFocused = it.isFocused }
-                    .clickable { onDismiss() }
-                    .padding(horizontal = 28.dp, vertical = 10.dp)
-            )
-        }
-    }
-
-    // 默认焦点落在说明列表，滚动到底后按「下」跳转关闭按钮
-    LaunchedEffect(Unit) { runCatching { listFocus.requestFocus() } }
-}
-
-@Composable
-private fun HelpBlock(title: String, lines: List<String>) {
-    Column {
-        Text(
-            text = title,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(6.dp))
-        lines.forEach { line ->
-            Text(
-                text = "· $line",
-                fontSize = 13.sp,
-                lineHeight = 20.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-            )
-        }
     }
 }
 

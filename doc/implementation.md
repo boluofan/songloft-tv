@@ -199,7 +199,8 @@ DataStore 名 `songloft_tv_settings`，27 个 key：`server_url`、`theme_mode`(
 - **音效开关**：音效 + 均衡器二合一总开关（开启时分别校验能力，两者均不支持弹"当前设备不支持音效"对话框；关闭时同时关 EQ/SFX）。
 - **歌词**：高亮色（默认白色/跟随主题色）+ 字号调节（`LyricSizeRow`，D-Pad 左右键 + 触屏滑动，30-60sp）。
 - **日志导出**：`logcat -d` 逐行脱敏（Authorization/Cookie 头、JSON token/password 字段、URL token 参数、裸 JWT 四个正则）后写系统下载目录（API 29+ 用 MediaStore）。
-- **帮助**：操作说明对话框（返回键用法/歌单置顶/播放器快捷键/自定义按键四个区块，内容可滚动）。
+- **帮助**：操作说明对话框（返回键用法/歌单置顶/播放器快捷键/自定义按键四个区块，内容可滚动），共享组件 `ui/components/HelpDialog.kt`。
+- **版权与免责声明**：首次进入主界面弹窗展示（`disclaimer_shown` DataStore 标记，任意方式关闭即视为已展示不再弹出）；底部「操作说明」按钮先关闭免责声明再打开 `HelpDialog`，返回键只回到主界面、不会回到免责声明。
 - **关于**：运行时读 versionName、检查更新（`UpdateRepository`，见 §5）、项目地址、开源组件列表。
 - **重启应用**：整行可聚焦项（`SettingsItem` 样式），点击重启（发启动 Intent 后 `Runtime.exit`，部分设置如缓存大小需重启服务生效）。
 - **危险操作**（红色标题，沉底降低误触）：清除配置、退出登录两个按钮，点击后弹**二次确认对话框**（默认焦点在"取消"，确认键为红色实心），确认才执行。

@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,7 +54,9 @@ import com.songloft.tv.domain.PlayerController
 import com.songloft.tv.ui.config.AuthSetupScreen
 import com.songloft.tv.ui.config.AuthState
 import com.songloft.tv.ui.config.AuthViewModel
+import com.songloft.tv.ui.components.DisclaimerDialog
 import com.songloft.tv.ui.components.FloatingPlayerBar
+import com.songloft.tv.ui.components.HelpDialog
 import com.songloft.tv.ui.components.LocalFloatingPlayerFocusRequester
 import com.songloft.tv.ui.components.tvFocusable
 import com.songloft.tv.ui.home.HomeScreen
@@ -120,6 +123,7 @@ class MainActivity : ComponentActivity() {
                 TvTheme {
                     Surface(modifier = Modifier.fillMaxSize()) {
                         MainApp(
+                            preferencesDataStore = preferencesDataStore,
                             playerController = playerController,
                             onPlaySongs = { songs, index, contextType, contextKey ->
                                 openPlayer(songs, index, contextType, contextKey)
@@ -165,6 +169,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp(
+    preferencesDataStore: PreferencesDataStore,
     playerController: PlayerController,
     onPlaySongs: (List<Song>, Int, String?, String?) -> Unit,
     onShufflePlay: (List<Song>, String?, String?) -> Unit,
@@ -175,13 +180,16 @@ fun MainApp(
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
 
     when (authState) {
-        is AuthState.LoggedIn -> TvApp(authViewModel, playerController, onPlaySongs, onShufflePlay, onOpenPlayer, onExit)
+        is AuthState.LoggedIn -> TvApp(
+            preferencesDataStore, authViewModel, playerController, onPlaySongs, onShufflePlay, onOpenPlayer, onExit
+        )
         else -> AuthSetupScreen(authViewModel)
     }
 }
 
 @Composable
 fun TvApp(
+    preferencesDataStore: PreferencesDataStore,
     authViewModel: AuthViewModel,
     playerController: PlayerController,
     onPlaySongs: (List<Song>, Int, String?, String?) -> Unit,
@@ -195,6 +203,9 @@ fun TvApp(
     val tabBarBridge = remember { TabBarBridge() }
     val floatingPlayerFocusRequester = remember { FocusRequester() }
     var showExitDialog by remember { mutableStateOf(false) }
+    var showDisclaimer by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     fun push(screen: Screen) {
         backStack.add(screen)
@@ -202,6 +213,11 @@ fun TvApp(
 
     fun goBack() {
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    }
+
+    // 首次启动（未展示过版权/免责声明）进入主界面时弹窗；任意方式关闭即标记已展示
+    LaunchedEffect(Unit) {
+        showDisclaimer = !preferencesDataStore.disclaimerShown.first()
     }
 
     BackHandler {
@@ -229,6 +245,25 @@ fun TvApp(
         onRetryCheck = updateViewModel::manualCheck,
         onDismiss = updateViewModel::dismiss
     )
+
+    // 「操作说明」按钮：先关闭免责声明并标记已展示，再打开帮助弹窗，返回键只会回到主界面
+    if (showDisclaimer) {
+        DisclaimerDialog(
+            onOpenHelp = {
+                showDisclaimer = false
+                showHelpDialog = true
+                scope.launch { preferencesDataStore.setDisclaimerShown() }
+            },
+            onDismiss = {
+                showDisclaimer = false
+                scope.launch { preferencesDataStore.setDisclaimerShown() }
+            }
+        )
+    }
+
+    if (showHelpDialog) {
+        HelpDialog(onDismiss = { showHelpDialog = false })
+    }
 
     CompositionLocalProvider(LocalTabBarBridge provides tabBarBridge) {
         Scaffold(

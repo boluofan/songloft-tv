@@ -42,6 +42,8 @@ class PreferencesDataStore @Inject constructor(
         private val CACHE_SERVER_URL = stringPreferencesKey("cache_server_url")
         // 用户置顶歌单 id（逗号分隔），下标 0 最前
         private val PINNED_PLAYLISTS = stringPreferencesKey("pinned_playlists")
+        // 首次启动已展示版权/免责声明（任意方式关闭即视为已展示，不再弹出）
+        private val DISCLAIMER_SHOWN = booleanPreferencesKey("disclaimer_shown")
         // 自定义按键映射：用户物理按键 keycode，0 = 未自定义（跟随系统默认键）
         private val KEY_MAPPING_UP = intPreferencesKey("key_mapping_up")
         private val KEY_MAPPING_DOWN = intPreferencesKey("key_mapping_down")
@@ -82,6 +84,7 @@ class PreferencesDataStore @Inject constructor(
     val pinnedPlaylistIds: Flow<List<Long>> = context.dataStore.data.map {
         it[PINNED_PLAYLISTS]?.split(",")?.mapNotNull { s -> s.toLongOrNull() } ?: emptyList()
     }
+    val disclaimerShown: Flow<Boolean> = context.dataStore.data.map { it[DISCLAIMER_SHOWN] ?: false }
     val keyMapping: Flow<KeyMapping> = context.dataStore.data.map {
         KeyMapping(
             up = it[KEY_MAPPING_UP] ?: 0,
@@ -169,6 +172,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setPinnedPlaylistIds(ids: List<Long>) {
         context.dataStore.edit { it[PINNED_PLAYLISTS] = ids.joinToString(",") }
+    }
+
+    suspend fun setDisclaimerShown() {
+        context.dataStore.edit { it[DISCLAIMER_SHOWN] = true }
     }
 
     suspend fun setKeyMapping(m: KeyMapping) {
