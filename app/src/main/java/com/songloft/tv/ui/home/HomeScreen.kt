@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.songloft.tv.ui.components.CoverImage
+import com.songloft.tv.ui.components.PinBadge
 import com.songloft.tv.data.api.StatsSummary
 import com.songloft.tv.data.model.FacetItem
 import com.songloft.tv.data.model.Playlist
@@ -177,6 +178,7 @@ fun HomeScreen(
         item {
             PlaylistSection(
                 playlists = uiState.playlists,
+                pinnedIds = uiState.pinnedIds,
                 onPlaylistClick = { id ->
                     restorer.record("playlist:$id")
                     onPlaylistClick(id)
@@ -282,6 +284,7 @@ private fun RowScope.StatCard(label: String, value: String) {
 @Composable
 private fun PlaylistSection(
     playlists: List<Playlist>,
+    pinnedIds: Set<Long>,
     onPlaylistClick: (Long) -> Unit,
     onManagePlaylists: () -> Unit,
     restorer: ScreenFocusRestorer,
@@ -295,13 +298,13 @@ private fun PlaylistSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "我的歌单",
+                text = "置顶歌单",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             SectionLink(
-                text = "管理歌单",
+                text = "查看全部",
                 onClick = onManagePlaylists,
                 focusRequester = manageFocusRequester,
                 modifier = Modifier
@@ -329,6 +332,7 @@ private fun PlaylistSection(
                         row.forEach { playlist ->
                             PlaylistCard(
                                 playlist = playlist,
+                                isPinned = playlist.isBuiltIn || playlist.id in pinnedIds,
                                 onClick = { onPlaylistClick(playlist.id) },
                                 modifier = Modifier
                                     .weight(1f)
@@ -348,6 +352,7 @@ private fun PlaylistSection(
 @Composable
 private fun PlaylistCard(
     playlist: Playlist,
+    isPinned: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -389,6 +394,13 @@ private fun PlaylistCard(
                 contentDescription = playlist.name,
                 modifier = Modifier.fillMaxSize()
             )
+            if (isPinned) {
+                PinBadge(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))

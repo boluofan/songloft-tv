@@ -6,12 +6,14 @@ import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.data.model.Song
 import com.songloft.tv.data.repository.FavoriteRepository
 import com.songloft.tv.data.repository.PlaylistRepository
+import com.songloft.tv.data.storage.PreferencesDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -39,7 +41,8 @@ data class PlaylistDetailUiState(
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    private val preferencesDataStore: PreferencesDataStore
 ) : ViewModel() {
 
     private val _listState = MutableStateFlow(PlaylistListUiState())
@@ -51,6 +54,10 @@ class PlaylistViewModel @Inject constructor(
     private var detailJob: Job? = null
     private var loadMoreJob: Job? = null
 
+    /** 用户自定义置顶歌单 id，下标 0 最前（新置顶排最前）；内置收藏歌单不在此列 */
+    val pinnedIds: StateFlow<List<Long>> = preferencesDataStore.pinnedPlaylistIds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val favoriteIds: StateFlow<Set<Long>> = favoriteRepository.favoriteIds
         .map { it ?: emptySet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
@@ -61,6 +68,17 @@ class PlaylistViewModel @Inject constructor(
 
     fun toggleFavorite(song: Song) {
         viewModelScope.launch { favoriteRepository.toggleFavorite(song) }
+    }
+
+    /** 长按歌单：已置顶则取消，未置顶则插入最前；超过上限自动替换最旧的置顶 */
+    fun togglePin(id: Long) {
+        viewModelScope.launch {
+            val current = preferencesDataStore.pinnedPlaylistIds.first()
+            android.util.Log.d("PlaylistPin", "[togglePin] id=$id current=$current")
+            val next = if (id in current) current - id else listOf(id) + current.filterNot { it == id }
+            preferencesDataStore.setPinnedPlaylistIds(next.take(MAX_PINNED))
+            android.util.Log.d("PlaylistPin", "[togglePin] saved=${next.take(MAX_PINNED)}")
+        }
     }
 
     fun loadPlaylists(type: String? = null) {
@@ -188,8 +206,20 @@ class PlaylistViewModel @Inject constructor(
         _detailState.value = PlaylistDetailUiState()
     }
 
-    private companion object {
+    companion object {
         const val SONGS_PAGE_SIZE = 500
         const val PLAYLIST_PAGE_SIZE = 100
+        /** 用户自定义置顶歌单上限；加上内置收藏歌单/收藏电台共 8 个置顶槽位 */
+        const val MAX_PINNED = 6
     }
+}
+
+/** 内置收藏歌单固定最前（收藏在前、电台收藏在后），随后用户置顶（新置顶最前），其余保持原顺序。
+ *  内置歌单可能出现在任意分页，这里统一提到最前，不依赖 repository 第一页处理 */
+fun orderWithPinnedFirst(playlists: List<Playlist>, pinnedIds: List<Long>): List<Playlist> {
+    val byId = playlists.associateBy { it.id }
+    val builtIn = playlists.filter { it.isBuiltIn }.sortedBy { if (it.type == "normal") 0 else 1 }.take(2)
+    val pinned = pinnedIds.mapNotNull { byId[it] }.filterNot { it.isBuiltIn }
+    val pinnedSet = pinned.mapTo(mutableSetOf()) { it.id }
+    return builtIn + pinned + playlists.filterNot { it.isBuiltIn || it.id in pinnedSet }
 }

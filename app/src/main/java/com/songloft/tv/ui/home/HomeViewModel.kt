@@ -9,11 +9,14 @@ import com.songloft.tv.data.repository.PlaylistRepository
 import com.songloft.tv.data.repository.SongRepository
 import com.songloft.tv.data.repository.StatsRange
 import com.songloft.tv.data.repository.StatsRepository
+import com.songloft.tv.data.storage.PreferencesDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +29,8 @@ data class HomeUiState(
     val topAlbums: List<FacetItem> = emptyList(),
     val topYears: List<FacetItem> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
+    /** 用户自定义置顶歌单 id（不含内置收藏），用于首页卡片"置顶"角标判断 */
+    val pinnedIds: Set<Long> = emptySet(),
     val statsSummaries: Map<StatsRange, StatsSummary> = emptyMap(),
     val statsAvailable: Boolean = false,
     val statsLoading: Boolean = true,
@@ -38,7 +43,8 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val songRepository: SongRepository,
     private val playlistRepository: PlaylistRepository,
-    private val statsRepository: StatsRepository
+    private val statsRepository: StatsRepository,
+    private val preferencesDataStore: PreferencesDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -46,6 +52,10 @@ class HomeViewModel @Inject constructor(
 
     init {
         loadDashboard()
+        // 置顶歌单变化后自动刷新首页前两排（跳过首次发射，避免与上面的加载重复）
+        viewModelScope.launch {
+            preferencesDataStore.pinnedPlaylistIds.drop(1).collect { loadDashboard() }
+        }
     }
 
     fun refresh() {
@@ -60,7 +70,7 @@ class HomeViewModel @Inject constructor(
             val albumsDeferred = async { songRepository.getFacets("album") }
             val yearsDeferred = async { songRepository.getFacets("year") }
             val statsDeferred = async { songRepository.getLibraryStats() }
-            // 多拉取以保证内置收藏歌单（收藏/电台收藏）在响应中，组合后只取前 8
+            // 多拉取以保证内置收藏歌单（收藏/电台收藏）在响应中；用户置顶缺失时再按 id 单独兜底
             val playlistsDeferred = async { playlistRepository.getPlaylists(limit = 100) }
             // 首页只查概览汇总（全部区间，不带参数），其他区间在切换 Tab 时按需请求
             val statsSummaryDeferred = async { statsRepository.getSummary(StatsRange.ALL) }
@@ -69,7 +79,7 @@ class HomeViewModel @Inject constructor(
             val albums = albumsDeferred.await().getOrDefault(emptyList())
             val years = yearsDeferred.await().getOrDefault(emptyList())
             val statsResult = statsDeferred.await()
-            val playlists = playlistsDeferred.await().getOrNull()?.playlists.orEmpty()
+            val all = playlistsDeferred.await().getOrNull()?.playlists.orEmpty()
 
             if (artists.isEmpty() && albums.isEmpty() && statsResult.isFailure) {
                 _uiState.value = HomeUiState(
@@ -79,6 +89,18 @@ class HomeViewModel @Inject constructor(
                 )
                 return@launch
             }
+
+            // 置顶组合：内置收藏歌单/收藏电台 2 个 + 用户置顶（可能不在前 100 响应里，按 id 单独拉取兜底）+ 普通歌单填充，共 8 个
+            val pinnedIds = preferencesDataStore.pinnedPlaylistIds.first()
+            val builtIn = all.filter { it.isBuiltIn }.sortedBy { if (it.type == "normal") 0 else 1 }.take(2)
+            val missingIds = pinnedIds.filterNot { id -> all.any { it.id == id } }
+            val missingDeferred = missingIds.map { id -> async { playlistRepository.getPlaylistDetail(id).getOrNull() } }
+            val fetchedMap = missingDeferred.mapNotNull { it.await() }.associateBy { it.id }
+            val userPinned = pinnedIds.mapNotNull { id -> all.find { it.id == id } ?: fetchedMap[id] }
+                .filterNot { it.isBuiltIn }
+            val pinnedSet = userPinned.mapTo(mutableSetOf()) { it.id }
+            val rest = all.filterNot { it.isBuiltIn || it.id in pinnedSet }
+            val pinnedPlaylists = (builtIn + userPinned + rest).take(8)
 
             val stats = statsResult.getOrNull()
             val statsSummaryResult = statsSummaryDeferred.await()
@@ -91,7 +113,8 @@ class HomeViewModel @Inject constructor(
                 topArtists = artists.take(6),
                 topAlbums = albums.take(6),
                 topYears = years.take(8),
-                playlists = playlists.take(8),
+                playlists = pinnedPlaylists,
+                pinnedIds = userPinned.map { it.id }.toSet(),
                 statsSummaries = statsSummaryResult.getOrNull()?.let { mapOf(StatsRange.ALL to it) } ?: emptyMap(),
                 statsAvailable = statsSummaryResult.isSuccess,
                 statsLoading = false,

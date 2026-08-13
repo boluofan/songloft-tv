@@ -40,6 +40,8 @@ class PreferencesDataStore @Inject constructor(
         private val PLAY_MODE = stringPreferencesKey("play_mode")
         private val PLAY_CACHE_MB = intPreferencesKey("play_cache_mb")
         private val CACHE_SERVER_URL = stringPreferencesKey("cache_server_url")
+        // 用户自定义置顶歌单 id（逗号分隔），下标 0 最前；内置收藏歌单不在此列，始终置顶
+        private val PINNED_PLAYLISTS = stringPreferencesKey("pinned_playlists")
         // 自定义按键映射：用户物理按键 keycode，0 = 未自定义（跟随系统默认键）
         private val KEY_MAPPING_UP = intPreferencesKey("key_mapping_up")
         private val KEY_MAPPING_DOWN = intPreferencesKey("key_mapping_down")
@@ -77,6 +79,9 @@ class PreferencesDataStore @Inject constructor(
     // 播放缓存：MB，0=关闭（默认）；仅当缓存归属服务器与当前 serverUrl 一致时才复用缓存目录
     val playCacheMb: Flow<Int> = context.dataStore.data.map { it[PLAY_CACHE_MB] ?: 0 }
     val cacheServerUrl: Flow<String?> = context.dataStore.data.map { it[CACHE_SERVER_URL] }
+    val pinnedPlaylistIds: Flow<List<Long>> = context.dataStore.data.map {
+        it[PINNED_PLAYLISTS]?.split(",")?.mapNotNull { s -> s.toLongOrNull() } ?: emptyList()
+    }
     val keyMapping: Flow<KeyMapping> = context.dataStore.data.map {
         KeyMapping(
             up = it[KEY_MAPPING_UP] ?: 0,
@@ -160,6 +165,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setCacheServerUrl(url: String) {
         context.dataStore.edit { it[CACHE_SERVER_URL] = url }
+    }
+
+    suspend fun setPinnedPlaylistIds(ids: List<Long>) {
+        context.dataStore.edit { it[PINNED_PLAYLISTS] = ids.joinToString(",") }
     }
 
     suspend fun setKeyMapping(m: KeyMapping) {

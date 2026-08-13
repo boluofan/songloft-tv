@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,14 +25,23 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.util.Log
 import com.songloft.tv.ui.components.CoverImage
+import com.songloft.tv.ui.components.PinBadge
 import com.songloft.tv.ui.components.tvFocusable
 import com.songloft.tv.data.model.Playlist
 import com.songloft.tv.ui.navigation.DefaultFocusEffect
@@ -39,7 +50,9 @@ import com.songloft.tv.ui.navigation.RestoreFocusEffect
 import com.songloft.tv.ui.navigation.rememberScreenFocusRestorer
 import com.songloft.tv.ui.navigation.restorableFocus
 import com.songloft.tv.ui.theme.SelectedFocusBorder
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun PlaylistsScreen(
@@ -47,10 +60,17 @@ fun PlaylistsScreen(
     onPlaylistClick: (Long) -> Unit = {}
 ) {
     val uiState by viewModel.listState.collectAsStateWithLifecycle()
+    val pinnedIds by viewModel.pinnedIds.collectAsStateWithLifecycle()
+    // 置顶歌单提到最前（内置收藏已由 repository 固定最前，用户置顶紧随其后）
+    val displayPlaylists = remember(uiState.playlists, pinnedIds) {
+        orderWithPinnedFirst(uiState.playlists, pinnedIds)
+    }
     val listState = rememberLazyListState()
     val topFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
     var topFocusHasFocus by remember { mutableStateOf(false) }
+    // 长按歌单后待确认的置顶/取消置顶操作；内置歌单（收藏歌单/收藏电台）固定置顶不可取消，不弹窗
+    var pendingPin by remember { mutableStateOf<Playlist?>(null) }
 
     ListBackToTopHandler(listState, topFocus, topFocusHasFocus = topFocusHasFocus, jumpToTabBar = true)
     RestoreFocusEffect(restorer)
@@ -125,7 +145,7 @@ fun PlaylistsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    val rows = uiState.playlists.chunked(4)
+                    val rows = displayPlaylists.chunked(4)
                     items(rows.size) { rowIndex ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -134,10 +154,12 @@ fun PlaylistsScreen(
                             rows[rowIndex].forEach { playlist ->
                                 PlaylistGridCard(
                                     playlist = playlist,
+                                    isPinned = playlist.isBuiltIn || playlist.id in pinnedIds,
                                     onClick = {
                                         restorer.record("playlist:${playlist.id}")
                                         onPlaylistClick(playlist.id)
                                     },
+                                    onLongPress = { if (!playlist.isBuiltIn) pendingPin = playlist },
                                     modifier = Modifier
                                         .weight(1f)
                                         .restorableFocus(restorer, "playlist:${playlist.id}")
@@ -164,6 +186,40 @@ fun PlaylistsScreen(
                     }
                 }
             }
+        }
+    }
+
+    pendingPin?.let { playlist ->
+        val willUnpin = playlist.id in pinnedIds
+        if (willUnpin) {
+            PinConfirmDialog(
+                title = "取消置顶",
+                message = "确定取消置顶「${playlist.name}」吗？取消后该歌单将恢复普通排序。",
+                onConfirm = {
+                    viewModel.togglePin(playlist.id)
+                    pendingPin = null
+                },
+                onDismiss = { pendingPin = null }
+            )
+        } else {
+            // 已满 6 个时明确提示：新置顶会顶掉最早置顶的歌单
+            val oldestPinnedName = if (pinnedIds.size >= PlaylistViewModel.MAX_PINNED) {
+                pinnedIds.lastOrNull()
+                    ?.let { id -> displayPlaylists.find { it.id == id }?.name }
+                    ?.let { "「$it」" }
+            } else null
+            val message = oldestPinnedName?.let {
+                "最多只能置顶 ${PlaylistViewModel.MAX_PINNED} 个歌单。置顶「${playlist.name}」后，将自动取消最早置顶的歌单 $it，是否继续？"
+            } ?: "置顶「${playlist.name}」后将固定显示在歌单列表最前，是否置顶？"
+            PinConfirmDialog(
+                title = "置顶歌单",
+                message = message,
+                onConfirm = {
+                    viewModel.togglePin(playlist.id)
+                    pendingPin = null
+                },
+                onDismiss = { pendingPin = null }
+            )
         }
     }
 }
@@ -254,7 +310,9 @@ private fun RefreshButton(
 @Composable
 private fun PlaylistGridCard(
     playlist: Playlist,
+    isPinned: Boolean = false,
     onClick: () -> Unit,
+    onLongPress: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -263,6 +321,11 @@ private fun PlaylistGridCard(
         animationSpec = tween(150),
         label = "playlistGridScale"
     )
+    val scope = rememberCoroutineScope()
+    // 确认键完全由本卡片接管：短按 KeyUp 触发 onClick，按住 400ms 判定长按触发 onLongPress
+    // 注意：不能用 combinedClickable，其按键处理会先于 onPreviewKeyEvent 消费确认键事件，导致长按无法拦截
+    var longPressTriggered by remember { mutableStateOf(false) }
+    var timerJob by remember { mutableStateOf<Job?>(null) }
 
     Column(
         modifier = modifier
@@ -277,8 +340,65 @@ private fun PlaylistGridCard(
                     2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)
                 ) else Modifier
             )
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() }
+            .onPreviewKeyEvent { event ->
+                val isConfirm = event.key == Key.Enter || event.key == Key.DirectionCenter
+                if (isConfirm) {
+                    Log.d(TAG, "[keyEvent] type=${event.type} key=${event.key} repeat=${event.nativeKeyEvent.repeatCount} id=${playlist.id}")
+                }
+                if (!isConfirm) return@onPreviewKeyEvent false
+                when (event.type) {
+                    KeyEventType.KeyDown -> {
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            longPressTriggered = false
+                            Log.d(TAG, "[keyDown0] 启动长按计时 id=${playlist.id}")
+                            timerJob = scope.launch {
+                                delay(LONG_PRESS_DELAY_MS)
+                                Log.d(TAG, "[timer] 计时到期 longPressTriggered=$longPressTriggered id=${playlist.id}")
+                                if (!longPressTriggered) {
+                                    longPressTriggered = true
+                                    Log.d(TAG, "[longPress] 触发长按置顶 id=${playlist.id}")
+                                    onLongPress()
+                                }
+                            }
+                        }
+                        true // consume，防止其它按键处理响应
+                    }
+                    KeyEventType.KeyUp -> {
+                        // 已失焦（如长按期间已进详情）的松手 KeyUp 放行，避免二次触发
+                        if (!isFocused) return@onPreviewKeyEvent false
+                        timerJob?.cancel()
+                        timerJob = null
+                        Log.d(TAG, "[keyUp] longPressTriggered=$longPressTriggered id=${playlist.id}")
+                        if (!longPressTriggered) {
+                            Log.d(TAG, "[click] KeyUp 判定短按，执行 onClick id=${playlist.id}")
+                            onClick()
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (!it.isFocused) {
+                    timerJob?.cancel()
+                    timerJob = null
+                    Log.d(TAG, "[focusLost] 取消计时 id=${playlist.id}")
+                }
+            }
+            .pointerInput(playlist.id) {
+                detectTapGestures(
+                    onTap = {
+                        Log.d(TAG, "[touchClick] 触屏点击 id=${playlist.id}")
+                        onClick()
+                    },
+                    onLongPress = {
+                        Log.d(TAG, "[touchLongPress] 触屏长按 id=${playlist.id}")
+                        onLongPress()
+                    }
+                )
+            }
+            .focusable()
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -295,6 +415,13 @@ private fun PlaylistGridCard(
                 contentDescription = playlist.name,
                 modifier = Modifier.fillMaxSize()
             )
+            if (isPinned) {
+                PinBadge(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -311,4 +438,95 @@ private fun PlaylistGridCard(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
     }
+}
+
+private const val LONG_PRESS_DELAY_MS = 400L
+private const val TAG = "PlaylistPin"
+
+@Composable
+private fun PinConfirmDialog(
+    title: String,
+    message: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    // 默认焦点落在「取消」，避免误按确认键直接执行置顶/取消置顶
+    val cancelFocus = remember { FocusRequester() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 36.dp, vertical = 28.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = message,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+            )
+            Spacer(Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                var cancelFocused by remember { mutableStateOf(false) }
+                Text(
+                    text = "取消",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (cancelFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                        .then(
+                            if (cancelFocused) Modifier.border(
+                                3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)
+                            ) else Modifier
+                        )
+                        .focusRequester(cancelFocus)
+                        .onFocusChanged { cancelFocused = it.isFocused }
+                        .clickable { onDismiss() }
+                        .padding(horizontal = 28.dp, vertical = 10.dp)
+                )
+                var confirmFocused by remember { mutableStateOf(false) }
+                Text(
+                    text = "确认",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (confirmFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                        .then(
+                            if (confirmFocused) Modifier.border(
+                                3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)
+                            ) else Modifier
+                        )
+                        .onFocusChanged { confirmFocused = it.isFocused }
+                        .clickable { onConfirm() }
+                        .padding(horizontal = 28.dp, vertical = 10.dp)
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { runCatching { cancelFocus.requestFocus() } }
 }
