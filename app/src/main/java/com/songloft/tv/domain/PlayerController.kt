@@ -179,6 +179,14 @@ class PlayerController @Inject constructor(
                 _state.update { it.copy(eqPreset = preset) }
             }
         }
+        // 播放模式持久化闭环：重启后恢复上次模式，并在控制器已连接时即时重放
+        scope.launch {
+            dataStore.playMode.collect { mode ->
+                val playMode = runCatching { PlayMode.valueOf(mode) }.getOrDefault(PlayMode.ORDER)
+                _state.update { it.copy(playMode = playMode) }
+                controller?.let { applyPlayMode(it, playMode) }
+            }
+        }
         // 音效模式配置持久化闭环，同均衡器
         scope.launch {
             combine(dataStore.sfxEnabled, dataStore.sfxMode, dataStore.sfxStrength) { enabled, mode, strength ->
@@ -354,6 +362,7 @@ class PlayerController @Inject constructor(
 
     fun setPlayMode(mode: PlayMode) {
         _state.update { it.copy(playMode = mode) }
+        scope.launch { dataStore.setPlayMode(mode.name) }
         withController { applyPlayMode(it, mode) }
     }
 

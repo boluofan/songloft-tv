@@ -37,6 +37,7 @@ class PreferencesDataStore @Inject constructor(
         private val SFX_STRENGTH = intPreferencesKey("sfx_strength")
         val LYRIC_HIGHLIGHT_COLOR = intPreferencesKey("lyric_highlight_color")
         val LYRIC_FONT_SIZE = intPreferencesKey("lyric_font_size")
+        private val PLAY_MODE = stringPreferencesKey("play_mode")
         private val PLAY_CACHE_MB = intPreferencesKey("play_cache_mb")
         private val CACHE_SERVER_URL = stringPreferencesKey("cache_server_url")
         // 自定义按键映射：用户物理按键 keycode，0 = 未自定义（跟随系统默认键）
@@ -67,6 +68,8 @@ class PreferencesDataStore @Inject constructor(
     val sfxEnabled: Flow<Boolean> = context.dataStore.data.map { it[SFX_ENABLED] ?: false }
     val sfxMode: Flow<String> = context.dataStore.data.map { it[SFX_MODE] ?: "virtualizer" }
     val sfxStrength: Flow<Int> = context.dataStore.data.map { it[SFX_STRENGTH] ?: 50 }
+    // 播放模式：PlayMode.name（"ORDER"/"LOOP"/"SINGLE"/"RANDOM"），默认顺序播放
+    val playMode: Flow<String> = context.dataStore.data.map { it[PLAY_MODE] ?: "ORDER" }
     // 歌词高亮颜色：1=默认白色，2=跟随主题色
     val lyricHighlightColor: Flow<Int> = context.dataStore.data.map { it[LYRIC_HIGHLIGHT_COLOR] ?: 1 }
     // 歌词字号：当前句字号 sp，默认 30；非当前句/翻译行按比例派生
@@ -137,6 +140,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setSfxStrength(strength: Int) {
         context.dataStore.edit { it[SFX_STRENGTH] = strength }
+    }
+
+    suspend fun setPlayMode(mode: String) {
+        context.dataStore.edit { it[PLAY_MODE] = mode }
     }
 
     suspend fun setLyricHighlightColor(mode: Int) {
