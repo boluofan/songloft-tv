@@ -69,7 +69,7 @@ fun PlaylistsScreen(
     val topFocus = remember { FocusRequester() }
     val restorer = rememberScreenFocusRestorer()
     var topFocusHasFocus by remember { mutableStateOf(false) }
-    // 长按歌单后待确认的置顶/取消置顶操作；内置歌单（收藏歌单/收藏电台）固定置顶不可取消，不弹窗
+    // 长按歌单后待确认的置顶/取消置顶操作
     var pendingPin by remember { mutableStateOf<Playlist?>(null) }
 
     ListBackToTopHandler(listState, topFocus, topFocusHasFocus = topFocusHasFocus, jumpToTabBar = true)
@@ -154,12 +154,12 @@ fun PlaylistsScreen(
                             rows[rowIndex].forEach { playlist ->
                                 PlaylistGridCard(
                                     playlist = playlist,
-                                    isPinned = playlist.isBuiltIn || playlist.id in pinnedIds,
+                                    isPinned = playlist.id in pinnedIds,
                                     onClick = {
                                         restorer.record("playlist:${playlist.id}")
                                         onPlaylistClick(playlist.id)
                                     },
-                                    onLongPress = { if (!playlist.isBuiltIn) pendingPin = playlist },
+                                    onLongPress = { pendingPin = playlist },
                                     modifier = Modifier
                                         .weight(1f)
                                         .restorableFocus(restorer, "playlist:${playlist.id}")
@@ -202,7 +202,7 @@ fun PlaylistsScreen(
                 onDismiss = { pendingPin = null }
             )
         } else {
-            // 已满 6 个时明确提示：新置顶会顶掉最早置顶的歌单
+            // 已满 8 个时明确提示：新置顶会顶掉最早置顶的歌单
             val oldestPinnedName = if (pinnedIds.size >= PlaylistViewModel.MAX_PINNED) {
                 pinnedIds.lastOrNull()
                     ?.let { id -> displayPlaylists.find { it.id == id }?.name }
@@ -452,6 +452,10 @@ private fun PinConfirmDialog(
 ) {
     // 默认焦点落在「取消」，避免误按确认键直接执行置顶/取消置顶
     val cancelFocus = remember { FocusRequester() }
+    // 弹窗可能由长按触发，此时确认键仍处于按下状态：吞掉这枚残留按键的重复 KeyDown 和松手 KeyUp，
+    // 否则松手瞬间会触发默认焦点的「取消」按钮，弹窗一闪而过
+    var sawFreshKeyDown by remember { mutableStateOf(false) }
+    var swallowKeyUp by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -462,6 +466,30 @@ private fun PinConfirmDialog(
                 .fillMaxWidth(0.5f)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surface)
+                .onPreviewKeyEvent { event ->
+                    val isConfirm = event.key == Key.Enter || event.key == Key.DirectionCenter
+                    if (!isConfirm) return@onPreviewKeyEvent false
+                    when (event.type) {
+                        KeyEventType.KeyDown -> {
+                            if (event.nativeKeyEvent.repeatCount == 0) {
+                                // 全新按下：放行，由 clickable 在 KeyUp 触发
+                                sawFreshKeyDown = true
+                                false
+                            } else {
+                                // 弹窗打开前已按住的键的重复事件，等待吞掉其松手
+                                swallowKeyUp = true
+                                true
+                            }
+                        }
+                        KeyEventType.KeyUp -> {
+                            val shouldSwallow = !sawFreshKeyDown || swallowKeyUp
+                            sawFreshKeyDown = false
+                            swallowKeyUp = false
+                            if (shouldSwallow) true else false
+                        }
+                        else -> false
+                    }
+                }
                 .padding(horizontal = 36.dp, vertical = 28.dp)
         ) {
             Text(

@@ -29,7 +29,7 @@ data class HomeUiState(
     val topAlbums: List<FacetItem> = emptyList(),
     val topYears: List<FacetItem> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
-    /** 用户自定义置顶歌单 id（不含内置收藏），用于首页卡片"置顶"角标判断 */
+    /** 用户置顶歌单 id，用于首页卡片"置顶"角标判断 */
     val pinnedIds: Set<Long> = emptySet(),
     val statsSummaries: Map<StatsRange, StatsSummary> = emptyMap(),
     val statsAvailable: Boolean = false,
@@ -70,7 +70,7 @@ class HomeViewModel @Inject constructor(
             val albumsDeferred = async { songRepository.getFacets("album") }
             val yearsDeferred = async { songRepository.getFacets("year") }
             val statsDeferred = async { songRepository.getLibraryStats() }
-            // 多拉取以保证内置收藏歌单（收藏/电台收藏）在响应中；用户置顶缺失时再按 id 单独兜底
+            // 多拉取以保证置顶歌单在响应中；用户置顶缺失时再按 id 单独兜底
             val playlistsDeferred = async { playlistRepository.getPlaylists(limit = 100) }
             // 首页只查概览汇总（全部区间，不带参数），其他区间在切换 Tab 时按需请求
             val statsSummaryDeferred = async { statsRepository.getSummary(StatsRange.ALL) }
@@ -90,17 +90,15 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
 
-            // 置顶组合：内置收藏歌单/收藏电台 2 个 + 用户置顶（可能不在前 100 响应里，按 id 单独拉取兜底）+ 普通歌单填充，共 8 个
+            // 置顶组合：用户置顶（可能不在前 100 响应里，按 id 单独拉取兜底）+ 普通歌单填充，共 8 个
             val pinnedIds = preferencesDataStore.pinnedPlaylistIds.first()
-            val builtIn = all.filter { it.isBuiltIn }.sortedBy { if (it.type == "normal") 0 else 1 }.take(2)
             val missingIds = pinnedIds.filterNot { id -> all.any { it.id == id } }
             val missingDeferred = missingIds.map { id -> async { playlistRepository.getPlaylistDetail(id).getOrNull() } }
             val fetchedMap = missingDeferred.mapNotNull { it.await() }.associateBy { it.id }
             val userPinned = pinnedIds.mapNotNull { id -> all.find { it.id == id } ?: fetchedMap[id] }
-                .filterNot { it.isBuiltIn }
             val pinnedSet = userPinned.mapTo(mutableSetOf()) { it.id }
-            val rest = all.filterNot { it.isBuiltIn || it.id in pinnedSet }
-            val pinnedPlaylists = (builtIn + userPinned + rest).take(8)
+            val rest = all.filterNot { it.id in pinnedSet }
+            val pinnedPlaylists = (userPinned + rest).take(8)
 
             val stats = statsResult.getOrNull()
             val statsSummaryResult = statsSummaryDeferred.await()

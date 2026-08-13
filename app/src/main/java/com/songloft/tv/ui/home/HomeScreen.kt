@@ -332,7 +332,7 @@ private fun PlaylistSection(
                         row.forEach { playlist ->
                             PlaylistCard(
                                 playlist = playlist,
-                                isPinned = playlist.isBuiltIn || playlist.id in pinnedIds,
+                                isPinned = playlist.id in pinnedIds,
                                 onClick = { onPlaylistClick(playlist.id) },
                                 modifier = Modifier
                                     .weight(1f)

@@ -40,7 +40,7 @@ class PreferencesDataStore @Inject constructor(
         private val PLAY_MODE = stringPreferencesKey("play_mode")
         private val PLAY_CACHE_MB = intPreferencesKey("play_cache_mb")
         private val CACHE_SERVER_URL = stringPreferencesKey("cache_server_url")
-        // 用户自定义置顶歌单 id（逗号分隔），下标 0 最前；内置收藏歌单不在此列，始终置顶
+        // 用户置顶歌单 id（逗号分隔），下标 0 最前
         private val PINNED_PLAYLISTS = stringPreferencesKey("pinned_playlists")
         // 自定义按键映射：用户物理按键 keycode，0 = 未自定义（跟随系统默认键）
         private val KEY_MAPPING_UP = intPreferencesKey("key_mapping_up")

@@ -54,7 +54,7 @@ class PlaylistViewModel @Inject constructor(
     private var detailJob: Job? = null
     private var loadMoreJob: Job? = null
 
-    /** 用户自定义置顶歌单 id，下标 0 最前（新置顶排最前）；内置收藏歌单不在此列 */
+    /** 用户置顶歌单 id，下标 0 最前（新置顶排最前） */
     val pinnedIds: StateFlow<List<Long>> = preferencesDataStore.pinnedPlaylistIds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -70,7 +70,7 @@ class PlaylistViewModel @Inject constructor(
         viewModelScope.launch { favoriteRepository.toggleFavorite(song) }
     }
 
-    /** 长按歌单：已置顶则取消，未置顶则插入最前；超过上限自动替换最旧的置顶 */
+    /** 长按歌单：已置顶则取消，未置顶则插入最前；超过上限自动替换最旧的置顶（界面层已弹窗确认） */
     fun togglePin(id: Long) {
         viewModelScope.launch {
             val current = preferencesDataStore.pinnedPlaylistIds.first()
@@ -223,17 +223,15 @@ class PlaylistViewModel @Inject constructor(
     companion object {
         const val SONGS_PAGE_SIZE = 500
         const val PLAYLIST_PAGE_SIZE = 100
-        /** 用户自定义置顶歌单上限；加上内置收藏歌单/收藏电台共 8 个置顶槽位 */
-        const val MAX_PINNED = 6
+        /** 用户置顶歌单上限 */
+        const val MAX_PINNED = 8
     }
 }
 
-/** 内置收藏歌单固定最前（收藏在前、电台收藏在后），随后用户置顶（新置顶最前），其余保持原顺序。
- *  内置歌单可能出现在任意分页，这里统一提到最前，不依赖 repository 第一页处理 */
+/** 用户置顶歌单提到最前（新置顶最前），其余保持原顺序 */
 fun orderWithPinnedFirst(playlists: List<Playlist>, pinnedIds: List<Long>): List<Playlist> {
     val byId = playlists.associateBy { it.id }
-    val builtIn = playlists.filter { it.isBuiltIn }.sortedBy { if (it.type == "normal") 0 else 1 }.take(2)
-    val pinned = pinnedIds.mapNotNull { byId[it] }.filterNot { it.isBuiltIn }
+    val pinned = pinnedIds.mapNotNull { byId[it] }
     val pinnedSet = pinned.mapTo(mutableSetOf()) { it.id }
-    return builtIn + pinned + playlists.filterNot { it.isBuiltIn || it.id in pinnedSet }
+    return pinned + playlists.filterNot { it.id in pinnedSet }
 }

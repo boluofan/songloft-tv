@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -811,7 +812,10 @@ private fun KeyMappingDialog(
 
 @Composable
 private fun HelpDialog(onDismiss: () -> Unit) {
+    val listFocus = remember { FocusRequester() }
     val closeFocus = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -819,7 +823,7 @@ private fun HelpDialog(onDismiss: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.85f)
+                .fillMaxWidth(0.72f)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 36.dp, vertical = 28.dp)
@@ -833,64 +837,77 @@ private fun HelpDialog(onDismiss: () -> Unit) {
 
             Spacer(Modifier.height(16.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 340.dp)
+                    .focusable()
+                    .focusRequester(listFocus)
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            when (event.nativeKeyEvent.keyCode) {
+                                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                    if (listState.canScrollForward) {
+                                        scope.launch { listState.animateScrollToItem(listState.firstVisibleItemIndex + 1) }
+                                        true
+                                    } else {
+                                        closeFocus.requestFocus()
+                                        true
+                                    }
+                                }
+                                KeyEvent.KEYCODE_DPAD_UP -> {
+                                    if (listState.canScrollBackward) {
+                                        scope.launch { listState.animateScrollToItem(listState.firstVisibleItemIndex - 1) }
+                                        true
+                                    } else false
+                                }
+                                else -> false
+                            }
+                        } else false
+                    },
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
                     HelpBlock(
-                        title = "首页",
+                        title = "返回键",
                         lines = listOf(
-                            "列表已滚动时按「「返回键」」：快速回到顶部并聚焦顶部按钮",
-                            "已在顶部时按「返回键」：焦点跳到底部 Tab 栏",
-                            "焦点在底部 Tab 栏时按「返回键」：弹出退出应用确认"
-                        )
-                    )
-                    HelpBlock(
-                        title = "其他一级界面（搜索 / 歌单 / 我的）",
-                        lines = listOf(
-                            "列表已滚动时按「返回键」：快速回到顶部并聚焦顶部按钮",
-                            "在顶部但焦点不在顶部按钮时按「返回键」：焦点跳到顶部按钮",
-                            "焦点已在顶部按钮时按「返回键」：焦点先跳到底部 Tab 栏",
-                            "焦点在底部 Tab 栏时按「返回键」：回到首页，再按弹出退出应用确认"
-                        )
-                    )
-                    HelpBlock(
-                        title = "二级界面（歌单详情 / 筛选歌曲 / 设置等）",
-                        lines = listOf(
-                            "进入时焦点默认在左上角【返回】按钮，直接按「返回键」即回上一级",
-                            "列表已滚动时按「返回键」：先回到顶部并聚焦【返回】按钮",
-                            "在顶部但焦点不在【返回】按钮时按「返回键」：焦点跳到【返回】按钮",
-                            "焦点已在【返回】按钮时按「返回键」：直接回上一级",
-                            "焦点在底部 Tab 栏时按「返回键」：直接回上一级"
+                            "一级界面（首页/搜索/歌单/我的）：滚动中按「返回键」回顶并聚焦顶部；已在顶部再按跳到底部 Tab 栏；",
+                            "二级界面（歌单详情/筛选/设置）：滚动中按「返回键」回顶并聚焦【返回】按钮，再按直接回上一级；",
+                            "播放器：侧边栏/控制栏打开时按「返回键」先关闭；其余情况退出播放器（音乐后台继续播放）；",
+                            "连按「返回键」最终回到首页，再按弹出退出应用确认。"
                         )
                     )
                 }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item {
                     HelpBlock(
-                        title = "播放器",
+                        title = "歌单置顶",
                         lines = listOf(
-                            "控制栏隐藏时：左/右键单击切上一首/下一首，长按快退/快进",
-                            "控制栏隐藏时：按上/下/确认键唤出控制栏",
-                            "控制栏 10 秒无操作自动隐藏",
-                            "播放列表侧边栏打开时按「返回键」：关闭侧边栏",
-                            "其余情况按「返回键」：退出播放器（音乐可后台继续播放）"
+                            "在「歌单」界面长按「确认键」：弹窗确认置顶/取消置顶该歌单；",
+                            "置顶的歌单固定显示在列表最前，最多 8 个；",
+                            "置顶已满 8 个时：新置顶会自动顶掉最早置顶的歌单。"
                         )
                     )
+                }
+                item {
                     HelpBlock(
-                        title = "快速聚焦技巧",
+                        title = "播放器快捷键",
                         lines = listOf(
-                            "长列表中任意位置按「返回键」 = 一键回顶，无需长按方向键",
-                            "首页在顶部时按「返回键」：焦点直达底部 Tab 栏",
-                            "自定义「返回顶部」键：任意长列表一键回顶并聚焦顶部按钮",
-                            "自定义「返回底部」键：焦点直达底部 Tab 栏（设置页为退出登录按钮）",
-                            "任意界面连按「返回键」最终都会回到首页，再按弹出退出确认"
+                            "控制栏隐藏时：左/右键单击切上一首/下一首，长按快退/快进；",
+                            "控制栏隐藏时：按上/下/确认键可唤出控制栏；",
+                            "控制栏 10 秒无操作自动隐藏。"
                         )
                     )
+                }
+                item {
                     HelpBlock(
                         title = "自定义按键",
                         lines = listOf(
-                            "在「按键设置」中按下遥控器实际按键，即可映射到上/下/左/右/返回/确认/返回顶部/返回底部",
-                            "映射后应用内所有界面（含播放器）按自定义键生效，原默认键仍可用",
-                            "适合 keycode 非标的遥控器与车机方向盘按键（如方向盘按键映射为左/右键实现切歌）",
-                            "录制时按「返回键」可取消；「恢复默认」可清除全部映射"
+                            "在「按键设置」中按下遥控器实际按键，即可映射自定义按键;",
+                            "映射后应用内所有界面（含播放器）按自定义键生效，原默认键仍可用;",
+                            "录制时按「返回键」可取消；「恢复默认」可清除全部映射；",
+                            "自定义「返回顶部」键：任意长列表一键回顶；",
+                            "自定义「返回底部」键：焦点直达底部 Tab 栏（设置页为退出登录按钮）。"
                         )
                     )
                 }
@@ -919,7 +936,8 @@ private fun HelpDialog(onDismiss: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { runCatching { closeFocus.requestFocus() } }
+    // 默认焦点落在说明列表，滚动到底后按「下」跳转关闭按钮
+    LaunchedEffect(Unit) { runCatching { listFocus.requestFocus() } }
 }
 
 @Composable

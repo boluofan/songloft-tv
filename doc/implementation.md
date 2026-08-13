@@ -75,7 +75,7 @@ baseUrl 为 `{serverUrl}/api/v1/`，全部 suspend 方法：
 
 - **AuthRepository**：`login`（初始化 ApiClient/UrlHelper + 存 token）、`tryAutoLogin`、`logout`；init 中注册 token 刷新回调持久化。
 - **FavoriteRepository**：收藏基于服务端 **`built_in` 标签歌单**实现——`type=normal` 歌单收藏歌曲、`type=radio` 歌单收藏电台；内部缓存 type→playlistId 映射；`getFavorites` 拉取所有内置歌单歌曲合并。
-- **PlaylistRepository**：歌单列表/详情/歌曲（详情页按 500 首/页循环拉取直至全量，修复原先只显示前 50 首的问题）；列表第一页把内置收藏歌单（收藏/电台收藏）固定置顶，后续分页不变。
+- **PlaylistRepository**：歌单列表/详情/歌曲（详情页按 500 首/页循环拉取直至全量，修复原先只显示前 50 首的问题）；置顶由用户自定义（长按歌单置顶/取消置顶，上限 8 个，DataStore 持久化）。
 - **SongRepository**：`getSongs`、`getFacets`、`getSongLyric`（歌词全空抛异常）、`reportPlayed`、`getLibraryStats`（分页拉全库统计，上限 5000 首）。
 - **StatsRepository**：播放统计插件（`jsplugin/stats`）数据源，`getSummary(range)`（range 由 `StatsRange` 枚举换算 from/to 时间戳：全部/今日/本周[周一起]/本月）、`getTrends(days)`、`getHourly()`、`getHistory(limit, offset)`；任一接口失败返回 Result.failure，UI 层据此回退。
 - **UpdateRepository**：GitHub Release 更新检查 + APK 下载，见 §5。
@@ -175,12 +175,12 @@ DataStore 名 `songloft_tv_settings`，27 个 key：`server_url`、`theme_mode`(
 
 | 页面 | 实现要点 |
 |---|---|
-| 首页 Home | 5 个 async 并发拉统计/歌手/专辑/年份/歌单；统计卡 ×4、歌单 4 列网格（≤8，内置收藏歌单置顶）、歌手/专辑两列（各 6）、年份胶囊行（8）；最下方「年份速览」动态切换：仅预取统计插件 summary（全部区间，不带参数），成功则展示「播放统计」概览（全部/今日/本周/本月 Tab，切换其他区间时按需请求该区间 summary，右上角查看全部进统计页），失败则回退年份速览；概览区「本月」Tab 与「查看全部」用 `focusProperties` 双向焦点跳转 |
+| 首页 Home | 5 个 async 并发拉统计/歌手/专辑/年份/歌单；统计卡 ×4、歌单 4 列网格（≤8，用户置顶在前）、歌手/专辑两列（各 6）、年份胶囊行（8）；最下方「年份速览」动态切换：仅预取统计插件 summary（全部区间，不带参数），成功则展示「播放统计」概览（全部/今日/本周/本月 Tab，切换其他区间时按需请求该区间 summary，右上角查看全部进统计页），失败则回退年份速览；概览区「本月」Tab 与「查看全部」用 `focusProperties` 双向焦点跳转 |
 | 统计 Stats | 播放统计插件（jsplugin/stats）子界面：全部/今日/本周/本月时间 Tab、概览卡 ×4（播放次数/听歌时长/不同歌曲/不同艺术家）、艺术家排行 top4、歌曲排行 top3、听歌趋势（7/30 天柱状图）、专辑排行 top3、时段分布、来源分布 top3、歌曲类型 top3、最近播放 top3；各卡片标题栏带「刷新」按钮 |
 | 搜索 Search | 300ms 防抖搜索；**无关键词时直接分页浏览曲库**（首次进入即展示，滚动接近底部懒加载下一页，列表顶部显示"共 N 首"）；自定义 `TvKeyboard`（左侧 8×4 字母方阵+功能键、右侧 4×4 数字/符号方阵可切换 + 一次性 Shift，特殊键用字符串协议"←退格/清空/确定"）；热门标签取 artist facet 前 10；拼音/首字母候选取 `songs/names`（title+artist 去重全量）经 `PinyinMatcher` 索引，输入 ≥2 个字母时匹配候选（旧服务器无该接口时回退 artist facet 值） |
 | 分类 FacetList | 全部歌手/专辑/年份，3 列网格 → 点击进 SongFilter |
 | 筛选 FilteredSongs | 按 artist/album/year 拉 500 首列表 |
-| 歌单 Playlists | 全部/普通/电台 FilterChip 过滤，4 列网格（第一页内置收藏歌单置顶）；详情页有"播放全部/随机播放" |
+| 歌单 Playlists | 全部/普通/电台 FilterChip 过滤，4 列网格；长按弹窗确认置顶/取消置顶（上限 8 个，置顶排最前；满 8 个时确认后自动顶掉最早置顶）；详情页有"播放全部/随机播放" |
 | 我的 My | 收藏按 `song.type` partition 为歌曲/电台两个 Tab；右上角进设置 |
 | 设置 Settings | 见 4.3 |
 | 配置 AuthSetup | 见 4.4 |
@@ -199,7 +199,7 @@ DataStore 名 `songloft_tv_settings`，27 个 key：`server_url`、`theme_mode`(
 - **音效开关**：音效 + 均衡器二合一总开关（开启时分别校验能力，两者均不支持弹"当前设备不支持音效"对话框；关闭时同时关 EQ/SFX）。
 - **歌词**：高亮色（默认白色/跟随主题色）+ 字号调节（`LyricSizeRow`，D-Pad 左右键 + 触屏滑动，30-60sp）。
 - **日志导出**：`logcat -d` 逐行脱敏（Authorization/Cookie 头、JSON token/password 字段、URL token 参数、裸 JWT 四个正则）后写系统下载目录（API 29+ 用 MediaStore）。
-- **帮助**：操作说明对话框（聚焦/返回键三段式行为说明）。
+- **帮助**：操作说明对话框（返回键用法/歌单置顶/播放器快捷键/自定义按键四个区块，内容可滚动）。
 - **关于**：运行时读 versionName、检查更新（`UpdateRepository`，见 §5）、项目地址、开源组件列表。
 - **重启应用**：整行可聚焦项（`SettingsItem` 样式），点击重启（发启动 Intent 后 `Runtime.exit`，部分设置如缓存大小需重启服务生效）。
 - **危险操作**（红色标题，沉底降低误触）：清除配置、退出登录两个按钮，点击后弹**二次确认对话框**（默认焦点在"取消"，确认键为红色实心），确认才执行。
