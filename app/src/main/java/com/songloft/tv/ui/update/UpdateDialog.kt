@@ -346,8 +346,90 @@ private fun parseNotes(notes: String): List<NotesLine> =
         }
     }
 
-/** 去掉行内 `*强调*`、`` `代码` ``、`[文字](链接)` 的 markdown 符号，只留文字 */
+/** 去掉行内 `*强调*`、`` `代码` ``、`[文字](链接)` 的 markdown 符号，只留文字；再转换 gitmoji 短代码 */
 private fun stripInlineMarkdown(text: String): String =
-    text.replace(Regex("\\*(.+?)\\*"), "$1")
-        .replace(Regex("`(.+?)`"), "$1")
-        .replace(Regex("\\[([^\\]]+)\\]\\([^)]*\\)"), "$1")
+    replaceEmojiShortcodes(
+        text.replace(Regex("\\*(.+?)\\*"), "$1")
+            .replace(Regex("`(.+?)`"), "$1")
+            .replace(Regex("\\[([^\\]]+)\\]\\([^)]*\\)"), "$1")
+    )
+
+// gitmoji 短代码 → emoji（CI changelog 的 useGitmojis 生成，覆盖常用类型；未收录的保留原样）
+private val EMOJI_MAP = mapOf(
+    ":sparkles:" to "✨",
+    ":bug:" to "🐛",
+    ":memo:" to "📝",
+    ":lipstick:" to "💄",
+    ":recycle:" to "♻️",
+    ":zap:" to "⚡️",
+    ":white_check_mark:" to "✅",
+    ":construction_worker:" to "👷",
+    ":green_heart:" to "💚",
+    ":wrench:" to "🔧",
+    ":rewind:" to "⏪️",
+    ":rocket:" to "🚀",
+    ":tada:" to "🎉",
+    ":bookmark:" to "🔖",
+    ":ambulance:" to "🚑️",
+    ":fire:" to "🔥",
+    ":art:" to "🎨",
+    ":lock:" to "🔒",
+    ":rotating_light:" to "🚨",
+    ":construction:" to "🚧",
+    ":arrow_down:" to "⬇️",
+    ":arrow_up:" to "⬆️",
+    ":pushpin:" to "📌",
+    ":chart_with_upwards_trend:" to "📈",
+    ":heavy_plus_sign:" to "➕",
+    ":heavy_minus_sign:" to "➖",
+    ":globe_with_meridians:" to "🌐",
+    ":pencil2:" to "✏️",
+    ":hankey:" to "💩",
+    ":twisted_rightwards_arrows:" to "🔀",
+    ":package:" to "📦",
+    ":alien:" to "👽️",
+    ":truck:" to "🚚",
+    ":boom:" to "💥",
+    ":bulb:" to "💡",
+    ":loud_sound:" to "🔊",
+    ":mute:" to "🔇",
+    ":bento:" to "🍱",
+    ":wheelchair:" to "♿️",
+    ":children_crossing:" to "🚸",
+    ":iphone:" to "📱",
+    ":see_no_evil:" to "🙈",
+    ":necktie:" to "👔",
+    ":stethoscope:" to "🩺",
+    ":bricks:" to "🧱",
+    ":technologist:" to "🧑‍💻",
+    ":money_with_wings:" to "💸",
+    ":thread:" to "🧵",
+    ":safety_vest:" to "🦺",
+    ":goal_net:" to "🥅",
+    ":sos:" to "🆘",
+    ":adhesive_bandage:" to "🩹",
+    ":building_construction:" to "🏗️",
+    ":passport_control:" to "🛂",
+    ":label:" to "🏷️",
+    ":triangular_flag_on_post:" to "🚩",
+    ":dizzy:" to "💫",
+    ":wastebasket:" to "🗑️",
+    ":coffin:" to "⚰️",
+    ":test_tube:" to "🧪",
+    ":gem:" to "💎",
+    ":book:" to "📖",
+    ":broom:" to "🧹",
+    ":seedling:" to "🌱",
+    ":gift:" to "🎁",
+    ":alembic:" to "⚗️",
+    ":egg:" to "🥚",
+    ":camera_flash:" to "📸",
+    ":page_facing_up:" to "📄",
+    ":speech_balloon:" to "💬",
+    ":card_file_box:" to "🗃️"
+)
+
+private val EMOJI_REGEX = Regex(":([a-z0-9_+-]+):")
+
+private fun replaceEmojiShortcodes(text: String): String =
+    EMOJI_REGEX.replace(text) { match -> EMOJI_MAP[match.value] ?: match.value }
