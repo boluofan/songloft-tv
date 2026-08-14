@@ -19,8 +19,8 @@ class FavoriteRepository @Inject constructor() {
 
     private val api get() = ApiClient.getApi()
 
-    // songloft 的收藏以 built_in 标签歌单实现：normal=收藏歌曲，radio=收藏电台
-    private val builtInPlaylistIds = mutableMapOf<String, Long>()
+    // songloft 的收藏以 built_in 标签歌单实现，官方迁移固定 id：normal=收藏歌曲(id=1)、radio=收藏电台(id=2)
+    private val builtInPlaylistIds = mapOf("normal" to 1L, "radio" to 2L)
 
     // null 表示尚未加载
     private val _favoriteIds = MutableStateFlow<Set<Long>?>(null)
@@ -36,7 +36,7 @@ class FavoriteRepository @Inject constructor() {
 
     suspend fun getFavorites(): Result<List<Song>> = withContext(Dispatchers.IO) {
         runCatching {
-            resolveBuiltInPlaylists().values.flatMap { playlistId ->
+            builtInPlaylistIds.values.flatMap { playlistId ->
                 api.getPlaylistSongs(playlistId, limit = 200).songs
             }
         }.onSuccess { songs ->
@@ -46,9 +46,7 @@ class FavoriteRepository @Inject constructor() {
 
     suspend fun addFavorite(song: Song): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val playlistId = resolvePlaylistIdFor(song)
-                ?: throw IllegalStateException("未找到收藏歌单")
-            api.addSongsToPlaylist(playlistId, AddSongsRequest(listOf(song.id)))
+            api.addSongsToPlaylist(playlistIdFor(song), AddSongsRequest(listOf(song.id)))
             Unit
         }.onSuccess {
             _favoriteIds.update { ids -> ids?.plus(song.id) }
@@ -57,9 +55,7 @@ class FavoriteRepository @Inject constructor() {
 
     suspend fun removeFavorite(song: Song): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val playlistId = resolvePlaylistIdFor(song)
-                ?: throw IllegalStateException("未找到收藏歌单")
-            api.removeSongFromPlaylist(playlistId, song.id)
+            api.removeSongFromPlaylist(playlistIdFor(song), song.id)
             Unit
         }.onSuccess {
             _favoriteIds.update { ids -> ids?.minus(song.id) }
@@ -80,16 +76,7 @@ class FavoriteRepository @Inject constructor() {
         }
     }
 
-    private suspend fun resolvePlaylistIdFor(song: Song): Long? {
-        val type = if (song.type == "radio") "radio" else "normal"
-        return resolveBuiltInPlaylists()[type]
-    }
-
-    private suspend fun resolveBuiltInPlaylists(): Map<String, Long> {
-        if (builtInPlaylistIds.isNotEmpty()) return builtInPlaylistIds
-        api.getPlaylists(null, 100).playlists
-            .filter { it.isBuiltIn }
-            .forEach { builtInPlaylistIds[it.type] = it.id }
-        return builtInPlaylistIds
-    }
+    private fun playlistIdFor(song: Song): Long =
+        if (song.type == "radio") builtInPlaylistIds.getValue("radio")
+        else builtInPlaylistIds.getValue("normal")
 }
