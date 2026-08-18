@@ -13,7 +13,16 @@ import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
 import android.os.Build
 import android.os.Bundle
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.util.Log
+import coil.Coil
+import coil.request.ImageRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -29,6 +38,7 @@ import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.BitmapLoader
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
@@ -47,6 +57,7 @@ import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
+@UnstableApi
 @AndroidEntryPoint
 class MusicService : MediaSessionService() {
 
@@ -179,9 +190,15 @@ class MusicService : MediaSessionService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // 通知/锁屏封面通过 Media3 内置 BitmapLoader 拉取 artworkUri，
+        // 默认实现不带 JWT，封面接口在鉴权路径下会返回 401。
+        // 改用 Coil（已挂 AuthInterceptor 携带 token）加载，复用同一鉴权链路。
+        val bitmapLoader = CoilBitmapLoader(this)
+
         mediaSession = MediaSession.Builder(this, player!!)
             .setSessionActivity(sessionActivityPendingIntent)
             .setCallback(mediaSessionCallback)
+            .setBitmapLoader(bitmapLoader)
             .build()
     }
 
@@ -312,6 +329,7 @@ class MusicService : MediaSessionService() {
     @OptIn(UnstableApi::class)
     private val mediaSessionCallback = object : MediaSession.Callback {
         // 自定义命令必须在此授权，否则分发前被拒（ERROR_PERMISSION_DENIED）
+        @UnstableApi
         override fun onConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo
@@ -541,5 +559,37 @@ class MusicService : MediaSessionService() {
         const val EXTRA_SUPPORTED_MATRIX = "supportedMatrix"
         const val EXTRA_A2DP = "a2dp"
         const val EXTRA_ACTIVE_MODE = "activeMode"
+    }
+}
+
+// 通知/锁屏封面加载器：委托给 Coil（SongloftTvApp 已挂 AuthInterceptor 携带 JWT），
+// 解决 Media3 默认 BitmapLoader 不带鉴权导致封面接口 401 的问题
+@UnstableApi
+private class CoilBitmapLoader(private val context: Context) : BitmapLoader {
+    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
+        val future = com.google.common.util.concurrent.SettableFuture.create<Bitmap>()
+        val request = ImageRequest.Builder(context)
+            .data(uri)
+            .allowHardware(false)
+            .build()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = Coil.imageLoader(context).execute(request)
+                future.set((result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap)
+            } catch (_: Exception) {
+                future.set(null)
+            }
+        }
+        return future
+    }
+
+    override fun supportsMimeType(mimeType: String): Boolean = true
+
+    override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> {
+        val future = com.google.common.util.concurrent.SettableFuture.create<Bitmap>()
+        CoroutineScope(Dispatchers.IO).launch {
+            future.set(BitmapFactory.decodeByteArray(data, 0, data.size))
+        }
+        return future
     }
 }
