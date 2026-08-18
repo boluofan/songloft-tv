@@ -15,6 +15,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.session.MediaController
@@ -247,10 +248,19 @@ class PlayerController @Inject constructor(
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            Log.d(TAG, "onIsPlayingChanged: isPlaying=$isPlaying")
             _state.update { it.copy(isPlaying = isPlaying) }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            val name = when (playbackState) {
+                Player.STATE_IDLE -> "IDLE"
+                Player.STATE_BUFFERING -> "BUFFERING"
+                Player.STATE_READY -> "READY"
+                Player.STATE_ENDED -> "ENDED"
+                else -> "UNKNOWN($playbackState)"
+            }
+            Log.d(TAG, "onPlaybackStateChanged: $name")
             val duration = controller?.duration ?: 0L
             _state.update {
                 it.copy(
@@ -265,8 +275,13 @@ class PlayerController @Inject constructor(
             }
         }
 
+        override fun onPlayerError(error: PlaybackException) {
+            Log.e(TAG, "onPlayerError: ${error.errorCodeName} | ${error.message}", error)
+        }
+
         override fun onTracksChanged(tracks: Tracks) {
             val audioGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+            Log.d(TAG, "onTracksChanged: audioTracks=${audioGroups.size}")
             if (audioGroups.size > 1) {
                 val embedded = audioGroups.mapIndexed { index, group ->
                     val format = group.getTrackFormat(0)
@@ -888,7 +903,7 @@ class PlayerController @Inject constructor(
                 track = track?.id,
                 isVideo = song.isVideo,
                 sourceFormat = song.format
-            )
+            ).also { Log.d(TAG, "buildMediaItem: audioQuality=$audioQuality isVideo=${song.isVideo} sourceFormat=${song.format} -> $it") }
         return MediaItem.Builder()
             .setMediaId(song.id.toString())
             .setUri(uri)

@@ -27,17 +27,22 @@ import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.FileDataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.cache.CacheDataSink
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.session.BitmapLoader
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -55,6 +60,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
+import java.io.IOException
 import javax.inject.Inject
 
 @UnstableApi
@@ -182,7 +188,10 @@ class MusicService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
-            .also { it.addListener(playerListener) }
+            .also {
+                it.addListener(playerListener)
+                it.addAnalyticsListener(playbackAnalyticsListener)
+            }
 
         val sessionActivityIntent = Intent(this, PlayerActivity::class.java)
         val sessionActivityPendingIntent = PendingIntent.getActivity(
@@ -323,6 +332,76 @@ class MusicService : MediaSessionService() {
             equalizer = null
             releaseSfxAll()
             Log.d(TAG, "音频会话变化：$audioSessionId，均衡器/音效按需重建")
+        }
+    }
+
+    private val playbackAnalyticsListener = object : AnalyticsListener {
+        private fun stateName(state: Int) = when (state) {
+            Player.STATE_IDLE -> "IDLE"
+            Player.STATE_BUFFERING -> "BUFFERING"
+            Player.STATE_READY -> "READY"
+            Player.STATE_ENDED -> "ENDED"
+            else -> "UNKNOWN($state)"
+        }
+
+        override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
+            Log.i(TAG, "播放状态变化：${stateName(state)}")
+        }
+
+        override fun onIsPlayingChanged(eventTime: AnalyticsListener.EventTime, isPlaying: Boolean) {
+            Log.i(TAG, "播放中=$isPlaying（${if (isPlaying) "正在输出音频" else "已暂停/停止"}）")
+        }
+
+        @OptIn(UnstableApi::class)
+        override fun onLoadStarted(
+            eventTime: AnalyticsListener.EventTime,
+            loadEventInfo: LoadEventInfo,
+            mediaLoadData: MediaLoadData
+        ) {
+            Log.i(TAG, "网络请求开始：${loadEventInfo.uri}")
+        }
+
+        @OptIn(UnstableApi::class)
+        override fun onLoadCompleted(
+            eventTime: AnalyticsListener.EventTime,
+            loadEventInfo: LoadEventInfo,
+            mediaLoadData: MediaLoadData
+        ) {
+            val headers = loadEventInfo.responseHeaders
+            val contentType = headers["Content-Type"]?.firstOrNull()
+            Log.i(
+                TAG,
+                "网络请求完成：${loadEventInfo.uri} | 字节=${loadEventInfo.bytesLoaded} | " +
+                    "耗时=${loadEventInfo.loadDurationMs}ms | Content-Type=$contentType"
+            )
+        }
+
+        @OptIn(UnstableApi::class)
+        override fun onLoadError(
+            eventTime: AnalyticsListener.EventTime,
+            loadEventInfo: LoadEventInfo,
+            mediaLoadData: MediaLoadData,
+            error: IOException,
+            wasCanceled: Boolean
+        ) {
+            val responseCode = (error as? HttpDataSource.HttpDataSourceException)?.cause
+                ?.let { it as? HttpDataSource.InvalidResponseCodeException }?.responseCode
+                ?: (error as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+            Log.e(
+                TAG,
+                "网络请求失败：${loadEventInfo.uri} | " +
+                    "HTTP=${responseCode ?: "N/A"} | canceled=$wasCanceled | ${error.message}",
+                error
+            )
+        }
+
+        @OptIn(UnstableApi::class)
+        override fun onTracksChanged(eventTime: AnalyticsListener.EventTime, tracks: Tracks) {
+            val audioGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+            val labels = audioGroups.mapIndexed { i, g ->
+                "${i}:${g.getTrackFormat(0).label ?: g.getTrackFormat(0).sampleMimeType ?: "?"}"
+            }
+            Log.i(TAG, "音轨就绪：音频轨数=${audioGroups.size} [${labels.joinToString()}]")
         }
     }
 
