@@ -35,6 +35,8 @@ class PreferencesDataStore @Inject constructor(
         private val PLAYER_CONTROLS_PERSISTENT = booleanPreferencesKey("player_controls_persistent")
         private val SCREENSAVER_TIMEOUT_MINUTES = intPreferencesKey("screensaver_timeout_minutes")
         private val USE_CUSTOM_KEYBOARD = booleanPreferencesKey("use_custom_keyboard")
+        // 启动自动检查更新（默认开启）
+        private val AUTO_UPDATE_CHECK = booleanPreferencesKey("auto_update_check")
         private val IGNORED_VERSION_CODE = intPreferencesKey("ignored_version_code")
         private val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         private val EQ_PRESET = stringPreferencesKey("eq_preset")
@@ -82,6 +84,7 @@ class PreferencesDataStore @Inject constructor(
     val screensaverTimeoutMinutes: Flow<Int> = context.dataStore.data.map { it[SCREENSAVER_TIMEOUT_MINUTES] ?: 0 }
     val useCustomKeyboard: Flow<Boolean> = context.dataStore.data.map { it[USE_CUSTOM_KEYBOARD] ?: false }
     val ignoredVersionCode: Flow<Int> = context.dataStore.data.map { it[IGNORED_VERSION_CODE] ?: 0 }
+    val autoUpdateCheck: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_CHECK] ?: true }
     // 均衡器配置：开关 / 预设 key（"flat"/"rock"/...，"custom" = 自定义曲线）/ 频段增益 dB（逗号分隔）
     val eqEnabled: Flow<Boolean> = context.dataStore.data.map { it[EQ_ENABLED] ?: false }
     val eqPreset: Flow<String> = context.dataStore.data.map { it[EQ_PRESET] ?: "flat" }
@@ -166,6 +169,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setIgnoredVersionCode(code: Int) {
         context.dataStore.edit { it[IGNORED_VERSION_CODE] = code }
+    }
+
+    suspend fun setAutoUpdateCheck(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_UPDATE_CHECK] = enabled }
     }
 
     suspend fun setEqEnabled(enabled: Boolean) {

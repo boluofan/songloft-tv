@@ -480,6 +480,28 @@ fun SettingsScreen(
                 }.getOrNull() ?: "未知"
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                var autoUpdateEnabled by remember(uiState.autoUpdateCheck) {
+                    mutableStateOf(uiState.autoUpdateCheck)
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OptionChip("是", autoUpdateEnabled) {
+                        viewModel.setAutoUpdateCheck(!autoUpdateEnabled)
+                        autoUpdateEnabled = !autoUpdateEnabled
+                    }
+                    OptionChip("否", !autoUpdateEnabled) {
+                        viewModel.setAutoUpdateCheck(!autoUpdateEnabled)
+                        autoUpdateEnabled = !autoUpdateEnabled
+                    }
+                    Text(
+                        text = "自动检测更新（启动时静默检查，发现新版本提示下载）",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
                 var checkUpdateFocused by remember { mutableStateOf(false) }
                 Row(
                     modifier = Modifier

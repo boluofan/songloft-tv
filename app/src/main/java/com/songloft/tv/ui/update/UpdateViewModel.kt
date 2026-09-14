@@ -51,6 +51,9 @@ class UpdateViewModel @Inject constructor(
         if (repository.autoCheckDone) return
         repository.autoCheckDone = true
         viewModelScope.launch {
+            // 等待配置读取完成，若关闭自动更新则跳过
+            val enabled = preferencesDataStore.autoUpdateCheck.first()
+            if (!enabled) return@launch
             // 等首屏加载/焦点安置完成再静默检查
             delay(3000)
             val result = repository.checkUpdate(UpdateChannel.STABLE)

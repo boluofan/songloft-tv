@@ -64,7 +64,8 @@ data class SettingsUiState(
     val playCacheMb: Int = 0,
     val playCacheUsageBytes: Long = 0,
     val keyMapping: KeyMapping = KeyMapping(),
-    val preTranscodeEnabled: Boolean = false
+    val preTranscodeEnabled: Boolean = false,
+    val autoUpdateCheck: Boolean = true
 )
 
 @HiltViewModel
@@ -168,6 +169,11 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            dataStore.autoUpdateCheck.collect { enabled ->
+                _uiState.value = _uiState.value.copy(autoUpdateCheck = enabled)
+            }
+        }
+        viewModelScope.launch {
             playerController.state.collect { s ->
                 _uiState.value = _uiState.value.copy(
                     sleepTimerMinutes = s.sleepTimerMinutes,
@@ -183,6 +189,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setPreTranscodeEnabled(enabled: Boolean) {
         viewModelScope.launch { dataStore.setPreTranscodeEnabled(enabled) }
+    }
+
+    fun setAutoUpdateCheck(enabled: Boolean) {
+        viewModelScope.launch { dataStore.setAutoUpdateCheck(enabled) }
     }
 
     fun setSleepTimer(minutes: Int) {
