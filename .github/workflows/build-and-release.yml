@@ -144,6 +144,7 @@ jobs:
           path: |
             apk-output/*.apk
             apk-output/version.json
+          retention-days: 1
 
   # ============================================================
   # 发布 Release
